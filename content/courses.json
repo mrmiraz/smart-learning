@@ -1,0 +1,20 @@
+[
+  {
+    "id": "java",
+    "title": "Java",
+    "description": "From first program to object-oriented design.",
+    "topics": [
+      { "id": "01-introduction", "title": "Introduction to Java" },
+      { "id": "02-variables-and-types", "title": "Variables and Data Types" }
+    ]
+  },
+  {
+    "id": "computer-architecture",
+    "title": "Computer Architecture",
+    "description": "How computers are built and how they execute programs.",
+    "topics": [
+      { "id": "01-introduction", "title": "Introduction to Computer Architecture" },
+      { "id": "02-cpu-basics", "title": "CPU Basics" }
+    ]
+  }
+]
