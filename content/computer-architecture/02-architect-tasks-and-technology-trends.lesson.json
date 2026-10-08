@@ -1,0 +1,1042 @@
+{
+  "id": "ca-02-architect-trends",
+  "title": "Tasks of a Computer Architect and Technology Trends",
+  "subtitle": "What architects design, what limits them, and why chips stopped getting faster the old way.",
+  "level": "Beginner",
+  "duration": 60,
+  "objectives": [
+    "Describe the tasks of a computer architect at three levels: instruction set, organization and hardware",
+    "Identify the design requirements and constraints an architect must respect",
+    "Explain Moore's Law and use it to estimate transistor growth",
+    "Explain why power and energy now limit processor design"
+  ],
+  "concepts": [
+    {
+      "id": "tasks",
+      "label": "Tasks of an architect",
+      "section": "tasks"
+    },
+    {
+      "id": "constraints",
+      "label": "Design constraints",
+      "section": "constraints"
+    },
+    {
+      "id": "trends",
+      "label": "Technology trends and Moore's Law",
+      "section": "trends"
+    },
+    {
+      "id": "power",
+      "label": "Power and energy",
+      "section": "power"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "In 1971 a processor had 2,300 transistors. Today a phone chip has billions. So why did clock speeds stop climbing around 2004?",
+          "clues": [
+            "That is millions of times more transistors in about fifty years.",
+            "Yet most chips still run at roughly 3 to 5 GHz, close to where they were in the mid-2000s.",
+            "Something other than transistor count became the limit. By the end of this lesson you will know what."
+          ],
+          "notes": {
+            "explain": "Let students guess the limit before you reveal anything. Common guesses: cost, physics, no demand. The answer is power and heat.",
+            "ask": "If you could have either a faster clock or more cores, which would you pick for a phone?",
+            "difficulty": "Easy: curiosity warm-up."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the four objectives aloud. Point out that technology trends and power are the answer to the opening question."
+          }
+        }
+      ]
+    },
+    {
+      "id": "tasks",
+      "label": "Tasks",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "tasks",
+          "title": "Three levels of design",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "Instruction set architecture",
+                  "sub": "what the machine can do",
+                  "note": "Choose the instructions, registers, data types and addressing modes that programmers will use."
+                },
+                {
+                  "label": "Organization",
+                  "sub": "how it is built",
+                  "note": "Design the CPU datapath, control, caches, memory system and buses."
+                },
+                {
+                  "label": "Hardware",
+                  "sub": "the physical chip",
+                  "note": "Logic design, circuit design, packaging, power delivery and cooling."
+                }
+              ]
+            }
+          ],
+          "why": "A good architect decides across all three levels at once, because a choice at one level changes what is possible at the others.",
+          "explainAgain": {
+            "beginner": "Designing a house: first decide what rooms it needs (instruction set), then how they connect (organization), then pick the bricks and wiring (hardware).",
+            "technical": "Computer architecture spans the ISA, the organization (microarchitecture) and the hardware implementation: logic design, circuit design, packaging, power and cooling."
+          },
+          "notes": {
+            "explain": "Click each level in turn. Remind students of Class 1: architecture vs organization.",
+            "terms": [
+              "**ISA** — instruction set architecture",
+              "**Microarchitecture** — another word for organization"
+            ],
+            "misconceptions": [
+              "Students think architects only choose the instruction set."
+            ]
+          },
+          "real": "A new iPhone chip, a new laptop processor and a new data-center CPU each start with architects choosing what to add, what to drop and where to spend power.",
+          "mistake": {
+            "wrong": "Architects only design the instruction set.",
+            "right": "They design at three levels at once: instruction set, organization and hardware."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "tasks",
+          "title": "The architect's loop",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Requirements",
+                  "sub": "what is it for?",
+                  "note": "Find out which attributes matter for the new machine."
+                },
+                {
+                  "label": "Design",
+                  "sub": "make trade-offs",
+                  "note": "Choose instructions, organization and hardware to maximize performance **within** the limits."
+                },
+                {
+                  "label": "Evaluate",
+                  "sub": "measure and simulate",
+                  "note": "Test ideas with simulators and benchmarks before building anything."
+                },
+                {
+                  "label": "Refine",
+                  "sub": "improve and repeat",
+                  "note": "Feed the results back into the design."
+                }
+              ]
+            }
+          ],
+          "why": "Chips cost hundreds of millions of dollars to build, so architects test ideas in simulation before committing."
+        },
+        {
+          "type": "mcq",
+          "concept": "tasks",
+          "skill": "Remember",
+          "question": "Choosing which instructions programmers can use is a task at which level?",
+          "options": [
+            "Instruction set architecture",
+            "Organization",
+            "Hardware (circuits and packaging)",
+            "Marketing"
+          ],
+          "answer": 0,
+          "why": "The instructions programmers can use are the instruction set architecture.",
+          "feedback": [
+            "",
+            "Organization decides how those instructions are carried out, not which exist.",
+            "Hardware covers circuits, packaging and cooling.",
+            "Marketing is not an architecture level."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "tasks",
+          "skill": "Understand",
+          "statement": "An architect's goal is to build the fastest possible machine, whatever it costs.",
+          "answer": false,
+          "why": "Architects maximize performance *within* limits of cost, power and availability."
+        }
+      ]
+    },
+    {
+      "id": "constraints",
+      "label": "Constraints",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "constraints",
+          "title": "Design requirements",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Requirement",
+                "The question",
+                "Example"
+              ],
+              "rows": [
+                [
+                  "Application area",
+                  "What will it run?",
+                  "Phone apps, simulations, a car controller"
+                ],
+                [
+                  "Software compatibility",
+                  "Must old programs still run?",
+                  "A new PC chip must run existing programs"
+                ],
+                [
+                  "Operating system support",
+                  "What does the OS need?",
+                  "Large address space, memory protection"
+                ],
+                [
+                  "Standards",
+                  "Which rules must it follow?",
+                  "IEEE 754 floating point, USB, Wi-Fi"
+                ]
+              ]
+            }
+          ],
+          "why": "A chip that ignores these requirements may be very fast and still be useless, because nobody can run their software on it.",
+          "notes": {
+            "explain": "Reveal the rows one at a time and ask for a real example of each before you show it.",
+            "terms": [
+              "**Binary compatibility** — already-compiled programs still run",
+              "**IEEE 754** — the standard for floating-point numbers"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "constraints",
+          "title": "Different goals, different designs",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Phone chip",
+                "items": [
+                  "**Battery life** and heat matter most",
+                  "Small, low-cost chip",
+                  "Short bursts of speed, then idle"
+                ]
+              },
+              "right": {
+                "title": "Server chip",
+                "items": [
+                  "**Throughput** and reliability matter most",
+                  "Many cores and large caches",
+                  "Runs all day, so the power bill counts"
+                ]
+              }
+            }
+          ],
+          "why": "The same architecture ideas lead to very different chips depending on what you optimize.",
+          "explainAgain": {
+            "beginner": "A bicycle and a freight truck both have wheels and an engine or pedals, but you design them for very different jobs."
+          },
+          "real": "A phone chip, a laptop chip and a cloud server chip are each tuned for different goals, even when the underlying ideas are shared.",
+          "mistake": {
+            "wrong": "The fastest chip is always the best chip.",
+            "right": "Best depends on the goal. A smartwatch needs low power more than top speed."
+          }
+        },
+        {
+          "type": "match",
+          "concept": "constraints",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each requirement with its example.",
+          "pairs": [
+            {
+              "a": "Software compatibility",
+              "b": "Old programs must still run"
+            },
+            {
+              "a": "Standards",
+              "b": "IEEE 754 floating point"
+            },
+            {
+              "a": "OS support",
+              "b": "Memory protection between programs"
+            },
+            {
+              "a": "Application area",
+              "b": "Phone, server or car controller"
+            }
+          ],
+          "why": "Each requirement narrows the space of designs an architect can choose from."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "Name the three levels of an architect's work.",
+              "a": "Instruction set architecture, organization and hardware.",
+              "concept": "tasks"
+            },
+            {
+              "q": "Name three kinds of requirement an architect must respect.",
+              "a": "For example application area, software compatibility, operating system support and standards.",
+              "concept": "constraints"
+            },
+            {
+              "q": "Why do a phone chip and a server chip look so different?",
+              "a": "They optimize different goals: battery and heat for a phone, throughput and reliability for a server.",
+              "concept": "constraints"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trends",
+      "label": "Trends",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "trends",
+          "title": "Transistors over time",
+          "blocks": [
+            {
+              "type": "timeline",
+              "items": [
+                {
+                  "when": "1971",
+                  "label": "Intel 4004",
+                  "note": "about 2,300 transistors"
+                },
+                {
+                  "when": "1989",
+                  "label": "Intel 486",
+                  "note": "about 1.2 million"
+                },
+                {
+                  "when": "2000",
+                  "label": "Pentium 4",
+                  "note": "about 42 million"
+                },
+                {
+                  "when": "2006",
+                  "label": "Core 2 Duo",
+                  "note": "about 291 million"
+                },
+                {
+                  "when": "2020",
+                  "label": "Apple M1",
+                  "note": "about 16 billion"
+                }
+              ]
+            }
+          ],
+          "why": "More transistors let architects add caches, more cores and special units, which is why a phone today far outperforms 1990s supercomputers.",
+          "notes": {
+            "explain": "Ask students to guess each number before revealing it. The jump is the point.",
+            "terms": [
+              "**Transistor** — the tiny electronic switch that chips are built from"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "trends",
+          "title": "Moore's Law",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Today",
+                  "sub": "1×",
+                  "note": "Start with some number of transistors."
+                },
+                {
+                  "label": "+2 years",
+                  "sub": "2×",
+                  "note": "The count doubles."
+                },
+                {
+                  "label": "+4 years",
+                  "sub": "4×",
+                  "note": "Doubles again."
+                },
+                {
+                  "label": "+6 years",
+                  "sub": "8×",
+                  "note": "And again."
+                },
+                {
+                  "label": "+8 years",
+                  "sub": "16×",
+                  "note": "Repeated doubling is **exponential growth**."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "Gordon Moore noticed in 1965 that the number of transistors per chip was doubling regularly. Since about 1975 the pace has been roughly **every two years**.",
+              "reveal": true
+            }
+          ],
+          "why": "For decades programmers and companies could count on cheaper, faster hardware every couple of years and plan products around it.",
+          "explainAgain": {
+            "beginner": "If you double a pile of coins every two years, after ten years you have 32 times as many as you began with.",
+            "technical": "Moore's Law is an empirical observation about the economics of manufacturing: the number of transistors that can be integrated at minimum cost has doubled roughly every two years."
+          },
+          "deeper": {
+            "text": "Moore's Law is an observation about manufacturing economics, not a law of physics, and the pace has slowed in recent years as transistors approach atomic sizes."
+          },
+          "real": "Every few years phones and laptops offer more memory and speed for about the same price. That steady improvement is Moore's Law at work.",
+          "mistake": {
+            "wrong": "Moore's Law is a law of physics.",
+            "right": "It is an observation about manufacturing economics, and the pace has slowed.",
+            "why": "Nothing in nature forces transistor counts to double."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "trends",
+          "skill": "Apply",
+          "question": "If transistor counts double every two years, how many times more transistors will a chip have after 10 years?",
+          "options": [
+            "5 times",
+            "10 times",
+            "32 times",
+            "100 times"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "Years",
+                "Doublings",
+                "Times more"
+              ],
+              "rows": [
+                [
+                  "2",
+                  "1",
+                  "2×"
+                ],
+                [
+                  "4",
+                  "2",
+                  "4×"
+                ],
+                [
+                  "6",
+                  "3",
+                  "8×"
+                ],
+                [
+                  "8",
+                  "4",
+                  "16×"
+                ],
+                [
+                  "10",
+                  "5",
+                  "32×"
+                ]
+              ]
+            }
+          ],
+          "result": "Every two years multiplies the count by 2, so ten years is 2 × 2 × 2 × 2 × 2 = 32."
+        },
+        {
+          "type": "concept",
+          "concept": "trends",
+          "title": "Semiconductor technology",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Chips are made by printing tiny transistors onto **silicon wafers**",
+                "Smaller transistors (measured in **nanometers**) mean more per chip and faster switching",
+                "But wires inside the chip do not speed up as much as the transistors do",
+                "And each new factory generation costs more to build"
+              ]
+            }
+          ],
+          "why": "Every manufacturing generation hands architects more transistors to spend, along with new problems to solve."
+        },
+        {
+          "type": "mcq",
+          "concept": "trends",
+          "skill": "Apply",
+          "question": "A chip has 4 billion transistors. If the count doubles every two years, about how many will a chip have 6 years later?",
+          "options": [
+            "8 billion",
+            "12 billion",
+            "16 billion",
+            "32 billion"
+          ],
+          "answer": 3,
+          "why": "6 years is 3 doublings: 4 × 2 × 2 × 2 = 32 billion.",
+          "feedback": [
+            "That is only one doubling (two years).",
+            "Doubling multiplies; it does not add 2 billion each step.",
+            "That is two doublings (four years).",
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "id": "power",
+      "label": "Power",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "power",
+          "title": "Why clock speeds stalled",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Faster clock",
+                  "sub": "more cycles per second",
+                  "note": "Raising the clock frequency makes the chip switch more often."
+                },
+                {
+                  "label": "More switching",
+                  "sub": "per second",
+                  "note": "Every switch uses a little energy."
+                },
+                {
+                  "label": "More power",
+                  "sub": "and heat",
+                  "note": "Power is energy per second, and it all turns into heat."
+                },
+                {
+                  "label": "Cooling limit",
+                  "sub": "the power wall",
+                  "note": "Around 2004 chips reached the most heat that could be removed affordably."
+                }
+              ]
+            }
+          ],
+          "why": "A phone has no room for a fan, and a data center pays for both the electricity and the cooling, so power limits every design.",
+          "notes": {
+            "explain": "This is the answer to the opening question. Replay the flow once the class has seen it.",
+            "terms": [
+              "**Power wall** — the limit set by how much heat can be removed"
+            ]
+          },
+          "real": "Your phone slows itself down when it gets hot (thermal throttling), and data centers spend a large share of their cost on electricity and cooling.",
+          "mistake": {
+            "wrong": "A higher GHz number always means a faster computer.",
+            "right": "Higher frequency raises power and heat, and performance also depends on how much work each cycle does.",
+            "why": "We will measure this properly in the next lessons."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "power",
+          "title": "Dynamic power",
+          "blocks": [
+            {
+              "type": "code",
+              "lang": "text",
+              "code": "Power  ≈  1/2  ×  C  ×  V²  ×  f"
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "**C** — capacitance: more transistors and wires mean more to charge",
+                "**V** — voltage: it is **squared**, so lowering it saves a lot",
+                "**f** — frequency: doubling the clock doubles the power"
+              ]
+            }
+          ],
+          "why": "Lowering the voltage a little saves far more power than lowering the clock, which is why phones run at low voltage.",
+          "explainAgain": {
+            "beginner": "Charging a bucket takes energy. A bigger bucket (C), a harder push (V) and more refills per second (f) all cost more power."
+          },
+          "deeper": {
+            "text": "The energy to switch a transistor once is about 1/2 × C × V². Power is that energy times the number of switches per second. Energy decides battery life; power decides heat."
+          },
+          "notes": {
+            "explain": "Do not derive the formula; focus on what each term means.",
+            "misconceptions": [
+              "Students think power and energy are the same thing."
+            ]
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "power",
+          "skill": "Apply",
+          "question": "A chip's voltage is lowered from 1.0 V to 0.8 V, with the same capacitance and frequency. What happens to dynamic power?",
+          "options": [
+            "Falls by 20%",
+            "Falls by 36%",
+            "Falls by 64%",
+            "Does not change"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "transform",
+              "before": {
+                "title": "Before",
+                "text": "1.0 V → relative power 1.00"
+              },
+              "process": "multiply by 0.8² = 0.64",
+              "after": {
+                "title": "After",
+                "text": "0.8 V → relative power 0.64, which is 36% less"
+              }
+            }
+          ],
+          "result": "Voltage is squared, so a 20% cut in voltage cuts power by 36%."
+        },
+        {
+          "type": "concept",
+          "concept": "power",
+          "title": "The shift to multicore",
+          "blocks": [
+            {
+              "type": "transform",
+              "before": {
+                "title": "Before about 2004",
+                "text": "One core, with a higher clock every year"
+              },
+              "process": "the power wall",
+              "after": {
+                "title": "After",
+                "text": "Several cores at moderate clock speeds"
+              }
+            }
+          ],
+          "why": "That is why your laptop has many cores instead of one 20 GHz core, and why programmers now have to write parallel programs.",
+          "explainAgain": {
+            "beginner": "If one worker cannot go faster without overheating, hire more workers who each go at a comfortable pace."
+          }
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Your phone gets warm when you play a game. What does that tell you about power, and why can't designers just add a fan?",
+          "think": 20,
+          "pair": 40,
+          "answer": "The heat is the power the chip uses. A phone has no space or battery budget for a fan, so designers must keep power low enough to remove the heat passively.",
+          "notes": {
+            "explain": "Listen for 'power becomes heat' and 'size and battery limits'.",
+            "discuss": "How does a phone stay cool? (It slows itself down: thermal throttling.)"
+          }
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "power",
+          "question": "Why can't designers simply keep raising the clock speed forever?",
+          "seconds": 60,
+          "ideas": [
+            "Power grows with frequency, and higher frequency also needs higher voltage.",
+            "Heat must be removed, and phones and laptops have little room for cooling.",
+            "Wires and transistors approach physical limits.",
+            "So designers add cores and specialized hardware instead."
+          ],
+          "notes": {
+            "explain": "This revisits the opening question. Let students answer before you reveal the key ideas.",
+            "discuss": "Which of these limits could better cooling remove, and which could it not?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "tasks",
+          "skill": "Remember",
+          "think": 20,
+          "question": "Name the three levels at which a computer architect designs.",
+          "answer": "Instruction set architecture, organization and hardware.",
+          "solution": "The ISA says what the machine can do, the organization decides how it is built, and the hardware is the physical chip with its circuits, packaging and cooling."
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "trends",
+          "skill": "Apply",
+          "think": 40,
+          "question": "A chip has 1 billion transistors today. If the count doubles every two years, how many will a chip have in 8 years?",
+          "hint": "How many doublings fit in 8 years?",
+          "answer": "16 billion.",
+          "solution": "8 years is 4 doublings.\n1 → 2 → 4 → 8 → 16 billion."
+        },
+        {
+          "type": "find",
+          "concept": "power",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement is wrong. Click it.",
+          "lines": [
+            "1. Dynamic power depends on capacitance, voltage and frequency.",
+            "2. Lowering the voltage has little effect because it appears only once in the formula.",
+            "3. Raising the frequency raises power.",
+            "4. The power a chip uses turns into heat that must be removed."
+          ],
+          "wrong": 1,
+          "explain": "Voltage is squared in the formula, so lowering it has a large effect.",
+          "fix": "Voltage appears squared, so a small cut in voltage saves a lot of power."
+        },
+        {
+          "type": "arrange",
+          "concept": "power",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the chain that led to the power wall in order.",
+          "items": [
+            "Designers raise the clock frequency",
+            "The chip switches more times per second",
+            "Power use and heat rise",
+            "Cooling limits are reached"
+          ],
+          "why": "Each step causes the next, and the last step is the wall that stopped clock speeds from climbing."
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "power",
+          "skill": "Evaluate",
+          "think": 90,
+          "question": "Engineers raise a phone chip's frequency by 20%, which needs a 10% higher voltage. By what factor does dynamic power rise, and what happens to the energy used per task? Is it worth it for a phone?",
+          "hint": "Power scales with V² × f. A faster chip also finishes the task sooner.",
+          "answer": "Power rises about 1.45× (45% more). The task finishes in 1/1.2 of the time, so energy per task rises about 21%. For a phone it is probably not worth it.",
+          "solution": "Power factor = 1.1² × 1.2 = 1.21 × 1.2 = 1.452.\nTime factor = 1 / 1.2 = 0.833.\nEnergy = power × time = 1.452 × 0.833 ≈ 1.21.\nPerformance is up 20%, but battery use per task is up about 21% and heat is up 45%, which hurts a phone."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "trends",
+          "skill": "Apply",
+          "title": "Exam practice: numerical",
+          "think": 75,
+          "question": "A chip has 500 million transistors. If the count doubles every two years, how many transistors will a chip have after 12 years?",
+          "hint": "How many doublings fit in 12 years?",
+          "answer": "32 billion transistors.",
+          "solution": "12 years is 6 doublings, so the count is multiplied by 2^6 = 64.\n500 million × 64 = 32,000 million = 32 billion.",
+          "mistake": "Multiplying by 6 or by 12 instead of by 2 six times."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "power",
+          "skill": "Apply",
+          "title": "Exam practice: power calculation",
+          "think": 90,
+          "question": "A designer lowers a chip's voltage from 1.2 V to 0.9 V and keeps the frequency and capacitance the same. What is the new dynamic power as a fraction of the old?",
+          "hint": "Power is proportional to V².",
+          "answer": "About 0.56, which is a 44% reduction.",
+          "solution": "Ratio of voltages = 0.9 / 1.2 = 0.75.\nPower ratio = 0.75² = 0.5625.\nSo the chip uses about 56% of the old power, a reduction of about 44%.",
+          "mistake": "Forgetting to square the voltage ratio and answering 0.75."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "power",
+          "skill": "Evaluate",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "question": "Explain why the power wall pushed processor designers toward multicore chips.",
+          "answer": "Raising the clock frequency raises power and heat beyond what can be cooled. Several cores at moderate speeds give more total work per second within the same power budget.",
+          "solution": "A strong answer links frequency to power, power to heat, and heat to the cooling limit, then explains that more cores deliver more throughput without the extreme clock speed. It may also mention that programs must be written to use several cores.",
+          "mistake": "Saying cores were added because transistors stopped getting smaller. They were still getting smaller; power was the limit."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "constraints",
+          "skill": "Evaluate",
+          "title": "Interview question",
+          "think": 90,
+          "question": "You are asked to design a processor for a smart doorbell and another for a cloud server. Name two requirements that differ between them and say how the designs would change.",
+          "answer": "For example: the doorbell has a tiny battery and no cooling, so it needs very low power and low cost; the server runs all day and needs high throughput and reliability, so it can use many cores, large caches and more power.",
+          "solution": "Any two sensible contrasts work (power, cost, throughput, reliability, size). The key is connecting each requirement to a design consequence."
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 5,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "The architect's world",
+          "branches": [
+            {
+              "label": "Tasks",
+              "example": "ISA · Organization · Hardware",
+              "section": "tasks"
+            },
+            {
+              "label": "Constraints",
+              "example": "Compatibility · Standards · Application",
+              "section": "constraints"
+            },
+            {
+              "label": "Trends",
+              "example": "Moore's Law: doubling",
+              "section": "trends"
+            },
+            {
+              "label": "Power",
+              "example": "P ≈ ½ C V² f",
+              "section": "power"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Architects design at three levels: instruction set, organization and hardware.",
+            "They balance performance, cost and power within requirements such as compatibility and standards.",
+            "Moore's Law: transistor counts have doubled roughly every two years.",
+            "Dynamic power is proportional to capacitance × voltage² × frequency.",
+            "Heat, not transistor count, stopped clock speeds rising (the power wall).",
+            "Multicore chips are the response to the power wall."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Understand and apply",
+          "understand": [
+            "Architects maximize performance within cost, power and compatibility limits.",
+            "Heat, not transistor count, stopped clock speeds rising.",
+            "Multicore chips are the response to the power wall."
+          ],
+          "apply": [
+            "Estimate transistor growth with repeated doubling.",
+            "Estimate the effect of a voltage or frequency change on power."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "Moore's Law is a law of physics.",
+              "right": "It is an observation about manufacturing economics, and it has slowed."
+            },
+            {
+              "wrong": "A higher clock speed always means a faster computer.",
+              "right": "Power and heat limit clock speed, so designers add cores."
+            },
+            {
+              "wrong": "Lowering voltage and frequency save the same amount of power.",
+              "right": "Voltage is squared, so lowering it saves much more."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Architects design at three levels: the instruction set, the organization and the hardware. They must meet requirements such as compatibility and standards while balancing performance, cost and power. Transistor counts have doubled about every two years, but power and heat stopped clock speeds from rising, so processors moved to multiple cores."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "tasks",
+              "question": "What do computer architects design?",
+              "options": [
+                "Only the instruction set",
+                "Instruction set, organization and hardware",
+                "Only the case and cooling",
+                "Only the software"
+              ],
+              "answer": 1,
+              "why": "Architecture work spans all three levels.",
+              "misconception": "The instruction set is one level; organization and hardware are the others."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "trends",
+              "statement": "Moore's Law says the number of transistors on a chip doubles about every two years.",
+              "answer": true,
+              "why": "That is the commonly used form of Moore's Law.",
+              "misconception": "It is about doubling, not adding a fixed number."
+            },
+            {
+              "level": "easy",
+              "concept": "power",
+              "question": "Which factor is squared in the dynamic power formula?",
+              "options": [
+                "Voltage",
+                "Frequency",
+                "Capacitance",
+                "Time"
+              ],
+              "answer": 0,
+              "why": "Power is proportional to V².",
+              "misconception": "Frequency and capacitance appear once; only voltage is squared."
+            },
+            {
+              "level": "medium",
+              "concept": "constraints",
+              "question": "A new PC processor must run programs people already own. Which requirement is this?",
+              "options": [
+                "Software compatibility",
+                "Cooling",
+                "Marketing",
+                "Packaging"
+              ],
+              "answer": 0,
+              "why": "Keeping existing programs working is software (binary) compatibility.",
+              "misconception": "Cooling and packaging are hardware matters; this is about software."
+            },
+            {
+              "level": "medium",
+              "concept": "trends",
+              "question": "A chip has 2 billion transistors. After 6 years at one doubling per 2 years, about how many does a new chip have?",
+              "options": [
+                "6 billion",
+                "8 billion",
+                "16 billion",
+                "12 billion"
+              ],
+              "answer": 2,
+              "why": "6 years is 3 doublings: 2 × 2 × 2 × 2 = 16 billion.",
+              "misconception": "Doubling multiplies the count; it does not add the same amount each step."
+            },
+            {
+              "level": "medium",
+              "concept": "power",
+              "question": "Why did processors move from one fast core to several cores?",
+              "options": [
+                "Power and heat limited clock frequency",
+                "Transistors stopped working",
+                "Software became slower",
+                "Cores are cheaper than transistors"
+              ],
+              "answer": 0,
+              "why": "The power wall stopped clock speeds rising, so designers used the extra transistors for more cores.",
+              "misconception": "Transistors kept getting cheaper; the limit was heat, not the transistors."
+            },
+            {
+              "level": "hard",
+              "concept": "power",
+              "question": "Voltage is cut by 50% with the same frequency and capacitance. What is the dynamic power relative to before?",
+              "options": [
+                "50%",
+                "25%",
+                "75%",
+                "12.5%"
+              ],
+              "answer": 1,
+              "why": "Power scales with V², so 0.5² = 0.25, or 25%.",
+              "misconception": "Because voltage is squared, halving it cuts power to a quarter, not a half."
+            },
+            {
+              "level": "hard",
+              "concept": "constraints",
+              "question": "Which design best suits a battery-powered smartwatch?",
+              "options": [
+                "Many hot, fast cores",
+                "A tiny low-power chip that idles most of the time",
+                "A chip that needs a large fan",
+                "A chip with the highest possible clock"
+              ],
+              "answer": 1,
+              "why": "Battery life and heat dominate, so low power matters most.",
+              "misconception": "Peak speed is the wrong goal for a device that must run all day on a tiny battery."
+            },
+            {
+              "level": "challenge",
+              "concept": "power",
+              "question": "A design raises the frequency by 25% with no change in voltage and finishes the same task in 80% of the time. What happens to the energy used per task?",
+              "options": [
+                "Energy rises by 25%",
+                "Energy falls by 20%",
+                "Energy stays the same",
+                "Energy doubles"
+              ],
+              "answer": 2,
+              "why": "Power rises 1.25× and time falls to 0.8×, and 1.25 × 0.8 = 1, so energy is unchanged.",
+              "misconception": "Energy is power multiplied by time, so a faster clock draws more power for less time."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "What are the three levels of an architect's work?",
+              "a": "Instruction set architecture, organization and hardware.",
+              "concept": "tasks"
+            },
+            {
+              "q": "Give two requirements an architect must respect.",
+              "a": "For example software compatibility, operating system support, standards and the application area.",
+              "concept": "constraints"
+            },
+            {
+              "q": "What does Moore's Law say?",
+              "a": "The number of transistors on a chip doubles about every two years.",
+              "concept": "trends"
+            },
+            {
+              "q": "Why did clock speeds stop rising, and what did designers do?",
+              "a": "Power and heat hit a limit (the power wall), so designers added more cores instead.",
+              "concept": "power"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ],
+  "practiceLevels": 4
+}

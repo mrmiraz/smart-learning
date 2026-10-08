@@ -1,0 +1,1218 @@
+{
+  "id": "ca-04-measuring",
+  "title": "Measuring Computer Performance",
+  "subtitle": "How to measure speed honestly, and how to spot a misleading number.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "objectives": [
+    "Tell execution time, CPU time and elapsed (wall-clock) time apart",
+    "Explain what benchmarks are and why real programs make the best ones",
+    "Calculate MIPS and FLOPS, and explain why MIPS can mislead",
+    "Compute speedup and summarize results with the right kind of average",
+    "Recognize common mistakes in performance measurement"
+  ],
+  "concepts": [
+    {
+      "id": "time",
+      "label": "Execution, CPU and elapsed time",
+      "section": "time"
+    },
+    {
+      "id": "bench",
+      "label": "Benchmarks",
+      "section": "bench"
+    },
+    {
+      "id": "rates",
+      "label": "MIPS and FLOPS",
+      "section": "rates"
+    },
+    {
+      "id": "compare",
+      "label": "Speedup and comparing results",
+      "section": "compare"
+    },
+    {
+      "id": "pitfalls",
+      "label": "Measurement mistakes",
+      "section": "compare"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "A vendor advertises \"10,000 MIPS!\". Another says \"we are 3 times faster on real programs\". Which claim would you trust, and what would you ask?",
+          "clues": [
+            "One number counts instructions per second. The other measures how fast real programs finish.",
+            "Two machines can have the same MIPS and very different speeds.",
+            "Today you will learn to measure performance honestly."
+          ],
+          "notes": {
+            "explain": "Collect questions from the class before revealing the clues. The best questions will be answered by the end of the lesson.",
+            "ask": "What would you want to know before believing a speed claim?",
+            "difficulty": "Easy."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the five objectives. Mention that Class 3 gave the formulas, and today is about measuring and comparing."
+          }
+        }
+      ]
+    },
+    {
+      "id": "time",
+      "label": "Time",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "time",
+          "title": "Three kinds of time",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "Elapsed time",
+                  "sub": "start to finish (wall-clock)",
+                  "note": "The total time you wait, including waiting for the disk, the network and other programs."
+                },
+                {
+                  "label": "CPU time",
+                  "sub": "the processor working on your program",
+                  "note": "Only the time the CPU actually spent executing your program."
+                },
+                {
+                  "label": "Waiting",
+                  "sub": "I/O and other programs",
+                  "note": "Elapsed time minus CPU time: the processor was idle or busy with something else."
+                }
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                {
+                  "text": "**User CPU time**",
+                  "sub": "running your own code"
+                },
+                {
+                  "text": "**System CPU time**",
+                  "sub": "the operating system working on your program's behalf"
+                }
+              ]
+            }
+          ],
+          "why": "The right measure depends on the question: how long do I wait (elapsed), or how hard did the CPU work (CPU time)?",
+          "real": "On Linux and macOS the `time` command prints three numbers: real (elapsed), user and sys. Task managers show how much of the elapsed time your CPU was actually busy.",
+          "mistake": {
+            "wrong": "Elapsed time and CPU time are the same thing.",
+            "right": "Elapsed time also includes waiting for the disk, the network and other programs."
+          },
+          "explainAgain": {
+            "beginner": "If you cook for 60 minutes but spend 15 of them waiting for the oven, your hands-on time is 45 minutes but the dinner took 60.",
+            "technical": "Elapsed (wall-clock) time = CPU time + I/O wait + time the process spent descheduled. CPU time splits into user time and system (kernel) time."
+          },
+          "notes": {
+            "explain": "Click each node. Point out that elapsed time is what the user feels.",
+            "terms": [
+              "**Execution time** — time to run a program",
+              "**Wall-clock time** — elapsed time on a wall clock"
+            ],
+            "misconceptions": [
+              "Students treat CPU time and elapsed time as the same."
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "time",
+          "title": "Try it: how busy was the CPU?",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Elapsed time calculator",
+              "equation": "**CPU utilization = CPU time ÷ Elapsed time**",
+              "inputs": [
+                {
+                  "id": "cpu",
+                  "label": "CPU time",
+                  "value": 8,
+                  "min": 1,
+                  "max": 30,
+                  "step": 1,
+                  "unit": "s"
+                },
+                {
+                  "id": "wait",
+                  "label": "Time spent waiting",
+                  "value": 4,
+                  "min": 0,
+                  "max": 30,
+                  "step": 1,
+                  "unit": "s"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Elapsed time",
+                  "formula": "cpu+wait",
+                  "format": "num",
+                  "digits": 1,
+                  "unit": "s"
+                },
+                {
+                  "label": "CPU utilization",
+                  "formula": "cpu/(cpu+wait)",
+                  "format": "pct",
+                  "digits": 0
+                }
+              ],
+              "trace": "Elapsed = {cpu} + {wait} = {r0}; CPU busy {r1} of the time"
+            }
+          ],
+          "why": "A program that waits a lot will not get faster just because you buy a faster CPU."
+        },
+        {
+          "type": "mcq",
+          "concept": "time",
+          "skill": "Apply",
+          "question": "A program has 12 s of elapsed time. The CPU worked on it for 8 s and the rest was waiting for the disk. What fraction of the elapsed time was the CPU busy?",
+          "options": [
+            "33%",
+            "50%",
+            "67%",
+            "80%"
+          ],
+          "answer": 2,
+          "why": "8 ÷ 12 = 0.67, so the CPU was busy about 67% of the time.",
+          "feedback": [
+            "33% is the fraction spent waiting (4 ÷ 12), not the CPU's share.",
+            "8 of 12 is two thirds, not half.",
+            "",
+            "Check the division: 8 ÷ 12."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "time",
+          "skill": "Understand",
+          "statement": "For a single-threaded program on one core, CPU time can be longer than elapsed time.",
+          "answer": false,
+          "why": "Elapsed time includes the CPU time plus any waiting, so it is at least as long. (A program using several cores can accumulate more total CPU time than elapsed time.)"
+        }
+      ]
+    },
+    {
+      "id": "bench",
+      "label": "Benchmarks",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "bench",
+          "title": "What is a benchmark?",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "A **benchmark** is a program, or a set of programs, used to measure and compare performance.",
+              "style": "lead"
+            },
+            {
+              "type": "table",
+              "head": [
+                "Type",
+                "Example",
+                "How far to trust it"
+              ],
+              "rows": [
+                [
+                  "Real applications",
+                  "Compilers, browsers, video encoding",
+                  "Best: it is what users really run"
+                ],
+                [
+                  "Kernels",
+                  "Small key loops cut from real programs",
+                  "Good for finding strengths and weaknesses"
+                ],
+                [
+                  "Toy programs",
+                  "A ten-line sorting program",
+                  "Easy to run but unrealistic"
+                ],
+                [
+                  "Synthetic benchmarks",
+                  "Whetstone, Dhrystone",
+                  "Written to imitate average behavior; easy to game"
+                ]
+              ]
+            }
+          ],
+          "why": "The benchmark you choose decides whether a result predicts what you will actually experience.",
+          "real": "Phone and laptop reviews time real apps such as browsers and video editors. The industry compares processors with SPEC CPU, a standard collection of real programs.",
+          "mistake": {
+            "wrong": "A benchmark result tells you how fast every program will run.",
+            "right": "It predicts your experience only when the benchmark resembles your own workload."
+          },
+          "notes": {
+            "explain": "Reveal the table one row at a time and ask students which type they would trust.",
+            "terms": [
+              "**Benchmark**",
+              "**SPEC** — Standard Performance Evaluation Corporation"
+            ],
+            "misconceptions": [
+              "Students think a single benchmark number is the truth about a machine."
+            ]
+          }
+        },
+        {
+          "type": "arrange",
+          "concept": "bench",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the steps of a fair benchmark test in order.",
+          "items": [
+            "Choose programs that match the real workload",
+            "Run them on each machine under the same conditions",
+            "Record the execution times",
+            "Compare the results as ratios",
+            "Report everything: programs, settings and results"
+          ],
+          "why": "A fair test starts with a realistic workload and ends with a complete, honest report."
+        },
+        {
+          "type": "mcq",
+          "concept": "bench",
+          "skill": "Analyze",
+          "question": "Which type of benchmark best predicts how fast the programs YOU use will run?",
+          "options": [
+            "Real applications similar to yours",
+            "Synthetic benchmarks",
+            "Toy programs",
+            "The peak speed on the data sheet"
+          ],
+          "answer": 0,
+          "why": "Real applications that resemble your workload give the most realistic prediction.",
+          "feedback": [
+            "",
+            "Synthetic benchmarks imitate an average program, which may not match yours.",
+            "Toy programs are too small and simple to be representative.",
+            "Peak speed is a theoretical maximum, not what real programs get."
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "bench",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each benchmark type with its description.",
+          "pairs": [
+            {
+              "a": "Real applications",
+              "b": "The best predictor of real use"
+            },
+            {
+              "a": "Kernels",
+              "b": "Small key pieces of real programs"
+            },
+            {
+              "a": "Toy programs",
+              "b": "Tiny programs such as sorting"
+            },
+            {
+              "a": "Synthetic benchmarks",
+              "b": "Written to imitate average behavior"
+            }
+          ],
+          "why": "The more a benchmark looks like real work, the more you can trust its result."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What is the difference between CPU time and elapsed time?",
+              "a": "Elapsed time is the total time to finish, including waiting. CPU time counts only the time the processor worked on the program.",
+              "concept": "time"
+            },
+            {
+              "q": "Which kind of benchmark is best, and why?",
+              "a": "Real applications, because they are what users actually run, so the result predicts real experience.",
+              "concept": "bench"
+            },
+            {
+              "q": "Why can't one benchmark number describe a computer?",
+              "a": "Different programs stress different parts of the machine, so one program may not resemble your workload.",
+              "concept": "bench"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rates",
+      "label": "MIPS & FLOPS",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "rates",
+          "title": "MIPS: millions of instructions per second",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "MIPS",
+                  "note": "Millions of instructions per second."
+                },
+                {
+                  "t": "="
+                },
+                {
+                  "t": "Instruction count",
+                  "note": "How many instructions the program ran."
+                },
+                {
+                  "t": "÷"
+                },
+                {
+                  "t": "(Execution time × 10⁶)",
+                  "note": "Time in seconds, scaled to millions."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "The same value is **Clock rate ÷ (CPI × 10⁶)**.",
+              "reveal": true
+            }
+          ],
+          "why": "It is simple to quote, which is exactly why it became popular and why it is dangerous.",
+          "real": "Early computer advertisements compared machines by MIPS. Engineers stopped trusting the number because it hides how much work each instruction does.",
+          "mistake": {
+            "wrong": "Higher MIPS always means a faster computer.",
+            "right": "MIPS depends on the instruction set and the program, so it can rank machines in the wrong order."
+          },
+          "explainAgain": {
+            "beginner": "Counting how many words a person types per minute says nothing about how good the essay is. MIPS counts instructions, not useful work.",
+            "technical": "MIPS = IC ÷ (T × 10⁶). Because instructions differ in work across ISAs and compilers, MIPS is not comparable between machines and can vary inversely with performance."
+          },
+          "notes": {
+            "explain": "Keep it short; the prediction and calculator show the problem better than words.",
+            "terms": [
+              "**MIPS** — millions of instructions per second"
+            ]
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "rates",
+          "skill": "Analyze",
+          "question": "On a 1 GHz machine, compiler A makes 10⁹ instructions at CPI 1.0. Compiler B makes only 5 × 10⁸ instructions, but at CPI 1.5. Which version has the higher MIPS, and which finishes first?",
+          "options": [
+            "A has higher MIPS and finishes first",
+            "A has higher MIPS but B finishes first",
+            "B has higher MIPS and finishes first",
+            "They tie on both"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "Version",
+                "CPU time",
+                "MIPS"
+              ],
+              "rows": [
+                [
+                  "A",
+                  "10⁹ × 1.0 ÷ 10⁹ = 1.00 s",
+                  "1,000"
+                ],
+                [
+                  "B",
+                  "5×10⁸ × 1.5 ÷ 10⁹ = 0.75 s",
+                  "667"
+                ]
+              ]
+            }
+          ],
+          "result": "B finishes sooner even though its MIPS rating is lower. MIPS can rank machines in the wrong order."
+        },
+        {
+          "type": "concept",
+          "concept": "rates",
+          "title": "Try it: MIPS versus real time",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "MIPS pitfall calculator",
+              "equation": "**MIPS = Clock rate ÷ (CPI × 10⁶)**  ·  **CPU time = Instruction count × CPI ÷ Clock rate**",
+              "inputs": [
+                {
+                  "id": "ic1",
+                  "label": "Version A instructions",
+                  "value": 1000,
+                  "min": 100,
+                  "max": 3000,
+                  "step": 100,
+                  "unit": "million"
+                },
+                {
+                  "id": "cpi1",
+                  "label": "Version A CPI",
+                  "value": 1.0,
+                  "min": 0.5,
+                  "max": 4,
+                  "step": 0.1
+                },
+                {
+                  "id": "ic2",
+                  "label": "Version B instructions",
+                  "value": 500,
+                  "min": 100,
+                  "max": 3000,
+                  "step": 100,
+                  "unit": "million"
+                },
+                {
+                  "id": "cpi2",
+                  "label": "Version B CPI",
+                  "value": 1.5,
+                  "min": 0.5,
+                  "max": 4,
+                  "step": 0.1
+                },
+                {
+                  "id": "clk",
+                  "label": "Clock rate",
+                  "value": 1,
+                  "min": 1,
+                  "max": 4,
+                  "step": 0.5,
+                  "unit": "GHz"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Version A CPU time",
+                  "formula": "ic1*1e6*cpi1/(clk*1e9)",
+                  "format": "time",
+                  "better": "lower"
+                },
+                {
+                  "label": "Version B CPU time",
+                  "formula": "ic2*1e6*cpi2/(clk*1e9)",
+                  "format": "time",
+                  "better": "lower"
+                },
+                {
+                  "label": "Version A MIPS",
+                  "formula": "clk*1e9/(cpi1*1e6)",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "MIPS"
+                },
+                {
+                  "label": "Version B MIPS",
+                  "formula": "clk*1e9/(cpi2*1e6)",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "MIPS"
+                },
+                {
+                  "label": "B is this many times faster than A",
+                  "formula": "(ic1*cpi1)/(ic2*cpi2)",
+                  "format": "x",
+                  "digits": 2
+                }
+              ],
+              "trace": "A takes {r0} at {r2}; B takes {r1} at {r3}"
+            }
+          ],
+          "why": "Moving the sliders shows that the version with the higher MIPS is not always the one that finishes first.",
+          "notes": {
+            "explain": "Ask students to find settings where the higher-MIPS version is also the faster one, and settings where it is not."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "rates",
+          "title": "FLOPS: floating-point operations per second",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "**FLOPS** counts floating-point operations (additions, multiplications on decimal numbers) per second. It is common in science and AI.",
+              "style": "lead"
+            },
+            {
+              "type": "table",
+              "head": [
+                "Unit",
+                "Meaning"
+              ],
+              "rows": [
+                [
+                  "MFLOPS",
+                  "10⁶ operations per second"
+                ],
+                [
+                  "GFLOPS",
+                  "10⁹ operations per second"
+                ],
+                [
+                  "TFLOPS",
+                  "10¹² operations per second"
+                ],
+                [
+                  "PFLOPS",
+                  "10¹⁵ operations per second"
+                ]
+              ]
+            }
+          ],
+          "why": "It is a more meaningful rate than MIPS for number-heavy work because a floating-point operation is a real unit of useful work.",
+          "real": "Graphics cards and AI accelerators are compared in TFLOPS, and supercomputers in PFLOPS and beyond.",
+          "mistake": {
+            "wrong": "A chip's peak FLOPS is the speed your programs will get.",
+            "right": "Peak is a theoretical maximum. Real programs usually reach only part of it."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "rates",
+          "skill": "Apply",
+          "question": "A program performs 3 × 10¹² floating-point operations in 10 seconds. How many GFLOPS is that?",
+          "options": [
+            "30",
+            "300",
+            "3,000",
+            "0.3"
+          ],
+          "answer": 1,
+          "why": "3 × 10¹² ÷ 10 s = 3 × 10¹¹ operations per second = 300 GFLOPS.",
+          "feedback": [
+            "That is 30 GFLOPS, which is ten times too small. Divide 3 × 10¹² by 10, then by 10⁹.",
+            "",
+            "That would be 3 TFLOPS, ten times too large.",
+            "That would be 0.3 GFLOPS, a thousand times too small."
+          ]
+        },
+        {
+          "type": "mcq",
+          "concept": "rates",
+          "skill": "Apply",
+          "question": "A 2 GHz processor has an average CPI of 2. What is its MIPS rating?",
+          "options": [
+            "500",
+            "1,000",
+            "2,000",
+            "4,000"
+          ],
+          "answer": 1,
+          "why": "MIPS = clock rate ÷ (CPI × 10⁶) = 2 × 10⁹ ÷ (2 × 10⁶) = 1,000.",
+          "feedback": [
+            "Check the formula: divide the clock rate by the CPI, not the CPI by something else.",
+            "",
+            "That ignores the CPI. At CPI 1 you would get 2,000.",
+            "That multiplies the clock rate by the CPI instead of dividing."
+          ]
+        },
+        {
+          "type": "find",
+          "concept": "rates",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about MIPS is wrong. Click it.",
+          "lines": [
+            "1. MIPS means millions of instructions per second.",
+            "2. A machine with a higher MIPS rating always runs a given program faster.",
+            "3. MIPS = clock rate ÷ (CPI × 10⁶).",
+            "4. MIPS depends on the instruction set."
+          ],
+          "wrong": 1,
+          "explain": "Instructions differ in how much work they do, so a machine can have higher MIPS and still take longer.",
+          "fix": "A higher MIPS rating does not guarantee a faster machine."
+        }
+      ]
+    },
+    {
+      "id": "compare",
+      "label": "Comparing",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "compare",
+          "title": "Speedup",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "Speedup",
+                  "note": "How many times faster the new machine is."
+                },
+                {
+                  "t": "="
+                },
+                {
+                  "t": "Old execution time",
+                  "note": "Time before the change."
+                },
+                {
+                  "t": "÷"
+                },
+                {
+                  "t": "New execution time",
+                  "note": "Time after the change."
+                }
+              ]
+            },
+            {
+              "type": "calculator",
+              "title": "Speedup calculator",
+              "equation": "**Speedup = Old time ÷ New time**",
+              "inputs": [
+                {
+                  "id": "told",
+                  "label": "Old time",
+                  "value": 60,
+                  "min": 5,
+                  "max": 200,
+                  "step": 1,
+                  "unit": "s"
+                },
+                {
+                  "id": "tnew",
+                  "label": "New time",
+                  "value": 40,
+                  "min": 5,
+                  "max": 200,
+                  "step": 1,
+                  "unit": "s"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Speedup",
+                  "formula": "told/tnew",
+                  "format": "x",
+                  "digits": 2,
+                  "better": "higher"
+                },
+                {
+                  "label": "Time saved",
+                  "formula": "(told-tnew)/told",
+                  "format": "pct",
+                  "digits": 0
+                }
+              ],
+              "trace": "{told} ÷ {tnew} = {r0}; the time falls by {r1}"
+            }
+          ],
+          "why": "Speedup is the standard way to report \"how much better\", so you will meet it in every performance report.",
+          "real": "Release notes that say \"opens 1.5 times faster\" mean old time ÷ new time = 1.5.",
+          "mistake": {
+            "wrong": "A speedup of 1.5 means the time dropped by 50%.",
+            "right": "The time is divided by 1.5, so it falls by one third (about 33%).",
+            "why": "Speedup is a ratio of times, not a percentage reduction."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "compare",
+          "skill": "Apply",
+          "question": "A new machine is 2 times faster than the old one on program 1 and 8 times faster on program 2. The geometric mean of the speedups is the square root of (2 × 8). What is it?",
+          "options": [
+            "3",
+            "4",
+            "5",
+            "10"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "transform",
+              "before": {
+                "title": "Speedups",
+                "text": "2 and 8"
+              },
+              "process": "multiply, then take the square root: √16",
+              "after": {
+                "title": "Geometric mean",
+                "text": "4"
+              }
+            }
+          ],
+          "result": "The geometric mean is 4. The ordinary (arithmetic) mean would be 5."
+        },
+        {
+          "type": "concept",
+          "concept": "compare",
+          "title": "Summarizing results",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Arithmetic versus geometric mean",
+              "equation": "**Geometric mean = √(speedup 1 × speedup 2)**",
+              "inputs": [
+                {
+                  "id": "sa",
+                  "label": "Speedup on program 1",
+                  "value": 2,
+                  "min": 0.1,
+                  "max": 20,
+                  "step": 0.1,
+                  "unit": "×"
+                },
+                {
+                  "id": "sb",
+                  "label": "Speedup on program 2",
+                  "value": 8,
+                  "min": 0.1,
+                  "max": 20,
+                  "step": 0.1,
+                  "unit": "×"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Arithmetic mean",
+                  "formula": "(sa+sb)/2",
+                  "format": "x",
+                  "digits": 2
+                },
+                {
+                  "label": "Geometric mean",
+                  "formula": "sqrt(sa*sb)",
+                  "format": "x",
+                  "digits": 2
+                }
+              ],
+              "trace": "Arithmetic = ({sa} + {sb}) ÷ 2 = {r0}; geometric = √({sa} × {sb}) = {r1}"
+            }
+          ],
+          "why": "When results are ratios, the geometric mean gives the same ranking whichever machine you pick as the reference, which is why SPEC reports it."
+        },
+        {
+          "type": "concept",
+          "concept": "pitfalls",
+          "title": "Common measurement mistakes",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Five ways a speed claim can mislead you.",
+              "style": "lead"
+            }
+          ],
+          "why": "Spotting these lets you judge any performance claim, not only the ones in this course.",
+          "mistake": [
+            {
+              "wrong": "Judging a computer by clock speed alone.",
+              "right": "Use measured execution time on real programs."
+            },
+            {
+              "wrong": "Quoting peak performance as if it were typical.",
+              "right": "Peak is a theoretical maximum; report measured results."
+            },
+            {
+              "wrong": "Using one tiny benchmark.",
+              "right": "Use several programs that match your workload."
+            },
+            {
+              "wrong": "Ignoring memory and I/O.",
+              "right": "Elapsed time includes waiting, so measure the whole system."
+            },
+            {
+              "wrong": "Reporting only the best result.",
+              "right": "Report all results and the settings used."
+            }
+          ],
+          "notes": {
+            "explain": "Each card shows the mistake, strikes it out, then shows what is true. Pause after each and ask for a real-life example."
+          }
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "A vendor shows one benchmark where their chip is 3 times faster than the competitor. What would you ask before you believe it?",
+          "think": 25,
+          "pair": 45,
+          "answer": "Which program was it, and does it resemble my workload? How were the machines configured (memory, compiler, settings)? What do other programs show? Is it elapsed time or CPU time? Was it a peak or a measured result?",
+          "notes": {
+            "explain": "Listen for questions about the workload and the configuration."
+          }
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "compare",
+          "question": "How would you test which of two laptops is faster for your own work?",
+          "seconds": 60,
+          "ideas": [
+            "Pick programs you really use.",
+            "Run both under the same conditions.",
+            "Measure elapsed time and repeat the runs.",
+            "Compare ratios, and check results that do not match your use."
+          ],
+          "notes": {
+            "explain": "Link back to the benchmark steps. Students should describe a fair test, not just 'run a benchmark'."
+          }
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "time",
+          "skill": "Remember",
+          "think": 20,
+          "question": "What is the difference between CPU time and elapsed time?",
+          "answer": "Elapsed time is the total time from start to finish, including waiting. CPU time counts only the time the processor spent working on the program.",
+          "solution": "Elapsed time = CPU time + time spent waiting (disk, network, other programs)."
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "rates",
+          "skill": "Apply",
+          "think": 40,
+          "question": "A 2 GHz processor has an average CPI of 2. What is its MIPS rating?",
+          "hint": "MIPS = clock rate ÷ (CPI × 10⁶).",
+          "answer": "1,000 MIPS.",
+          "solution": "MIPS = 2 × 10⁹ ÷ (2 × 10⁶) = 1,000.",
+          "mistake": "Multiplying by the CPI instead of dividing."
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "compare",
+          "skill": "Analyze",
+          "think": 60,
+          "question": "A program takes 60 s on machine A and 45 s on machine B. How many times faster is B, and by what percentage does the running time fall?",
+          "hint": "Speedup is a ratio; percentage reduction is a difference divided by the old time.",
+          "answer": "B is 1.33 times faster, and the time falls by 25%.",
+          "solution": "Speedup = 60 ÷ 45 ≈ 1.33.\nTime saved = (60 − 45) ÷ 60 = 15 ÷ 60 = 25%.",
+          "mistake": "Saying the time falls by 33% because the speedup is 1.33."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "time",
+          "skill": "Apply",
+          "title": "Exam practice: elapsed versus CPU time",
+          "think": 75,
+          "question": "A program runs for 12 s elapsed. Its CPU time is 9 s. What fraction of the elapsed time was the CPU busy with the program, and what could explain the rest?",
+          "answer": "75%. The other 3 s was probably waiting for I/O (disk or network) or time when other programs used the CPU.",
+          "solution": "9 ÷ 12 = 0.75, so 75%.\nElapsed time minus CPU time (3 s) is time the program was not running on the CPU.",
+          "mistake": "Treating the 3 s as extra CPU work."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "rates",
+          "skill": "Evaluate",
+          "title": "Exam practice: the MIPS trap",
+          "think": 120,
+          "question": "On a 2 GHz machine, compiler A produces 2 × 10⁹ instructions at CPI 1.0 and compiler B produces 1.2 × 10⁹ instructions at CPI 1.5. Which has the higher MIPS, and which program runs faster?",
+          "hint": "Compute CPU time and MIPS for each.",
+          "answer": "A has the higher MIPS (2,000 versus 1,333), but B runs faster (0.9 s versus 1.0 s).",
+          "solution": "A: time = 2×10⁹ × 1.0 ÷ 2×10⁹ = 1.0 s; MIPS = 2,000 ÷ 1.0 = 2,000.\nB: time = 1.2×10⁹ × 1.5 ÷ 2×10⁹ = 0.9 s; MIPS = 2,000 ÷ 1.5 ≈ 1,333.\nHigher MIPS, yet slower: MIPS can mislead.",
+          "mistake": "Choosing the machine with the higher MIPS as the faster one."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "pitfalls",
+          "skill": "Evaluate",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "question": "Give two reasons MIPS is a poor way to compare computers.",
+          "answer": "MIPS depends on the instruction set, because different instructions do different amounts of work. It varies between programs on the same machine. It can rank machines in the wrong order, as a machine with a higher MIPS rating can take longer.",
+          "solution": "A good answer names at least two of: instruction set dependence, variation between programs, and the possibility of ranking machines in the wrong order. Measured execution time on real programs is the reliable alternative."
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 5,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Measuring performance",
+          "branches": [
+            {
+              "label": "Time",
+              "example": "Elapsed · CPU",
+              "section": "time"
+            },
+            {
+              "label": "Benchmarks",
+              "example": "Real programs are best",
+              "section": "bench"
+            },
+            {
+              "label": "Rates",
+              "example": "MIPS · FLOPS",
+              "section": "rates"
+            },
+            {
+              "label": "Comparing",
+              "example": "Speedup · Means · Pitfalls",
+              "section": "compare"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Execution time on real programs is the true measure of performance.",
+            "Elapsed time includes waiting; CPU time counts only the processor's work.",
+            "Real applications make the best benchmarks.",
+            "MIPS = instruction count ÷ (time × 10⁶) = clock rate ÷ (CPI × 10⁶), and it can mislead.",
+            "Peak FLOPS is a theoretical maximum, not typical speed.",
+            "Speedup = old time ÷ new time; use the geometric mean to average ratios.",
+            "Report everything: the programs, the settings and all the results."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Understand and apply",
+          "understand": [
+            "Elapsed time is what the user feels; CPU time is what the processor spent.",
+            "A benchmark predicts your experience only if it resembles your work.",
+            "Higher MIPS does not guarantee a faster machine."
+          ],
+          "apply": [
+            "Compute CPU utilization and MIPS.",
+            "Compute speedup and the percentage of time saved."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "Elapsed time and CPU time are the same.",
+              "right": "Elapsed includes waiting."
+            },
+            {
+              "wrong": "Higher MIPS means faster.",
+              "right": "MIPS can rank machines in the wrong order."
+            },
+            {
+              "wrong": "Speedup 1.5 means a 50% time reduction.",
+              "right": "The time falls by one third."
+            },
+            {
+              "wrong": "Peak FLOPS is what you will get.",
+              "right": "Peak is a theoretical limit."
+            },
+            {
+              "wrong": "One benchmark tells the whole story.",
+              "right": "Use several that match the workload."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Performance is measured as execution time, which can be elapsed time or CPU time. Benchmarks should be real programs that look like your workload. MIPS and peak FLOPS are easy to quote but can mislead. Speedup is old time divided by new time, ratios are averaged with the geometric mean, and honest reports list all programs, settings and results."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "time",
+              "question": "Which time includes waiting for the disk?",
+              "options": [
+                "Elapsed time",
+                "CPU time",
+                "User CPU time",
+                "System CPU time"
+              ],
+              "answer": 0,
+              "why": "Elapsed (wall-clock) time includes all waiting.",
+              "misconception": "CPU time counts only the time the processor worked on the program."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "bench",
+              "statement": "Real applications are the best benchmarks for predicting how fast the programs you use will run.",
+              "answer": true,
+              "why": "They are the most similar to real use.",
+              "misconception": "Toy and synthetic programs are easier to run but less representative."
+            },
+            {
+              "level": "easy",
+              "concept": "rates",
+              "question": "What does MIPS stand for?",
+              "options": [
+                "Millions of instructions per second",
+                "Memory instructions per second",
+                "Machine input per second",
+                "Minimum instructions per system"
+              ],
+              "answer": 0,
+              "why": "MIPS means millions of instructions per second.",
+              "misconception": "The word to focus on is instructions: MIPS counts instructions, not useful work."
+            },
+            {
+              "level": "medium",
+              "concept": "compare",
+              "question": "A program takes 60 s on A and 40 s on B. How many times faster is B?",
+              "options": [
+                "0.67",
+                "1.5",
+                "20",
+                "2"
+              ],
+              "answer": 1,
+              "why": "60 ÷ 40 = 1.5.",
+              "misconception": "Divide A's time by B's time. Subtracting gives 20 seconds, which is not a speedup."
+            },
+            {
+              "level": "medium",
+              "concept": "rates",
+              "question": "A 4 GHz CPU has an average CPI of 2. What is its MIPS rating?",
+              "options": [
+                "500",
+                "2,000",
+                "8,000",
+                "1,000"
+              ],
+              "answer": 1,
+              "why": "4 × 10⁹ ÷ (2 × 10⁶) = 2,000.",
+              "misconception": "MIPS is clock rate divided by CPI, so a larger CPI lowers it."
+            },
+            {
+              "level": "medium",
+              "concept": "time",
+              "question": "A program has 20 s of elapsed time and 15 s of CPU time. What was the CPU utilization?",
+              "options": [
+                "25%",
+                "60%",
+                "75%",
+                "133%"
+              ],
+              "answer": 2,
+              "why": "15 ÷ 20 = 0.75, or 75%.",
+              "misconception": "Divide CPU time by elapsed time. 25% is the share spent waiting."
+            },
+            {
+              "level": "hard",
+              "concept": "rates",
+              "question": "Version X: 10⁹ instructions at CPI 1.0. Version Y: 6 × 10⁸ instructions at CPI 1.4. Both run at 1 GHz. Which statement is true?",
+              "options": [
+                "X has higher MIPS and is faster",
+                "X has higher MIPS, but Y is faster",
+                "Y has higher MIPS and is faster",
+                "They tie on both"
+              ],
+              "answer": 1,
+              "why": "X: 1.0 s at 1,000 MIPS. Y: 0.84 s at about 714 MIPS. Y finishes first despite lower MIPS.",
+              "misconception": "MIPS ignores how much work each instruction does, so it can disagree with execution time."
+            },
+            {
+              "level": "hard",
+              "concept": "compare",
+              "question": "Speedups on two programs are 2 and 8. What is their geometric mean?",
+              "options": [
+                "4",
+                "5",
+                "10",
+                "6"
+              ],
+              "answer": 0,
+              "why": "√(2 × 8) = √16 = 4.",
+              "misconception": "5 is the arithmetic mean. The geometric mean multiplies the values and takes the root."
+            },
+            {
+              "level": "challenge",
+              "concept": "pitfalls",
+              "question": "A vendor claims \"our chip is the fastest\" because it is 4 times faster on one small kernel. Which question matters most?",
+              "options": [
+                "Does that kernel resemble my workload, and what do other programs show?",
+                "What color is the chip?",
+                "How many cores does it have?",
+                "What is its clock speed?"
+              ],
+              "answer": 0,
+              "why": "One small kernel may not represent your work, so ask whether it resembles your workload and what other programs show.",
+              "misconception": "Cores and clock speed alone do not decide performance, and appearance is irrelevant."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "What is the difference between CPU time and elapsed time?",
+              "a": "Elapsed time is total start-to-finish time including waiting. CPU time counts only the processor's work.",
+              "concept": "time"
+            },
+            {
+              "q": "What is the best kind of benchmark, and why?",
+              "a": "Real applications similar to your workload, because they predict real use.",
+              "concept": "bench"
+            },
+            {
+              "q": "Why is MIPS a poor measure of performance?",
+              "a": "It depends on the instruction set and the program, and a machine with higher MIPS can take longer.",
+              "concept": "rates"
+            },
+            {
+              "q": "How do you compute speedup, and which average suits ratios?",
+              "a": "Speedup = old time ÷ new time. The geometric mean suits ratios.",
+              "concept": "compare"
+            },
+            {
+              "q": "Name two common measurement mistakes.",
+              "a": "For example judging by clock speed alone, quoting peak numbers, using one tiny benchmark, ignoring I/O, or reporting only the best result.",
+              "concept": "pitfalls"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

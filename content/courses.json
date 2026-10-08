@@ -4,8 +4,14 @@
     "title": "Java",
     "description": "From first program to object-oriented design.",
     "topics": [
-      { "id": "01-introduction", "title": "Introduction to Java" },
-      { "id": "02-variables-and-types", "title": "Variables and Data Types" }
+      {
+        "id": "01-introduction",
+        "title": "Introduction to Java"
+      },
+      {
+        "id": "02-variables-and-types",
+        "title": "Variables and Data Types"
+      }
     ]
   },
   {
@@ -13,8 +19,26 @@
     "title": "Computer Architecture",
     "description": "How computers are built and how they execute programs.",
     "topics": [
-      { "id": "01-introduction", "title": "Introduction to Computer Architecture" },
-      { "id": "02-cpu-basics", "title": "CPU Basics" }
+      {
+        "id": "01-introduction-to-computer-architecture",
+        "title": "Introduction to Computer Architecture",
+        "type": "lesson"
+      },
+      {
+        "id": "02-architect-tasks-and-technology-trends",
+        "title": "Tasks of a Computer Architect and Technology Trends",
+        "type": "lesson"
+      },
+      {
+        "id": "03-cost-performance-quantitative-principles",
+        "title": "Cost, Performance and Quantitative Principles",
+        "type": "lesson"
+      },
+      {
+        "id": "04-measuring-computer-performance",
+        "title": "Measuring Computer Performance",
+        "type": "lesson"
+      }
     ]
   }
 ]

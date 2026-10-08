@@ -1,0 +1,1330 @@
+{
+  "id": "ca-03-cost-performance",
+  "title": "Cost, Performance and Quantitative Principles",
+  "subtitle": "Why a faster part does not always make a faster computer, and how to calculate it.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "objectives": [
+    "Explain how chip cost depends on wafers, yield, die size and volume",
+    "Tell response time from throughput and compare machines using execution time",
+    "Use the CPU performance equation with instruction count, CPI and clock rate",
+    "Apply Amdahl's Law to estimate the speedup from an improvement",
+    "Name the quantitative principles architects use to guide design"
+  ],
+  "concepts": [
+    {
+      "id": "cost",
+      "label": "Cost trends",
+      "section": "cost"
+    },
+    {
+      "id": "perf",
+      "label": "Response time and throughput",
+      "section": "perf"
+    },
+    {
+      "id": "cpueq",
+      "label": "CPU performance equation",
+      "section": "equation"
+    },
+    {
+      "id": "amdahl",
+      "label": "Amdahl's Law",
+      "section": "amdahl"
+    },
+    {
+      "id": "principles",
+      "label": "Quantitative principles",
+      "section": "amdahl"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "You make part of a program 10 times faster. The whole program gets only 1.8 times faster. Where did the rest of the speedup go?",
+          "clues": [
+            "The part you improved took only half of the running time.",
+            "The other half did not change at all.",
+            "A formula named after Gene Amdahl predicts this exactly. You will use it today."
+          ],
+          "notes": {
+            "explain": "Let students guess before the clues appear. The surprise is that a 10x improvement gives less than 2x.",
+            "ask": "If half of a trip is on a highway and you triple the highway speed, is the whole trip three times faster?",
+            "difficulty": "Easy: curiosity warm-up."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the five objectives. Tell students the calculators later in the lesson let them test their own predictions."
+          }
+        }
+      ]
+    },
+    {
+      "id": "cost",
+      "label": "Cost",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "cost",
+          "title": "From wafer to chip",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "Wafer",
+                  "sub": "a silicon disc",
+                  "note": "Hundreds of identical chips are printed on one **wafer** at the same time."
+                },
+                {
+                  "label": "Cut",
+                  "sub": "into dies",
+                  "note": "The wafer is cut into individual chips called **dies**."
+                },
+                {
+                  "label": "Test",
+                  "sub": "find the faulty ones",
+                  "note": "Some dies have defects and must be thrown away. The fraction that work is the **yield**."
+                },
+                {
+                  "label": "Package",
+                  "sub": "protect and connect",
+                  "note": "Good dies are put into packages with pins or pads."
+                },
+                {
+                  "label": "Sell",
+                  "sub": "to customers",
+                  "note": "The cost of the whole process is shared among the good chips."
+                }
+              ]
+            }
+          ],
+          "why": "Every chip you buy has to pay for the faulty chips that were thrown away.",
+          "real": "Large chips such as high-end graphics processors cost far more per chip than small phone chips, partly because fewer fit on a wafer and more of them have a defect.",
+          "mistake": {
+            "wrong": "A chip twice as large costs twice as much.",
+            "right": "It costs more than twice as much: fewer dies fit on a wafer and each has more chance of a defect."
+          },
+          "explainAgain": {
+            "beginner": "Imagine cutting cookies from one big sheet of dough. Bigger cookies mean fewer cookies, and a bad spot in the dough ruins a bigger piece.",
+            "technical": "Die cost = wafer cost ÷ (dies per wafer × die yield). Larger die area reduces dies per wafer and lowers yield, so cost grows faster than area."
+          },
+          "notes": {
+            "explain": "Click each stage. Emphasize that yield is a fraction between 0 and 1.",
+            "terms": [
+              "**Wafer** — a thin silicon disc",
+              "**Die** — one chip cut from the wafer",
+              "**Yield** — the fraction of dies that work"
+            ],
+            "misconceptions": [
+              "Students assume cost is proportional to area."
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "cost",
+          "title": "What does one good chip cost?",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "Cost per good die",
+                  "note": "What the manufacturer actually pays for each working chip."
+                },
+                {
+                  "t": "="
+                },
+                {
+                  "t": "Wafer cost",
+                  "note": "The price of processing one whole wafer."
+                },
+                {
+                  "t": "÷"
+                },
+                {
+                  "t": "(Dies per wafer",
+                  "note": "How many chips fit on the wafer. Smaller dies means more of them."
+                },
+                {
+                  "t": "×"
+                },
+                {
+                  "t": "Yield)",
+                  "note": "The fraction of dies that work, for example 0.8 for 80%."
+                }
+              ]
+            },
+            {
+              "type": "calculator",
+              "title": "Try it: die cost calculator",
+              "equation": "**Cost per good die = Wafer cost ÷ (Dies per wafer × Yield)**",
+              "inputs": [
+                {
+                  "id": "wafer",
+                  "label": "Wafer cost",
+                  "value": 8000,
+                  "min": 1000,
+                  "max": 20000,
+                  "step": 500,
+                  "unit": "USD"
+                },
+                {
+                  "id": "dies",
+                  "label": "Dies per wafer",
+                  "value": 200,
+                  "min": 50,
+                  "max": 800,
+                  "step": 10
+                },
+                {
+                  "id": "yld",
+                  "label": "Yield",
+                  "value": 80,
+                  "min": 20,
+                  "max": 100,
+                  "step": 1,
+                  "unit": "%"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Good dies per wafer",
+                  "formula": "dies*yld/100",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "dies"
+                },
+                {
+                  "label": "Cost per good die",
+                  "formula": "wafer/(dies*yld/100)",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "USD",
+                  "better": "lower"
+                }
+              ],
+              "trace": "Cost = {wafer} ÷ ({dies} × {yld}%) = {r1}"
+            }
+          ],
+          "why": "Architects must know that a bigger, more complex design directly raises the cost of every chip.",
+          "notes": {
+            "explain": "Move the yield slider down and ask what happens to cost. Then move dies per wafer down to simulate a larger chip."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "cost",
+          "skill": "Apply",
+          "question": "A wafer costs $8,000 and holds 200 dies. 80% of the dies work. What does one good die cost?",
+          "options": [
+            "$40",
+            "$50",
+            "$62.50",
+            "$80"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "transform",
+              "before": {
+                "title": "Start",
+                "text": "200 dies at 80% yield"
+              },
+              "process": "200 × 0.8 = 160 good dies; $8,000 ÷ 160",
+              "after": {
+                "title": "Result",
+                "text": "$50 per good die"
+              }
+            }
+          ],
+          "result": "Only 160 dies are good, so each good die carries $50 of the wafer's cost, not $40."
+        },
+        {
+          "type": "concept",
+          "concept": "cost",
+          "title": "Cost trends",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                {
+                  "text": "**Learning curve**",
+                  "sub": "As a process matures, yield improves and cost falls."
+                },
+                {
+                  "text": "**Volume**",
+                  "sub": "More units spread the fixed costs, so each chip costs less."
+                },
+                {
+                  "text": "**Commodity**",
+                  "sub": "Many makers selling similar parts push prices down."
+                }
+              ]
+            }
+          ],
+          "why": "This is why last year's processor gets cheaper and why a design that sells in millions can be priced so low.",
+          "real": "Memory chips and phone processors are produced in enormous volumes, which is a big reason they are so inexpensive."
+        },
+        {
+          "type": "match",
+          "concept": "cost",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each cost term with its meaning.",
+          "pairs": [
+            {
+              "a": "Wafer",
+              "b": "A silicon disc that holds many chips"
+            },
+            {
+              "a": "Die",
+              "b": "One chip-sized piece cut from the wafer"
+            },
+            {
+              "a": "Yield",
+              "b": "The fraction of dies that work"
+            },
+            {
+              "a": "Volume",
+              "b": "How many units are produced"
+            }
+          ],
+          "why": "These four terms are all you need to estimate what a chip costs to make."
+        }
+      ]
+    },
+    {
+      "id": "perf",
+      "label": "Performance",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "perf",
+          "title": "Two ways to be fast",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Response time",
+                "items": [
+                  "How long **one task** takes",
+                  "Matters to a user who is waiting",
+                  "Example: how long a web page takes to load",
+                  "**Lower** is better"
+                ]
+              },
+              "right": {
+                "title": "Throughput",
+                "items": [
+                  "How many tasks finish **per unit of time**",
+                  "Matters to a server or data center",
+                  "Example: requests handled per second",
+                  "**Higher** is better"
+                ]
+              }
+            }
+          ],
+          "why": "The right measure depends on who is asking: a person waiting, or a company serving millions.",
+          "real": "A phone user cares about how quickly an app opens (response time). A company running a web service cares about how many users it can serve at once (throughput).",
+          "mistake": {
+            "wrong": "More processors always make one program finish sooner.",
+            "right": "More processors usually raise throughput. One program only speeds up if it can use them."
+          },
+          "explainAgain": {
+            "beginner": "A bus and a sports car: the sports car gets one person there fastest (response time), but the bus moves more people per hour (throughput)."
+          },
+          "notes": {
+            "explain": "Ask which measure a call center cares about and which a single gamer cares about.",
+            "terms": [
+              "**Response time** (execution time)",
+              "**Throughput** — work per unit time"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "perf",
+          "title": "Comparing two machines",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "Performance",
+                  "note": "How fast a machine is on a given program."
+                },
+                {
+                  "t": "="
+                },
+                {
+                  "t": "1"
+                },
+                {
+                  "t": "÷"
+                },
+                {
+                  "t": "Execution time",
+                  "note": "A smaller time means higher performance."
+                }
+              ]
+            },
+            {
+              "type": "calculator",
+              "title": "Try it: how much faster is A than B?",
+              "equation": "**A is n times faster than B: n = Time of B ÷ Time of A**",
+              "inputs": [
+                {
+                  "id": "ta",
+                  "label": "Machine A time",
+                  "value": 10,
+                  "min": 1,
+                  "max": 60,
+                  "step": 1,
+                  "unit": "s"
+                },
+                {
+                  "id": "tb",
+                  "label": "Machine B time",
+                  "value": 15,
+                  "min": 1,
+                  "max": 60,
+                  "step": 1,
+                  "unit": "s"
+                }
+              ],
+              "results": [
+                {
+                  "label": "A is this many times faster than B",
+                  "formula": "tb/ta",
+                  "format": "x",
+                  "digits": 2
+                }
+              ],
+              "trace": "{tb} ÷ {ta} = {r0}"
+            }
+          ],
+          "why": "Dividing times (not subtracting them) is how every benchmark result is compared.",
+          "mistake": {
+            "wrong": "A took 10 s and B took 15 s, so A is 5 seconds faster, which means 5 times faster.",
+            "right": "Faster-by is a ratio: 15 ÷ 10 = 1.5 times faster."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "perf",
+          "skill": "Apply",
+          "question": "Machine A runs a program in 10 s and machine B in 15 s. How much faster is A than B?",
+          "options": [
+            "1.5 times",
+            "0.67 times",
+            "5 times",
+            "2 times"
+          ],
+          "answer": 0,
+          "why": "15 ÷ 10 = 1.5, so A is 1.5 times faster.",
+          "feedback": [
+            "",
+            "That is B compared with A. The question asks how much faster A is, so divide B's time by A's time.",
+            "Subtracting the times gives 5 seconds, but speedup is a ratio, not a difference.",
+            "Check the division: 15 ÷ 10 is 1.5."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "perf",
+          "skill": "Understand",
+          "statement": "Adding more cores always reduces the response time of a single-threaded program.",
+          "answer": false,
+          "why": "A single-threaded program uses one core at a time, so extra cores raise throughput but do not shorten that program's time."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What is the difference between response time and throughput?",
+              "a": "Response time is how long one task takes (lower is better). Throughput is how many tasks finish per unit of time (higher is better).",
+              "concept": "perf"
+            },
+            {
+              "q": "How do you work out how many times faster A is than B?",
+              "a": "Divide B's execution time by A's execution time.",
+              "concept": "perf"
+            },
+            {
+              "q": "Why does a larger chip cost more than proportionally more?",
+              "a": "Fewer dies fit on a wafer and each die is more likely to contain a defect, so yield falls.",
+              "concept": "cost"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "equation",
+      "label": "CPU Equation",
+      "minutes": 11,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "cpueq",
+          "title": "The CPU performance equation",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "CPU time",
+                  "note": "How long the program takes on the CPU."
+                },
+                {
+                  "t": "="
+                },
+                {
+                  "t": "Instruction count",
+                  "note": "How many instructions the program executes. It depends on the program, the compiler and the instruction set."
+                },
+                {
+                  "t": "×"
+                },
+                {
+                  "t": "CPI",
+                  "note": "Average **c**lock cycles **p**er **i**nstruction. It depends on the organization and the mix of instructions."
+                },
+                {
+                  "t": "×"
+                },
+                {
+                  "t": "Clock cycle time",
+                  "note": "Seconds per clock cycle. It equals 1 ÷ clock rate, and depends on technology and organization."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "Because clock cycle time = 1 ÷ clock rate, the same equation can be written **CPU time = Instruction count × CPI ÷ Clock rate**.",
+              "reveal": true
+            }
+          ],
+          "why": "It splits \"how fast is this computer?\" into three questions that different teams can work on.",
+          "real": "When a company says a new chip has the same clock speed but better \"IPC\", it is improving CPI (IPC = 1 ÷ CPI), so programs run faster at the same GHz.",
+          "mistake": [
+            {
+              "wrong": "A higher clock speed always means a faster CPU.",
+              "right": "CPU time also depends on instruction count and CPI. A slower clock with a lower CPI can win.",
+              "why": "More GHz does not automatically mean better performance."
+            }
+          ],
+          "explainAgain": {
+            "beginner": "Time to finish a job = number of steps × average ticks per step × time per tick.",
+            "technical": "CPU time = IC × CPI × T_clk = IC × CPI ÷ f. Total cycles = IC × CPI; time is cycles divided by the clock rate."
+          },
+          "deeper": {
+            "text": "CPI is an average over the whole program. Different instruction types need different numbers of cycles, so CPI = sum over instruction types of (CPI of the type × fraction of instructions of that type)."
+          },
+          "notes": {
+            "explain": "Click each term in turn. Write the equation on the whiteboard (W) and keep it there while students try the calculator.",
+            "terms": [
+              "**CPI** — cycles per instruction",
+              "**Clock rate** — cycles per second (Hz, GHz)",
+              "**Clock cycle time** — seconds per cycle"
+            ],
+            "misconceptions": [
+              "More GHz means faster (the most common mistake in the whole course)."
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "cpueq",
+          "title": "What influences each factor?",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Factor",
+                "Influenced by"
+              ],
+              "rows": [
+                [
+                  "Instruction count",
+                  "Algorithm, programming language, compiler, instruction set"
+                ],
+                [
+                  "CPI",
+                  "Instruction set, organization, mix of instructions"
+                ],
+                [
+                  "Clock cycle time",
+                  "Hardware technology, organization"
+                ]
+              ]
+            }
+          ],
+          "why": "Improving one factor often hurts another, which is why architecture is about trade-offs."
+        },
+        {
+          "type": "predict",
+          "concept": "cpueq",
+          "skill": "Apply",
+          "question": "A processor's clock rate increases by 20%. The program and the CPI stay the same. What happens to CPU execution time?",
+          "options": [
+            "It increases by 20%",
+            "It decreases by about 17%",
+            "It decreases by 20%",
+            "It does not change"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "transform",
+              "before": {
+                "title": "Before",
+                "text": "3.0 GHz → 1.00 s"
+              },
+              "process": "clock × 1.2, so time ÷ 1.2",
+              "after": {
+                "title": "After",
+                "text": "3.6 GHz → 0.83 s, about 17% less"
+              }
+            }
+          ],
+          "result": "Time is inversely proportional to clock rate: 1 ÷ 1.2 = 0.83, so time falls by about 17%, not 20%."
+        },
+        {
+          "type": "concept",
+          "concept": "cpueq",
+          "title": "Try it yourself",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Performance calculator",
+              "equation": "**CPU time = Instruction count × CPI ÷ Clock rate**",
+              "inputs": [
+                {
+                  "id": "ic",
+                  "label": "Instruction count",
+                  "value": 2000,
+                  "min": 100,
+                  "max": 10000,
+                  "step": 100,
+                  "unit": "million"
+                },
+                {
+                  "id": "cpi",
+                  "label": "CPI",
+                  "value": 1.5,
+                  "min": 0.5,
+                  "max": 4,
+                  "step": 0.1,
+                  "unit": "cycles"
+                },
+                {
+                  "id": "rate",
+                  "label": "Clock rate",
+                  "value": 3,
+                  "min": 1,
+                  "max": 6,
+                  "step": 0.1,
+                  "unit": "GHz"
+                }
+              ],
+              "results": [
+                {
+                  "label": "CPU time",
+                  "formula": "ic*1e6*cpi/(rate*1e9)",
+                  "format": "time",
+                  "better": "lower"
+                },
+                {
+                  "label": "Performance (1 ÷ time)",
+                  "formula": "1/(ic*1e6*cpi/(rate*1e9))",
+                  "format": "num",
+                  "digits": 3,
+                  "unit": "runs per second",
+                  "better": "higher"
+                }
+              ],
+              "trace": "CPU time = {ic} million × {cpi} ÷ {rate} GHz = {r0}"
+            }
+          ],
+          "why": "Engineers use exactly this reasoning to decide which of the three factors is cheapest to improve.",
+          "notes": {
+            "explain": "Ask students to predict, then drag one slider at a time. Finally change two at once to show the trade-off.",
+            "ask": "Which slider gives you the most speedup for the least effort?"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "cpueq",
+          "skill": "Apply",
+          "question": "A program runs 4 billion instructions at a CPI of 2 on a 4 GHz clock. How long does it take?",
+          "options": [
+            "0.5 s",
+            "2 s",
+            "8 s",
+            "32 s"
+          ],
+          "answer": 1,
+          "why": "4 × 10⁹ × 2 ÷ 4 × 10⁹ = 2 seconds.",
+          "feedback": [
+            "That would be half the correct time. Remember to multiply by the CPI of 2.",
+            "",
+            "You forgot to divide by the clock rate of 4 GHz.",
+            "Instruction count times CPI is 8 billion cycles. Divide by 4 billion cycles per second."
+          ]
+        },
+        {
+          "type": "find",
+          "concept": "cpueq",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement is wrong. Click it.",
+          "lines": [
+            "1. CPU time = instruction count × CPI × clock cycle time.",
+            "2. Doubling the clock rate always halves the CPU time.",
+            "3. Clock cycle time is the inverse of the clock rate.",
+            "4. CPI is the average number of clock cycles per instruction."
+          ],
+          "wrong": 1,
+          "explain": "It halves the time only if instruction count and CPI stay the same. A faster clock can come with a higher CPI, and the program may wait for memory.",
+          "fix": "Doubling the clock rate halves the time only when the other factors do not change."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "cpueq",
+          "question": "Is a faster clock always better performance? Discuss.",
+          "seconds": 60,
+          "ideas": [
+            "CPU time = instruction count × CPI × cycle time, so all three factors matter.",
+            "A higher clock raises power and heat.",
+            "Programs may wait for memory, so a faster clock cannot help while they wait.",
+            "Compare real running times on real programs, not just GHz."
+          ],
+          "notes": {
+            "explain": "Revisit the highest-clock-wins mistake. Let groups argue both sides before you reveal the ideas."
+          }
+        }
+      ]
+    },
+    {
+      "id": "amdahl",
+      "label": "Amdahl",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "amdahl",
+          "title": "Amdahl's Law",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "Overall speedup",
+                  "note": "How many times faster the whole program becomes."
+                },
+                {
+                  "t": "="
+                },
+                {
+                  "t": "1"
+                },
+                {
+                  "t": "÷"
+                },
+                {
+                  "t": "["
+                },
+                {
+                  "t": "(1 − F)",
+                  "note": "The part that is **not** improved. It takes just as long as before."
+                },
+                {
+                  "t": "+"
+                },
+                {
+                  "t": "F ÷ S",
+                  "note": "The improved part: fraction **F** of the time, now running **S** times faster."
+                },
+                {
+                  "t": "]"
+                }
+              ]
+            }
+          ],
+          "why": "It tells you, before spending any money, how much an improvement can possibly help.",
+          "real": "Upgrading a game's graphics card 10 times over helps little if the game spends most of its time on CPU work that did not change.",
+          "mistake": {
+            "wrong": "Making half of a program 10 times faster makes the whole program 10 times faster.",
+            "right": "It makes the whole program only about 1.8 times faster, because the other half is unchanged."
+          },
+          "explainAgain": {
+            "beginner": "If a trip is half highway and half city, tripling highway speed does not triple the whole trip's speed.",
+            "technical": "New time = (1 − F) × old time + (F × old time) ÷ S. Speedup = old time ÷ new time."
+          },
+          "notes": {
+            "explain": "Walk through (1 - F) and F / S separately. Tie it back to the hook.",
+            "terms": [
+              "**F** — fraction of original time that can be improved",
+              "**S** — speedup of that part"
+            ],
+            "misconceptions": [
+              "Students use F as a fraction of instructions rather than of execution time."
+            ]
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "amdahl",
+          "skill": "Apply",
+          "question": "50% of a program's running time can be made 10 times faster. What is the overall speedup?",
+          "options": [
+            "10 times",
+            "5 times",
+            "About 1.8 times",
+            "About 5.5 times"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "Part",
+                "Old time",
+                "New time"
+              ],
+              "rows": [
+                [
+                  "Unimproved half",
+                  "50 s",
+                  "50 s"
+                ],
+                [
+                  "Improved half",
+                  "50 s",
+                  "50 ÷ 10 = 5 s"
+                ],
+                [
+                  "Total",
+                  "100 s",
+                  "55 s"
+                ]
+              ]
+            },
+            {
+              "type": "text",
+              "text": "Speedup = 100 ÷ 55 ≈ **1.82**",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The unimproved half sets the limit. Even an infinitely fast improved half could never beat 2 times."
+        },
+        {
+          "type": "concept",
+          "concept": "amdahl",
+          "title": "Try Amdahl's Law",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Amdahl's Law calculator",
+              "equation": "**Speedup = 1 ÷ ((1 − F) + F ÷ S)**",
+              "inputs": [
+                {
+                  "id": "f",
+                  "label": "F: share of time that can be improved",
+                  "value": 50,
+                  "min": 0,
+                  "max": 100,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "s",
+                  "label": "S: speedup of that part",
+                  "value": 10,
+                  "min": 1,
+                  "max": 100,
+                  "step": 1,
+                  "unit": "×"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Overall speedup",
+                  "formula": "1/((1-f/100)+(f/100)/s)",
+                  "format": "x",
+                  "digits": 2,
+                  "better": "higher"
+                },
+                {
+                  "label": "Best possible, even if S were infinite",
+                  "formula": "1/(1-f/100)",
+                  "format": "x",
+                  "digits": 2
+                }
+              ],
+              "trace": "1 ÷ ((1 − {f}%) + {f}% ÷ {s}) = {r0}"
+            }
+          ],
+          "why": "The calculator shows diminishing returns: past a point, making the improved part faster barely helps.",
+          "notes": {
+            "explain": "Fix F at 50% and push S from 2 to 100. Watch the overall speedup crawl toward 2."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "amdahl",
+          "skill": "Apply",
+          "question": "40% of a program's time is improved to run 4 times faster. What is the overall speedup?",
+          "options": [
+            "4 times",
+            "About 1.43 times",
+            "1.6 times",
+            "2.5 times"
+          ],
+          "answer": 1,
+          "why": "1 ÷ (0.6 + 0.4 ÷ 4) = 1 ÷ 0.7 ≈ 1.43.",
+          "feedback": [
+            "That would be the speedup if the whole program improved, not just 40% of it.",
+            "",
+            "Check the arithmetic: 0.6 + 0.1 = 0.7, and 1 ÷ 0.7 is about 1.43.",
+            "2.5 is the answer if 80% of the time were improved 4 times."
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "principles",
+          "title": "Quantitative principles",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                {
+                  "text": "**Make the common case fast**",
+                  "sub": "Improve what happens most often; Amdahl's Law shows why."
+                },
+                {
+                  "text": "**Take advantage of parallelism**",
+                  "sub": "Do several things at the same time."
+                },
+                {
+                  "text": "**Principle of locality**",
+                  "sub": "Programs reuse recent data and nearby data. A common rule of thumb: about 90% of the time is spent in about 10% of the code."
+                }
+              ]
+            }
+          ],
+          "why": "Almost every idea in the rest of the course is one of these three principles in disguise.",
+          "real": "Caches use locality, multicore chips use parallelism, and special-purpose accelerators speed up the common case.",
+          "mistake": {
+            "wrong": "Speeding up a rarely used feature is as valuable as speeding up a common one.",
+            "right": "The gain depends on how much of the time that feature takes (Amdahl's Law)."
+          },
+          "notes": {
+            "explain": "Keep this brief; each principle returns in later lessons (caches, pipelining, parallel processors)."
+          }
+        },
+        {
+          "type": "match",
+          "concept": "principles",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each idea with what it says.",
+          "pairs": [
+            {
+              "a": "Make the common case fast",
+              "b": "Optimize what happens most often"
+            },
+            {
+              "a": "Parallelism",
+              "b": "Do several things at the same time"
+            },
+            {
+              "a": "Locality",
+              "b": "Programs reuse recent and nearby data"
+            },
+            {
+              "a": "Amdahl's Law",
+              "b": "Limits the gain from improving one part"
+            }
+          ],
+          "why": "The four ideas fit together: locality and parallelism are what we speed up, and Amdahl's Law tells us how much it will help."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "You can speed up one of two routines. Routine A takes 80% of the time and can be made 2 times faster. Routine B takes 20% of the time and can be made 10 times faster. Which should you choose?",
+          "think": 30,
+          "pair": 45,
+          "answer": "Choose A. A gives 1 ÷ (0.2 + 0.8 ÷ 2) = 1.67 times overall. B gives 1 ÷ (0.8 + 0.2 ÷ 10) = 1.22 times overall. The bigger share of the time matters more than the bigger local speedup.",
+          "notes": {
+            "explain": "Let students use the calculator while they discuss.",
+            "discuss": "What would B's speedup need to be to match A?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "perf",
+          "skill": "Remember",
+          "think": 20,
+          "question": "What is the difference between response time and throughput?",
+          "answer": "Response time is how long one task takes. Throughput is how many tasks are completed per unit of time.",
+          "solution": "A user waiting for a page cares about response time. A data center serving many users cares about throughput."
+        },
+        {
+          "type": "arrange",
+          "concept": "cost",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the steps from silicon to a chip you can buy in order.",
+          "items": [
+            "Make identical chips on a silicon wafer",
+            "Cut the wafer into individual dies",
+            "Test each die and discard the faulty ones",
+            "Package the good dies and sell them"
+          ],
+          "why": "You can only test and package chips after they have been made and cut apart."
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "cpueq",
+          "skill": "Apply",
+          "think": 45,
+          "question": "A program executes 6 × 10⁹ instructions with an average CPI of 1.5 on a 3 GHz processor. What is its CPU time?",
+          "hint": "CPU time = instruction count × CPI ÷ clock rate.",
+          "answer": "3 seconds.",
+          "solution": "Cycles = 6 × 10⁹ × 1.5 = 9 × 10⁹ cycles.\nTime = 9 × 10⁹ ÷ (3 × 10⁹ cycles per second) = 3 s.",
+          "mistake": "Forgetting that 3 GHz means 3 × 10⁹ cycles per second."
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "amdahl",
+          "skill": "Analyze",
+          "think": 75,
+          "question": "A program spends 25% of its time in routine X and 75% in routine Y. X is made 5 times faster and Y is made 1.2 times faster. What is the overall speedup?",
+          "hint": "Add the new times of both parts, then divide old time by new time.",
+          "answer": "About 1.48 times.",
+          "solution": "Take the old time as 1.\nNew time = 0.25 ÷ 5 + 0.75 ÷ 1.2 = 0.05 + 0.625 = 0.675.\nSpeedup = 1 ÷ 0.675 ≈ 1.48.",
+          "mistake": "Averaging the two speedups instead of adding the new times."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "cpueq",
+          "skill": "Evaluate",
+          "title": "Exam practice: performance calculation",
+          "think": 120,
+          "question": "Machine X runs a program with 10⁹ instructions at CPI 2 on a 2 GHz clock. Machine Y runs the same program compiled to 1.2 × 10⁹ instructions at CPI 1.5 on a 2.5 GHz clock. Which is faster, and by how much?",
+          "hint": "Compute each machine's CPU time, then divide.",
+          "answer": "Y is faster: 1.39 times (X takes 1.00 s, Y takes 0.72 s).",
+          "solution": "X: 10⁹ × 2 ÷ (2 × 10⁹) = 1.00 s.\nY: 1.2 × 10⁹ × 1.5 ÷ (2.5 × 10⁹) = 0.72 s.\nSpeedup of Y over X = 1.00 ÷ 0.72 ≈ 1.39.",
+          "mistake": "Comparing only the clock rates or only the instruction counts."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "amdahl",
+          "skill": "Apply",
+          "title": "Exam practice: Amdahl limit",
+          "think": 75,
+          "question": "20% of a program is serial and cannot be improved. The other 80% can be spread over any number of processors. What is the maximum possible speedup?",
+          "answer": "5 times.",
+          "solution": "Even with infinitely many processors the parallel part takes zero time, so the new time is just the serial 0.2.\nMaximum speedup = 1 ÷ 0.2 = 5.",
+          "mistake": "Answering with the number of processors. The serial part sets the limit."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "cost",
+          "skill": "Apply",
+          "title": "Exam practice: cost",
+          "think": 60,
+          "question": "A wafer costs $6,000 and holds 300 dies. The yield is 70%. What is the cost of one good die?",
+          "answer": "About $28.57.",
+          "solution": "Good dies = 300 × 0.7 = 210.\nCost = $6,000 ÷ 210 ≈ $28.57.",
+          "mistake": "Dividing by 300 instead of by the number of good dies."
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 5,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Cost and performance",
+          "branches": [
+            {
+              "label": "Cost",
+              "example": "Wafer · Yield · Volume",
+              "section": "cost"
+            },
+            {
+              "label": "Performance",
+              "example": "Response time · Throughput",
+              "section": "perf"
+            },
+            {
+              "label": "CPU equation",
+              "example": "IC × CPI × cycle time",
+              "section": "equation"
+            },
+            {
+              "label": "Amdahl's Law",
+              "example": "Diminishing returns",
+              "section": "amdahl"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Chip cost depends on wafer cost, dies per wafer, yield and volume.",
+            "Response time is how long one task takes; throughput is tasks per unit of time.",
+            "A is n times faster than B when Time of B ÷ Time of A = n.",
+            "CPU time = instruction count × CPI × clock cycle time.",
+            "Clock rate alone does not decide performance.",
+            "Amdahl's Law: speedup = 1 ÷ ((1 − F) + F ÷ S), with diminishing returns.",
+            "Make the common case fast."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Understand and apply",
+          "understand": [
+            "Larger chips cost more than proportionally more.",
+            "The three factors of CPU time can trade against each other.",
+            "The part you do not improve limits the overall speedup."
+          ],
+          "apply": [
+            "Compute CPU time from instruction count, CPI and clock rate.",
+            "Estimate the overall speedup with Amdahl's Law."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "More GHz always means a faster CPU.",
+              "right": "CPU time also depends on instruction count and CPI."
+            },
+            {
+              "wrong": "A chip twice as big costs twice as much.",
+              "right": "It costs more than twice as much."
+            },
+            {
+              "wrong": "Improving 50% of a program 10 times makes it 10 times faster.",
+              "right": "The overall speedup is only about 1.8 times."
+            },
+            {
+              "wrong": "Faster by 5 seconds means 5 times faster.",
+              "right": "Speedup is a ratio of times."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "A chip's cost depends on how many good dies come from a wafer, so yield and die size matter. Response time measures one task and throughput measures many. CPU time equals instruction count times CPI times clock cycle time, so clock speed alone says little. Amdahl's Law says the unimproved part limits the gain, so architects make the common case fast."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "perf",
+              "question": "Which is a measure of response time?",
+              "options": [
+                "Seconds to open a web page",
+                "Pages served per second",
+                "The number of cores",
+                "The clock rate"
+              ],
+              "answer": 0,
+              "why": "Response time is how long one task takes.",
+              "misconception": "Pages per second is throughput, and cores and clock rate are not time measurements."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "cpueq",
+              "statement": "Clock cycle time is the inverse of clock rate.",
+              "answer": true,
+              "why": "A 4 GHz clock has a cycle time of 1 ÷ 4 GHz = 0.25 ns.",
+              "misconception": "Cycle time and clock rate are two ways of describing the same clock."
+            },
+            {
+              "level": "easy",
+              "concept": "cost",
+              "question": "What does yield mean?",
+              "options": [
+                "The fraction of dies on a wafer that work",
+                "The price of a wafer",
+                "The number of dies per wafer",
+                "The clock rate of a chip"
+              ],
+              "answer": 0,
+              "why": "Yield is the fraction of dies that work.",
+              "misconception": "Price and count are different quantities; yield is a fraction between 0 and 1."
+            },
+            {
+              "level": "medium",
+              "concept": "cpueq",
+              "question": "A program runs 2 billion instructions at CPI 1.5 on a 3 GHz CPU. What is its CPU time?",
+              "options": [
+                "0.5 s",
+                "1 s",
+                "1.5 s",
+                "2 s"
+              ],
+              "answer": 1,
+              "why": "2 × 10⁹ × 1.5 ÷ (3 × 10⁹) = 1 s.",
+              "misconception": "Multiply instructions by CPI to get cycles, then divide by the cycles per second."
+            },
+            {
+              "level": "medium",
+              "concept": "perf",
+              "question": "A runs a program in 8 s and B in 20 s. How many times faster is A than B?",
+              "options": [
+                "0.4",
+                "2.5",
+                "12",
+                "1.5"
+              ],
+              "answer": 1,
+              "why": "20 ÷ 8 = 2.5.",
+              "misconception": "Divide B's time by A's time; subtracting gives 12 seconds, which is a difference, not a speedup."
+            },
+            {
+              "level": "medium",
+              "concept": "cost",
+              "question": "A wafer costs $9,000 and holds 300 dies at 60% yield. What does one good die cost?",
+              "options": [
+                "$30",
+                "$50",
+                "$60",
+                "$90"
+              ],
+              "answer": 1,
+              "why": "Good dies = 300 × 0.6 = 180, and $9,000 ÷ 180 = $50.",
+              "misconception": "Divide by the number of good dies (180), not by the 300 dies on the wafer."
+            },
+            {
+              "level": "hard",
+              "concept": "amdahl",
+              "question": "30% of a program's time is made 3 times faster. What is the overall speedup?",
+              "options": [
+                "3 times",
+                "1.25 times",
+                "1.5 times",
+                "0.9 times"
+              ],
+              "answer": 1,
+              "why": "1 ÷ (0.7 + 0.3 ÷ 3) = 1 ÷ 0.8 = 1.25.",
+              "misconception": "Only 30% improves, so the overall speedup is far below 3."
+            },
+            {
+              "level": "hard",
+              "concept": "cpueq",
+              "question": "Which change lowers CPU time without changing the clock rate or the instruction count?",
+              "options": [
+                "Lowering the CPI",
+                "Raising the CPI",
+                "Adding more instructions",
+                "Lengthening the clock cycle"
+              ],
+              "answer": 0,
+              "why": "CPU time is proportional to CPI, so a lower CPI means less time.",
+              "misconception": "The other options raise the time or change a factor the question holds fixed."
+            },
+            {
+              "level": "challenge",
+              "concept": "cpueq",
+              "question": "Machine P: 3 × 10⁹ instructions, CPI 1.0, 3 GHz. Machine Q: 2 × 10⁹ instructions, CPI 2.0, 4 GHz. Which is faster?",
+              "options": [
+                "P is 1.33 times faster",
+                "Q is 1.33 times faster",
+                "They take the same time",
+                "P is 2 times faster"
+              ],
+              "answer": 2,
+              "why": "P: 3 × 10⁹ × 1.0 ÷ 3 × 10⁹ = 1 s. Q: 2 × 10⁹ × 2.0 ÷ 4 × 10⁹ = 1 s.",
+              "misconception": "Q has the faster clock but needs more cycles per instruction, so the two effects cancel."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "What does yield mean and why does it matter for cost?",
+              "a": "Yield is the fraction of dies that work. Cost per good die rises when yield falls.",
+              "concept": "cost"
+            },
+            {
+              "q": "State the CPU performance equation.",
+              "a": "CPU time = instruction count × CPI × clock cycle time (= instruction count × CPI ÷ clock rate).",
+              "concept": "cpueq"
+            },
+            {
+              "q": "What does Amdahl's Law say?",
+              "a": "Overall speedup = 1 ÷ ((1 − F) + F ÷ S). The part you do not improve limits the gain.",
+              "concept": "amdahl"
+            },
+            {
+              "q": "Name the three quantitative principles.",
+              "a": "Make the common case fast, take advantage of parallelism, and the principle of locality.",
+              "concept": "principles"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

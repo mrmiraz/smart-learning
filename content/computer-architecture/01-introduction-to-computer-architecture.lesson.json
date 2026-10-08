@@ -1,0 +1,944 @@
+{
+  "id": "ca-01-introduction",
+  "title": "Introduction to Computer Architecture",
+  "subtitle": "What is inside a computer, and who decides how it is built?",
+  "level": "Beginner",
+  "duration": 60,
+  "objectives": [
+    "Explain what computer architecture is and how it differs from computer organization",
+    "Name the main components of a computer: CPU, memory, I/O and the interconnect",
+    "Describe how the address, data and control buses move information",
+    "Explain what a computer architect designs and why the work matters"
+  ],
+  "concepts": [
+    {
+      "id": "def",
+      "label": "Architecture vs organization",
+      "section": "definition"
+    },
+    {
+      "id": "parts",
+      "label": "Components of a computer",
+      "section": "components"
+    },
+    {
+      "id": "bus",
+      "label": "System interconnection",
+      "section": "interconnect"
+    },
+    {
+      "id": "architect",
+      "label": "Role of the architect",
+      "section": "architect"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "You tap *Send*. A moment later a friend's phone buzzes. How many different pieces of hardware had to cooperate?",
+          "clues": [
+            "Your touch screen, a processor, memory, a radio chip and storage all took part.",
+            "Every one of them was designed to fit together, like an orchestra.",
+            "Someone decided what each part does and how the parts talk. That job is **computer architecture**."
+          ],
+          "notes": {
+            "explain": "Let students name the parts before you reveal the clues. Do not define architecture yet.",
+            "ask": "What is the most important part of a phone, and what would stop working without the others?",
+            "difficulty": "Easy: curiosity warm-up."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the four objectives aloud. Tell students they will see them again in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "definition",
+      "label": "Definition",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "def",
+          "title": "Architecture versus organization",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Computer architecture",
+                "items": [
+                  "What a **programmer can see**",
+                  "Instruction set, data types, addressing modes",
+                  "Answers: *what* can the computer do?"
+                ]
+              },
+              "right": {
+                "title": "Computer organization",
+                "items": [
+                  "How those features are **built in hardware**",
+                  "Control signals, interfaces, memory technology",
+                  "Answers: *how* does it do it?"
+                ]
+              }
+            }
+          ],
+          "why": "Companies can ship a new, faster chip (new organization) that still runs your old programs (same architecture).",
+          "explainAgain": {
+            "beginner": "Architecture is the list of things the computer promises to do. Organization is the way the hardware keeps that promise.",
+            "technical": "Architecture is the programmer-visible interface: the instruction set, registers, data types and addressing modes. Organization (microarchitecture) is the hardware that implements it: datapaths, control logic, caches and buses.",
+            "analogy": "Two cars with the same pedals and steering wheel but different engines."
+          },
+          "deeper": {
+            "text": "The same instruction set (for example x86-64 or ARM) can be implemented by many different organizations across chip generations, which is why old software keeps working on new hardware."
+          },
+          "notes": {
+            "explain": "Stress that this split is the single most important idea of the course.",
+            "terms": [
+              "**Architecture** — the programmer-visible behavior",
+              "**Organization** — how that behavior is implemented",
+              "**ISA** — instruction set architecture"
+            ],
+            "misconceptions": [
+              "Students treat the two words as synonyms."
+            ],
+            "ask": "If a new chip adds a bigger cache, did the architecture change?"
+          },
+          "real": "Intel and AMD laptops both use the x86-64 instruction set, so the same Windows program runs on either, even though the chips are built differently inside. iPhones and Apple laptops share the Arm instruction set in the same way.",
+          "mistake": {
+            "wrong": "Architecture and organization mean the same thing.",
+            "right": "Architecture is what the programmer sees. Organization is how the hardware builds it.",
+            "why": "Two chips can share an architecture and still be organized very differently."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "def",
+          "title": "A car analogy",
+          "blocks": [
+            {
+              "type": "analogy",
+              "realTitle": "Driving a car",
+              "techTitle": "Computer design",
+              "pairs": [
+                {
+                  "real": "**Pedals and steering wheel**",
+                  "tech": "**Instruction set** (architecture)",
+                  "note": "what the driver uses"
+                },
+                {
+                  "real": "**Engine type** (petrol or electric)",
+                  "tech": "**Organization**",
+                  "note": "how it works inside"
+                },
+                {
+                  "real": "**Same controls, new engine**",
+                  "tech": "**New chip, same software**",
+                  "note": "everything still works"
+                }
+              ]
+            }
+          ],
+          "why": "It explains why you can upgrade your phone and still run the same apps."
+        },
+        {
+          "type": "mcq",
+          "concept": "def",
+          "skill": "Understand",
+          "question": "Whether a computer has a *multiply* instruction is a decision about…",
+          "options": [
+            "Architecture",
+            "Organization",
+            "Packaging",
+            "Cooling"
+          ],
+          "answer": 0,
+          "why": "An instruction the programmer can use is part of the architecture.",
+          "feedback": [
+            "",
+            "Organization decides *how* multiply is carried out inside (a dedicated circuit, or repeated addition). Having the instruction is architecture.",
+            "Packaging is the physical housing of the chip.",
+            "Cooling is about removing heat."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "def",
+          "skill": "Understand",
+          "statement": "Two processors from different companies can have different internal designs and still run the same programs.",
+          "answer": true,
+          "why": "They share the same instruction set architecture (for example x86-64) but are organized differently inside."
+        }
+      ]
+    },
+    {
+      "id": "components",
+      "label": "Components",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "parts",
+          "title": "Four building blocks",
+          "blocks": [
+            {
+              "type": "flow",
+              "layout": "grid",
+              "cols": 2,
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "CPU",
+                  "sub": "the processor",
+                  "children": [
+                    "ALU",
+                    "Control unit",
+                    "Registers"
+                  ],
+                  "note": "The **CPU** fetches instructions and carries them out.",
+                  "example": "The processor chip in your laptop or phone.",
+                  "links": [
+                    1,
+                    3
+                  ]
+                },
+                {
+                  "label": "Memory",
+                  "sub": "working storage",
+                  "children": [
+                    "Program",
+                    "Data"
+                  ],
+                  "note": "**Memory** holds the running program and its data. It is fast, but loses its contents when power is off.",
+                  "example": "The RAM sticks in a laptop.",
+                  "links": [
+                    0,
+                    3
+                  ]
+                },
+                {
+                  "label": "I/O devices",
+                  "sub": "the outside world",
+                  "children": [
+                    "Keyboard",
+                    "Screen",
+                    "Disk",
+                    "Network"
+                  ],
+                  "note": "**Input/output** devices connect the computer to people and other machines.",
+                  "example": "A keyboard, a screen, an SSD or a Wi-Fi chip.",
+                  "links": [
+                    3
+                  ]
+                },
+                {
+                  "label": "Interconnect",
+                  "sub": "the wiring",
+                  "children": [
+                    "Address bus",
+                    "Data bus",
+                    "Control bus"
+                  ],
+                  "note": "The **interconnect** (buses) carries signals between all the other parts.",
+                  "example": "The wiring on the motherboard that joins everything.",
+                  "links": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "These four blocks appear in every device you own, from a smartwatch to a data-center server.",
+          "explainAgain": {
+            "beginner": "Think of a kitchen: the cook is the CPU, the counter is memory, the doors and windows are I/O, and the people carrying plates are the interconnect."
+          },
+          "notes": {
+            "explain": "Click each box as you introduce it.",
+            "terms": [
+              "**CPU**",
+              "**Memory**",
+              "**I/O**",
+              "**Bus** — a shared set of wires"
+            ],
+            "misconceptions": [
+              "Students call the whole computer 'the CPU'."
+            ]
+          },
+          "real": "Every smartphone, laptop, game console and car computer is built from these same four blocks.",
+          "mistake": {
+            "wrong": "Memory and storage are the same thing.",
+            "right": "Memory (RAM) holds what is running now and loses its contents without power. Storage (SSD or disk) keeps files permanently.",
+            "why": "Programs are copied from storage into memory before the CPU runs them."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "parts",
+          "title": "The stored-program idea",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Input",
+                  "sub": "keyboard, disk, network",
+                  "note": "Programs and data come in from an input device."
+                },
+                {
+                  "label": "Memory",
+                  "sub": "program + data",
+                  "note": "Both the program and its data are kept here. This is the **stored-program** idea (von Neumann)."
+                },
+                {
+                  "label": "CPU",
+                  "sub": "fetch and execute",
+                  "note": "The CPU fetches instructions and data from memory and works on them."
+                },
+                {
+                  "label": "Output",
+                  "sub": "screen, speaker",
+                  "note": "Results are sent to an output device."
+                }
+              ]
+            }
+          ],
+          "why": "Because programs are just data in memory, a computer can load a brand-new program without being rewired.",
+          "deeper": {
+            "text": "In a **Harvard** architecture, instructions and data use separate memories. Most modern CPUs mix both ideas, using separate instruction and data caches on top of one main memory."
+          }
+        },
+        {
+          "type": "match",
+          "concept": "parts",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each component with its job.",
+          "pairs": [
+            {
+              "a": "CPU",
+              "b": "Executes instructions"
+            },
+            {
+              "a": "Memory",
+              "b": "Holds the running program and data"
+            },
+            {
+              "a": "I/O devices",
+              "b": "Connect the computer to the outside world"
+            },
+            {
+              "a": "Bus",
+              "b": "Carries signals between components"
+            }
+          ],
+          "why": "Each block has one clear job, and they work together."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What is the difference between architecture and organization?",
+              "a": "Architecture is what the programmer sees (what the computer can do). Organization is how the hardware implements it.",
+              "concept": "def"
+            },
+            {
+              "q": "Name the four main building blocks of a computer.",
+              "a": "CPU, memory, input/output devices and the interconnect (buses).",
+              "concept": "parts"
+            },
+            {
+              "q": "What does \"stored program\" mean?",
+              "a": "Instructions and data are both kept in memory, so a new program can be loaded without rewiring the machine.",
+              "concept": "parts"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "interconnect",
+      "label": "Buses",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "bus",
+          "title": "Three buses, three jobs",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "Address bus",
+                  "sub": "says where",
+                  "note": "Carries the **address** of the memory location or device. It flows one way, from the CPU outwards."
+                },
+                {
+                  "label": "Data bus",
+                  "sub": "carries the value",
+                  "note": "Carries the actual **data** being read or written. It flows in both directions."
+                },
+                {
+                  "label": "Control bus",
+                  "sub": "manages the transfer",
+                  "note": "Carries signals such as **read**, **write** and the clock."
+                }
+              ]
+            }
+          ],
+          "why": "The width of these buses limits how much memory a computer can address and how much data moves at once.",
+          "explainAgain": {
+            "beginner": "To ask a friend for a book: the address bus is the shelf number, the data bus is the book being handed over, and the control bus is the word \"please give\" or \"please put back\"."
+          },
+          "deeper": {
+            "text": "A bus with *n* address lines can name 2^n different locations. A 32-bit address bus can address 2^32 = 4,294,967,296 bytes, which is 4 GiB."
+          },
+          "real": "The slots for RAM and for a graphics card on a motherboard, and the USB port you plug devices into, are all buses carrying addresses, data and control signals.",
+          "mistake": {
+            "wrong": "The data bus carries the address.",
+            "right": "The address bus carries the address. The data bus carries the value."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "bus",
+          "skill": "Apply",
+          "question": "The CPU wants the value stored at memory address `0x2000`. Which bus carries the address `0x2000`?",
+          "options": [
+            "Address bus",
+            "Data bus",
+            "Control bus"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "flow",
+              "layout": "column",
+              "arrows": true,
+              "nodes": [
+                {
+                  "label": "CPU puts 0x2000 on the address bus",
+                  "note": "The address bus names the memory location."
+                },
+                {
+                  "label": "CPU asserts READ on the control bus",
+                  "note": "The control bus says what to do."
+                },
+                {
+                  "label": "Memory puts the value on the data bus",
+                  "note": "The data bus carries the value back."
+                },
+                {
+                  "label": "CPU copies the value into a register",
+                  "note": "The read is complete."
+                }
+              ]
+            }
+          ],
+          "result": "The address goes out on the address bus; the answer comes back on the data bus."
+        },
+        {
+          "type": "arrange",
+          "concept": "bus",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put a memory read in the correct order.",
+          "items": [
+            "CPU places the address on the address bus",
+            "CPU asserts READ on the control bus",
+            "Memory places the data on the data bus",
+            "CPU copies the data into a register"
+          ],
+          "why": "The memory must know where to look and what to do before it can send the value back."
+        },
+        {
+          "type": "mcq",
+          "concept": "bus",
+          "skill": "Apply",
+          "question": "A computer has a 16-bit address bus. How many different memory locations can it address?",
+          "options": [
+            "16",
+            "256",
+            "65,536",
+            "1,048,576"
+          ],
+          "answer": 2,
+          "why": "2^16 = 65,536 different addresses.",
+          "feedback": [
+            "16 is the number of wires, not the number of addresses. Each wire doubles the count.",
+            "256 is 2^8, the count for 8 address lines.",
+            "",
+            "That is 2^20, the count for 20 address lines."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "architect",
+      "label": "The Architect",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "architect",
+          "title": "What does a computer architect do?",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Decides **what** the computer can do (the instruction set)",
+                "Decides **how** it is built (CPU, caches, memory, buses)",
+                "Balances **performance, cost and power**",
+                "Keeps old software working on new hardware"
+              ]
+            }
+          ],
+          "why": "The chip in your phone, the servers behind a website and the processor training an AI model all come from an architect's trade-offs.",
+          "notes": {
+            "explain": "Stress the word *balance*: there is no perfect chip, only the best compromise for a purpose.",
+            "ask": "Would a smartwatch chip and a supercomputer chip make the same trade-offs? Why not?",
+            "misconceptions": [
+              "Students think architects only design buildings, or only design the chip's circuits."
+            ]
+          },
+          "real": "The processors in phones, laptops, data centers and AI accelerators all come from architecture teams making these trade-offs for different goals."
+        },
+        {
+          "type": "concept",
+          "concept": "architect",
+          "title": "Layers of abstraction",
+          "blocks": [
+            {
+              "type": "flow",
+              "layout": "column",
+              "nodes": [
+                {
+                  "label": "Applications",
+                  "sub": "the apps you use",
+                  "note": "Programs written by developers."
+                },
+                {
+                  "label": "Operating system",
+                  "sub": "manages resources",
+                  "note": "Shares the hardware between programs."
+                },
+                {
+                  "label": "Instruction set architecture",
+                  "sub": "the hardware/software contract",
+                  "note": "The **ISA** is the line between what software asks for and what hardware must do."
+                },
+                {
+                  "label": "Organization",
+                  "sub": "CPU and memory design",
+                  "note": "How the processor, caches and buses are built."
+                },
+                {
+                  "label": "Logic and circuits",
+                  "sub": "gates and transistors",
+                  "note": "The physical components that do the work."
+                }
+              ]
+            }
+          ],
+          "why": "Each layer hides the detail below it, so people can work on one layer without knowing everything underneath.",
+          "explainAgain": {
+            "beginner": "You use a phone without knowing how its chip works. That is abstraction: you see only the layer you need."
+          }
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Why can the same program run on an Intel processor and an AMD processor even though their insides are different?",
+          "think": 20,
+          "pair": 40,
+          "answer": "Both implement the same instruction set architecture (x86-64). A program depends only on the ISA, so different organizations can run it.",
+          "notes": {
+            "explain": "Walk around and listen for the words *same instruction set*.",
+            "discuss": "What happens to a program built for an ARM phone if you try to run it on an x86 laptop?"
+          }
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "architect",
+          "question": "Should a smartwatch and a supercomputer follow the same architecture? Discuss.",
+          "seconds": 60,
+          "ideas": [
+            "They can share an instruction set, but their organizations will look very different.",
+            "A smartwatch optimizes battery life and size.",
+            "A supercomputer optimizes total throughput and uses thousands of chips.",
+            "Architecture is the contract; organization adapts to the goal."
+          ],
+          "notes": {
+            "explain": "Let the timer run, then reveal the key ideas one at a time and match them to what students said.",
+            "discuss": "Which goal would force a different instruction set, and which only a different organization?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "parts",
+          "skill": "Remember",
+          "think": 20,
+          "question": "Name the four main building blocks of a computer.",
+          "answer": "CPU, memory, input/output devices and the interconnect (buses).",
+          "solution": "The CPU executes instructions, memory holds programs and data, I/O devices connect to the outside world, and the buses carry signals between them."
+        },
+        {
+          "type": "find",
+          "concept": "parts",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement below is wrong. Click it.",
+          "lines": [
+            "1. The CPU executes instructions.",
+            "2. Main memory keeps its contents when the power is turned off.",
+            "3. I/O devices connect the computer to the outside world.",
+            "4. Buses carry signals between the components."
+          ],
+          "wrong": 1,
+          "explain": "Main memory (RAM) is volatile: it loses its contents without power. Disks and SSDs keep data.",
+          "fix": "Main memory loses its contents when power is off."
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "def",
+          "skill": "Apply",
+          "think": 45,
+          "question": "Is each design decision about *architecture* or *organization*?\n(a) Adding a new instruction that adds two vectors\n(b) Making the multiplier use a faster circuit\n(c) Choosing 64-bit registers that programs can use\n(d) Adding a bigger cache",
+          "hint": "Ask: can a programmer see this change in the instructions or registers they use?",
+          "answer": "(a) architecture, (b) organization, (c) architecture, (d) organization.",
+          "solution": "(a) A new instruction is visible to programmers, so it is architecture.\n(b) A faster circuit changes how multiply is done, not what programmers see, so it is organization.\n(c) Register size is visible to programs, so it is architecture.\n(d) A cache is transparent to programs, so it is organization."
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "architect",
+          "skill": "Evaluate",
+          "think": 75,
+          "question": "A company wants a new chip that is twice as fast but must still run every program its customers already own. Which kind of change is safest, and what must they avoid changing?",
+          "hint": "Which layer do existing programs depend on?",
+          "answer": "Change the organization (deeper pipelines, bigger caches, faster circuits). Keep the instruction set architecture the same.",
+          "solution": "Existing programs depend only on the ISA. Improving the organization makes the same instructions run faster without breaking anything. New instructions can be added, but removing or changing existing ones would break old software."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "bus",
+          "skill": "Apply",
+          "title": "Exam practice: numerical",
+          "think": 75,
+          "question": "A processor has a 24-bit address bus and addresses one byte per address. What is the largest memory it can address?",
+          "hint": "Each extra address line doubles the number of addresses.",
+          "answer": "2^24 = 16,777,216 addresses, which is 16 MiB.",
+          "solution": "With n address lines there are 2^n different addresses.\n2^24 = 16,777,216.\nAt one byte per address that is 16,777,216 bytes = 16 × 1,048,576 = 16 MiB.",
+          "mistake": "Writing 24 × 8 or 24² instead of 2 raised to the power 24."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "def",
+          "skill": "Understand",
+          "title": "Exam practice: short answer",
+          "think": 90,
+          "question": "In two or three sentences, explain the difference between computer architecture and computer organization. Give one example of each.",
+          "answer": "Architecture is the programmer-visible design: instruction set, registers, addressing modes. Organization is how it is implemented in hardware: datapath, caches, buses. Example: having an ADD instruction is architecture; building it with a fast adder circuit is organization.",
+          "solution": "A good answer names both ideas, says who sees each one (programmer versus hardware designer) and gives an example on each side.",
+          "mistake": "Using the two words as if they meant the same thing, or describing only hardware."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "parts",
+          "skill": "Analyze",
+          "title": "Exam practice: diagram interpretation",
+          "think": 90,
+          "question": "A diagram (a simplified model) shows a keyboard connected to an I/O interface, and the I/O interface, the CPU and the memory all attached to one system bus. A student says the keyboard sends its data straight to the CPU. What is wrong with that, and what path does the data take?",
+          "answer": "Devices do not connect directly to the CPU. The keyboard's data goes through the I/O interface onto the system bus, and from there to the CPU or to memory.",
+          "solution": "In this model the system bus is the shared path. Every transfer between the CPU, memory and I/O devices uses the address, data and control lines of that bus.",
+          "mistake": "Drawing arrows between components that are really joined only through the bus."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "architect",
+          "skill": "Evaluate",
+          "title": "Interview question",
+          "think": 90,
+          "question": "A friend with no technical background asks what a computer architect does. Explain it in three sentences.",
+          "answer": "An architect decides what a computer can do and how it is built. They balance speed, cost and power for a purpose such as a phone or a data center. They also keep old software working on new hardware.",
+          "solution": "A strong answer is jargon-free, covers what and how, and mentions the trade-offs between performance, cost and power."
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 5,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Computer architecture",
+          "branches": [
+            {
+              "label": "Definition",
+              "example": "Architecture vs organization",
+              "section": "definition"
+            },
+            {
+              "label": "Components",
+              "example": "CPU · Memory · I/O · Interconnect",
+              "section": "components"
+            },
+            {
+              "label": "Buses",
+              "example": "Address · Data · Control",
+              "section": "interconnect"
+            },
+            {
+              "label": "The architect",
+              "example": "Balances performance, cost, power",
+              "section": "architect"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Architecture is what the programmer sees; organization is how it is built.",
+            "A computer has four blocks: CPU, memory, I/O and an interconnect.",
+            "Instructions and data share memory (the stored-program idea).",
+            "The address bus says where, the data bus carries the value, the control bus says what to do.",
+            "An n-bit address bus can name 2^n locations.",
+            "Architects balance performance, cost and power, and keep old software working."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Understand and apply",
+          "understand": [
+            "Instructions and data share memory (stored program).",
+            "Address, data and control buses each have one job.",
+            "Architects balance performance, cost and power."
+          ],
+          "apply": [
+            "Classify a design decision as architecture or organization.",
+            "Work out how many locations an n-bit address bus can name."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "Architecture and organization mean the same thing.",
+              "right": "Architecture is what the programmer sees; organization is how it is built."
+            },
+            {
+              "wrong": "The data bus carries the address.",
+              "right": "The address bus carries the address; the data bus carries the value."
+            },
+            {
+              "wrong": "A faster chip always needs a new instruction set.",
+              "right": "A new organization can run the same ISA faster."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Computer architecture is the design of a computer as the programmer sees it, while organization is how the hardware builds it. A computer has a CPU, memory, I/O devices and an interconnect. Programs and data live together in memory. The address, data and control buses move information between parts. Architects balance performance, cost and power while keeping old software working."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "def",
+              "question": "Which describes computer *architecture*?",
+              "options": [
+                "The attributes of a computer that a programmer can see",
+                "The materials used to make the chip",
+                "How the hardware is wired inside",
+                "The size of the computer case"
+              ],
+              "answer": 0,
+              "why": "Architecture is the programmer-visible behavior of the machine.",
+              "misconception": "How the hardware is wired inside is organization, not architecture."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "parts",
+              "statement": "Memory holds both the running program and its data.",
+              "answer": true,
+              "why": "That is the stored-program idea.",
+              "misconception": "Programs are kept in memory just like data."
+            },
+            {
+              "level": "easy",
+              "concept": "parts",
+              "question": "Which component carries out instructions?",
+              "options": [
+                "Memory",
+                "The CPU",
+                "The bus",
+                "The keyboard"
+              ],
+              "answer": 1,
+              "why": "The CPU fetches and executes instructions.",
+              "misconception": "Memory stores them and buses carry signals; neither executes anything."
+            },
+            {
+              "level": "medium",
+              "concept": "bus",
+              "question": "Which bus carries the memory address from the CPU?",
+              "options": [
+                "Data bus",
+                "Address bus",
+                "Control bus",
+                "Power bus"
+              ],
+              "answer": 1,
+              "why": "The address bus names the memory location.",
+              "misconception": "The data bus carries the value, and the control bus carries signals such as READ."
+            },
+            {
+              "level": "medium",
+              "concept": "bus",
+              "question": "A 20-bit address bus can address how many locations?",
+              "options": [
+                "20",
+                "400",
+                "1,048,576",
+                "2,000,000"
+              ],
+              "answer": 2,
+              "why": "2^20 = 1,048,576.",
+              "misconception": "Each extra address line doubles the number of locations, so the count is 2 raised to the number of lines."
+            },
+            {
+              "level": "medium",
+              "concept": "def",
+              "question": "Adding a bigger cache without changing what programmers can see is a change to the…",
+              "options": [
+                "Architecture",
+                "Organization",
+                "Instruction set",
+                "Programming language"
+              ],
+              "answer": 1,
+              "why": "A cache is invisible to programs, so it is an organization change.",
+              "misconception": "Architecture covers only what programs can see and use."
+            },
+            {
+              "level": "hard",
+              "concept": "architect",
+              "question": "Why can one program run on processors from different companies?",
+              "options": [
+                "They are built from the same materials",
+                "They implement the same instruction set architecture",
+                "They have identical internal circuits",
+                "The program contains its own CPU"
+              ],
+              "answer": 1,
+              "why": "Programs depend only on the ISA, not on how the chip is built.",
+              "misconception": "Different companies usually have different internal designs; the shared part is the ISA."
+            },
+            {
+              "level": "hard",
+              "concept": "bus",
+              "question": "The CPU writes the value 7 to address 0x10. Which line is correct?",
+              "options": [
+                "Address bus: 7, Data bus: 0x10, Control: WRITE",
+                "Address bus: 0x10, Data bus: 7, Control: WRITE",
+                "Address bus: 0x10, Data bus: 7, Control: READ",
+                "Address bus: WRITE, Data bus: 0x10, Control: 7"
+              ],
+              "answer": 1,
+              "why": "The address bus carries the location, the data bus the value, and the control bus the operation.",
+              "misconception": "Keep the three jobs straight: where, what, and how."
+            },
+            {
+              "level": "challenge",
+              "concept": "architect",
+              "question": "A maker plans a new processor generation. Which change would force customers to rewrite or recompile existing programs?",
+              "options": [
+                "Making the caches larger",
+                "Removing instructions that programs already use",
+                "Using a faster manufacturing process",
+                "Adding more bus lines between the CPU and memory"
+              ],
+              "answer": 1,
+              "why": "Removing instructions changes the architecture, so old programs may no longer run.",
+              "misconception": "Caches, manufacturing and bus width are organization or technology changes that old programs never notice."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "What is the difference between architecture and organization?",
+              "a": "Architecture is what the programmer sees; organization is how the hardware implements it.",
+              "concept": "def"
+            },
+            {
+              "q": "Name the three buses and what each carries.",
+              "a": "Address bus: the location. Data bus: the value. Control bus: signals such as read, write and clock.",
+              "concept": "bus"
+            },
+            {
+              "q": "What is the stored-program idea?",
+              "a": "Instructions and data are both stored in memory.",
+              "concept": "parts"
+            },
+            {
+              "q": "What does a computer architect balance?",
+              "a": "Performance, cost and power, while keeping old software working.",
+              "concept": "architect"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ],
+  "practiceLevels": 4
+}
