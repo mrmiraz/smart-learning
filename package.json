@@ -5,9 +5,11 @@
   "description": "Password-protected slide-based courses: Java and Computer Architecture",
   "scripts": {
     "start": "python3 -m http.server 8080 -d dist",
-    "build": "node --env-file=.env build.js"
+    "build": "node --env-file=.env build.js",
+    "check": "node lesson-validate.js"
   },
   "dependencies": {
+    "qrcode-generator": "^2.0.4",
     "reveal.js": "^6.0.2",
     "staticrypt": "^3.5.4"
   }

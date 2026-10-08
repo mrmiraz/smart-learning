@@ -25,6 +25,8 @@ jobs:
       - run: node build.js
         env:
           ACCESS_PASSWORD: ${{ secrets.ACCESS_PASSWORD }}
+          # Address printed into the QR codes. Set a repository variable PUBLIC_URL to override (custom domain).
+          PUBLIC_URL: ${{ vars.PUBLIC_URL != '' && vars.PUBLIC_URL || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

@@ -2,9 +2,8 @@
   --bg: #f6f7fb; --card: #fff; --text: #0f172a; --muted: #64748b; --line: #e2e8f0;
   --accent: #4f46e5; --accent2: #7c3aed; --chip: #f1f5f9;
 }
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #0b1020; --card: #131a30; --text: #e8ecf8; --muted: #94a3b8; --line: #243052; --chip: #0e1428; }
-}
+:root[data-theme="dark"] { --bg: #0b1020; --card: #131a30; --text: #e8ecf8; --muted: #94a3b8; --line: #243052; --chip: #0e1428; color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
 * { box-sizing: border-box; }
 body {
   margin: 0; min-height: 100vh; color: var(--text); -webkit-font-smoothing: antialiased;
@@ -40,3 +39,21 @@ body {
 .topics a:hover::after { transform: translateX(3px); color: var(--accent); }
 .topics a:focus-visible { outline: 3px solid rgba(79, 70, 229, .45); outline-offset: 2px; }
 footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 0 0 32px; }
+
+.nav .spacer { flex: 1; }
+.theme-toggle { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; cursor: pointer; color: var(--text);
+  background: var(--card); border: 1px solid var(--line); transition: transform .12s, border-color .12s; }
+.theme-toggle:hover { transform: translateY(-1px); border-color: var(--accent); }
+.theme-toggle:focus-visible { outline: 3px solid rgba(79, 70, 229, .45); outline-offset: 2px; }
+.theme-toggle .moon { display: none; }
+:root[data-theme="dark"] .theme-toggle .sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .moon { display: block; }
+
+.topics a .tag { margin-left: auto; margin-right: .6rem; padding: .15rem .6rem; border-radius: 999px; font-size: .72rem; font-weight: 700; color: var(--accent); background: var(--card); border: 1px solid var(--line); white-space: nowrap; }
+.topics a:has(.tag)::after { margin-left: 0; }
+
+.topics li { display: flex; gap: .5rem; align-items: stretch; }
+.topics li > a { flex: 1; min-width: 0; }
+.qrbtn { flex: none; padding: 0 .8rem; border-radius: 12px; border: 1px solid var(--line); background: var(--chip); color: var(--muted); font: 700 .75rem ui-sans-serif, system-ui, sans-serif; letter-spacing: .06em; cursor: pointer; }
+.qrbtn:hover { border-color: var(--accent); color: var(--accent); }
+.qrbtn:focus-visible { outline: 3px solid rgba(79, 70, 229, .45); outline-offset: 2px; }

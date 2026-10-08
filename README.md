@@ -3,7 +3,14 @@
 Slide-based courses (Java, Computer Architecture). Static site, no database, deployed to GitHub Pages.
 Every page is encrypted with one shared password (StatiCrypt); learners enter it in the browser.
 
-## Add content
+## Add a topic (interactive lesson)
+Just tell Claude Code the topic (course, level, duration and objectives are optional). The lesson rules live in
+`docs/lesson-spec.md` and are applied automatically through `CLAUDE.md` and the `new-lesson` skill, so you never
+paste the brief again. A topic becomes `content/<course>/<topic>.lesson.json`; the shared engine
+(`assets/lesson.js`) provides presentation mode, questions, practice, quiz and the learning report.
+`npm run check` validates a lesson against the spec. Examples: `content/computer-architecture/03-cost-performance-quantitative-principles.lesson.json`, `docs/examples/cpu-basics.lesson.json`.
+
+## Add plain Markdown slides (older style)
 1. Add a topic to `content/courses.json`.
 2. Write slides in `content/<course>/<topic>.md` (`---` separates slides, `Note:` starts speaker notes).
 
@@ -11,6 +18,9 @@ Every page is encrypted with one shared password (StatiCrypt); learners enter it
     cp .env.example .env      # set ACCESS_PASSWORD
     npm install
     npm run build && npm start   # http://localhost:8080
+
+## QR codes
+Every lecture and every quiz has a QR code (press `L` in a lesson, or use the **QR** button next to a topic on the home page). Scanning the quiz code opens the quiz directly. The codes use the address the page is opened at; on `localhost` they would only work on your computer, so type the real address into the QR dialog, or set `PUBLIC_URL` (the GitHub Pages workflow does this for you).
 
 ## Deploy
 Keep this repo **private**: `content/` holds the plaintext slides. Only the encrypted `dist/` is published.

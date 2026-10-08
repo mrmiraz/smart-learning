@@ -1,0 +1,37 @@
+/* Inlined into every page's <head> so it works even when external CSS fails to load. */
+.sl-loader { --l-bg: #f6f7fb; --l-text: #0f172a; --l-muted: #64748b; --l-track: #e2e8f0; --l-a: #4f46e5; --l-b: #7c3aed;
+  position: fixed; inset: 0; z-index: 2147483647; display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--l-text); -webkit-font-smoothing: antialiased;
+  background: radial-gradient(900px 500px at 15% -10%, rgba(99,102,241,.28), transparent 60%), radial-gradient(700px 500px at 100% 110%, rgba(168,85,247,.22), transparent 60%), var(--l-bg);
+  transition: opacity .35s ease, visibility .35s; }
+:root[data-theme="dark"] .sl-loader { --l-bg: #0b1020; --l-text: #e8ecf8; --l-muted: #94a3b8; --l-track: #243052; --l-a: #818cf8; --l-b: #c084fc; }
+.sl-loader.sl-done { opacity: 0; visibility: hidden; pointer-events: none; }
+html.sl-loading, html.sl-loading body { overflow: hidden; }
+
+.sl-loader-box { display: grid; justify-items: center; gap: 18px; }
+.sl-mark { position: relative; width: 72px; height: 72px; display: grid; place-items: center; }
+.sl-mark::before { content: ""; position: absolute; inset: 0; border-radius: 22px; border: 3px solid var(--l-track); border-top-color: var(--l-a); border-right-color: var(--l-b);
+  animation: sl-spin 1.1s linear infinite; }
+.sl-cap { width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, var(--l-a), var(--l-b)); box-shadow: 0 10px 24px -8px rgba(79,70,229,.8); animation: sl-bob 1.6s ease-in-out infinite; }
+.sl-name { font-weight: 700; font-size: 1.25rem; letter-spacing: -.02em; }
+.sl-sub { margin-top: -10px; color: var(--l-muted); font-size: .92rem; }
+
+/* three "slides" that fill in one after another */
+.sl-slides { display: flex; gap: 8px; }
+.sl-slides i { width: 26px; height: 18px; border-radius: 4px; border: 1.5px solid var(--l-track); background: transparent; animation: sl-slide 1.5s ease-in-out infinite; }
+.sl-slides i:nth-child(2) { animation-delay: .2s; }
+.sl-slides i:nth-child(3) { animation-delay: .4s; }
+
+/* shown instead of the animation if loading stalls or the styles fail */
+.sl-fail { display: none; max-width: 320px; }
+.sl-fail p { margin: 0 0 14px; color: var(--l-muted); line-height: 1.5; }
+.sl-fail button { padding: 11px 22px; font: 600 1rem/1 inherit; color: #fff; border: 0; border-radius: 12px; cursor: pointer;
+  background: linear-gradient(135deg, var(--l-a), var(--l-b)); }
+.sl-loader.sl-stalled .sl-slides, .sl-loader.sl-stalled .sl-sub { display: none; }
+.sl-loader.sl-stalled .sl-fail { display: block; }
+
+@keyframes sl-spin { to { transform: rotate(360deg); } }
+@keyframes sl-bob { 0%, 100% { transform: translateY(2px); } 50% { transform: translateY(-3px); } }
+@keyframes sl-slide { 0%, 100% { background: transparent; border-color: var(--l-track); } 40% { background: var(--l-a); border-color: var(--l-a); } }
+@media (prefers-reduced-motion: reduce) { .sl-mark::before, .sl-cap, .sl-slides i { animation-duration: 3s; } .sl-loader { transition: none; } }

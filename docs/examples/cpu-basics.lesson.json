@@ -1,0 +1,916 @@
+{
+  "id": "ca-cpu-basics",
+  "title": "How a CPU Works",
+  "subtitle": "From one tiny instruction to billions per second.",
+  "level": "Beginner",
+  "duration": 60,
+  "objectives": [
+    "Explain what the CPU does and why every computer needs one",
+    "Name the main CPU parts: ALU, control unit and registers",
+    "Describe the fetch, decode, execute cycle in the right order",
+    "Compare registers, cache, RAM and storage by speed and size",
+    "Trace a tiny program through the CPU, one instruction at a time"
+  ],
+  "concepts": [
+    {
+      "id": "role",
+      "label": "What the CPU does",
+      "section": "cpu"
+    },
+    {
+      "id": "parts",
+      "label": "CPU components",
+      "section": "inside"
+    },
+    {
+      "id": "cycle",
+      "label": "Fetch, decode, execute cycle",
+      "section": "cycle"
+    },
+    {
+      "id": "trace",
+      "label": "Tracing a program",
+      "section": "cycle"
+    },
+    {
+      "id": "memory",
+      "label": "Memory hierarchy",
+      "section": "memory"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "Your phone plays music, runs a game and checks messages — all at once. How can one small chip do all that?",
+          "clues": [
+            "A modern CPU runs **billions** of instructions every second.",
+            "Each instruction is tiny: add two numbers, copy a value, compare, jump.",
+            "So how do tiny steps become a whole game?"
+          ],
+          "notes": {
+            "explain": "Let the class guess before you reveal anything. Do not give the answer yet: the whole lesson answers this question.",
+            "ask": "How many things do you think your phone does in one second?",
+            "difficulty": "Easy: this is a curiosity warm-up."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the five objectives aloud. Tell students they will check them off at the end in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "cpu",
+      "label": "The CPU",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "role",
+          "title": "The CPU executes instructions",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "A program is a long list of **instructions**.",
+                "The CPU runs them **one tiny step at a time**.",
+                "It does not understand — it follows instructions, extremely fast."
+              ]
+            },
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Input",
+                  "sub": "program + data",
+                  "note": "Instructions and data arrive from memory."
+                },
+                {
+                  "label": "Process",
+                  "sub": "the CPU",
+                  "note": "The CPU performs one tiny instruction at a time."
+                },
+                {
+                  "label": "Output",
+                  "sub": "results",
+                  "note": "Results go back to memory or out to a screen, speaker or network."
+                }
+              ]
+            }
+          ],
+          "why": "Every app you use — games, browsers, AI — is millions of CPU instructions underneath.",
+          "explainAgain": {
+            "beginner": "Think of the CPU as a very fast worker with a to-do list. It reads one item, does it, then reads the next.",
+            "technical": "The CPU repeatedly fetches an instruction word from memory, decodes the opcode and operands, and executes the micro-operations that change registers or memory.",
+            "analogy": "A cook following a recipe, one line at a time."
+          },
+          "deeper": {
+            "text": "A real CPU can overlap instructions (a **pipeline**) and run several at once on different **cores**. We keep one-at-a-time for now."
+          },
+          "notes": {
+            "explain": "Stress 'instructions are tiny'. The power comes from speed, not intelligence.",
+            "terms": [
+              "**Instruction** — one small command the CPU can run",
+              "**Program** — an ordered list of instructions"
+            ],
+            "misconceptions": [
+              "Students think the CPU 'thinks' or 'understands' code."
+            ],
+            "ask": "Is a CPU smart or fast?"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "role",
+          "skill": "Remember",
+          "title": "Quick check",
+          "question": "Which job does the CPU do?",
+          "options": [
+            "Stores your files permanently",
+            "Executes instructions",
+            "Displays pictures on the screen",
+            "Supplies power to the computer"
+          ],
+          "answer": 1,
+          "why": "The CPU's job is to execute instructions.",
+          "feedback": [
+            "Storage (SSD or hard drive) keeps files. The CPU only works with data while it runs.",
+            "",
+            "Pictures reach the screen through the display hardware (GPU). The CPU just sends it instructions.",
+            "Power comes from the power supply or battery, not the CPU."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "role",
+          "skill": "Understand",
+          "statement": "A CPU understands your program the way a person would.",
+          "answer": false,
+          "why": "It only follows simple instructions, very fast. It never 'understands' anything."
+        }
+      ]
+    },
+    {
+      "id": "inside",
+      "label": "Inside the CPU",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "parts",
+          "title": "Three parts do the work",
+          "blocks": [
+            {
+              "type": "flow",
+              "layout": "grid",
+              "cols": 3,
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "ALU",
+                  "sub": "does the maths and logic",
+                  "children": [
+                    "add",
+                    "subtract",
+                    "compare"
+                  ],
+                  "note": "The **Arithmetic Logic Unit** performs calculations and comparisons."
+                },
+                {
+                  "label": "Control Unit",
+                  "sub": "directs everything",
+                  "children": [
+                    "decode",
+                    "signal"
+                  ],
+                  "note": "The **Control Unit** decodes each instruction and tells the other parts what to do."
+                },
+                {
+                  "label": "Registers",
+                  "sub": "tiny, ultra-fast storage",
+                  "children": [
+                    "PC",
+                    "IR",
+                    "A"
+                  ],
+                  "note": "**Registers** hold the few values the CPU is using right now."
+                }
+              ]
+            }
+          ],
+          "why": "Knowing these parts lets you predict how fast a program can run and where it gets stuck.",
+          "explainAgain": {
+            "beginner": "Picture a kitchen. The **control unit** is the chef reading the recipe. The **ALU** is the chopping board where food is actually prepared. **Registers** are the small counter space holding what you are using now."
+          },
+          "notes": {
+            "explain": "Click each box as you explain it. The note under the diagram changes with the highlighted part.",
+            "terms": [
+              "**ALU** — Arithmetic Logic Unit",
+              "**Register** — a tiny storage slot inside the CPU",
+              "**PC** — program counter, the address of the next instruction"
+            ],
+            "misconceptions": [
+              "The ALU does NOT decode instructions."
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "parts",
+          "title": "How they cooperate",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Control Unit",
+                  "sub": "sends signals",
+                  "note": "The control unit tells the registers which values to supply."
+                },
+                {
+                  "label": "Registers",
+                  "sub": "supply operands",
+                  "note": "The two numbers to work on are placed on the ALU's inputs."
+                },
+                {
+                  "label": "ALU",
+                  "sub": "calculates",
+                  "note": "The ALU adds, subtracts or compares."
+                },
+                {
+                  "label": "Registers",
+                  "sub": "store result",
+                  "note": "The answer is saved in a register for the next instruction."
+                }
+              ],
+              "zoom": true
+            }
+          ],
+          "why": "This tiny loop of control, data and calculation repeats for every instruction a program has."
+        },
+        {
+          "type": "mcq",
+          "concept": "parts",
+          "skill": "Remember",
+          "question": "Which component performs arithmetic operations?",
+          "options": [
+            "Control Unit",
+            "ALU",
+            "Register",
+            "Cache"
+          ],
+          "answer": 1,
+          "why": "The ALU (Arithmetic Logic Unit) does maths and logic.",
+          "feedback": [
+            "The control unit directs the other parts. It does not do the calculating.",
+            "",
+            "Registers only hold values; they do not calculate.",
+            "Cache stores copies of data for speed. It does no arithmetic."
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "parts",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each component with its job.",
+          "pairs": [
+            {
+              "a": "ALU",
+              "b": "Does arithmetic and logic"
+            },
+            {
+              "a": "Control Unit",
+              "b": "Decodes instructions and directs the other parts"
+            },
+            {
+              "a": "Registers",
+              "b": "Hold the data being used right now"
+            },
+            {
+              "a": "Program Counter",
+              "b": "Remembers the address of the next instruction"
+            }
+          ],
+          "why": "Each part has one clear job, and they work together."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What is the job of the ALU?",
+              "a": "It performs arithmetic (add, subtract) and logic (compare, AND, OR).",
+              "concept": "parts"
+            },
+            {
+              "q": "Why are registers important?",
+              "a": "They are the fastest storage, holding the values the CPU is working on right now.",
+              "concept": "parts"
+            },
+            {
+              "q": "How is the control unit different from the ALU?",
+              "a": "The control unit decodes instructions and directs; the ALU does the calculating.",
+              "concept": "parts"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cycle",
+      "label": "The Cycle",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "cycle",
+          "title": "Fetch, decode, execute",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "Fetch",
+                  "sub": "get the instruction",
+                  "note": "The CPU reads the next instruction from memory, using the address in the **Program Counter**."
+                },
+                {
+                  "label": "Decode",
+                  "sub": "work out what it means",
+                  "note": "The **control unit** works out which operation is needed and which data it uses."
+                },
+                {
+                  "label": "Execute",
+                  "sub": "carry it out",
+                  "note": "The **ALU** (or memory) performs the operation and the result is stored."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "…then it **repeats**, billions of times every second.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "why": "This one loop is behind everything your computer does, from a calculator to a video game.",
+          "explainAgain": {
+            "beginner": "Read a line of the recipe (fetch). Understand it (decode). Do it (execute). Then read the next line.",
+            "technical": "The program counter supplies the address; the instruction register holds the fetched word; the control unit decodes it into control signals; the datapath executes it; the PC advances."
+          },
+          "deeper": {
+            "text": "Modern CPUs overlap the three stages for different instructions at once. That is called **pipelining**, and it is how they sustain close to one instruction per clock cycle."
+          },
+          "notes": {
+            "explain": "Play the flow once, then click each stage. Insist on the order.",
+            "misconceptions": [
+              "Students swap decode and fetch: you cannot decode what you do not have yet."
+            ],
+            "ask": "What would happen if the CPU skipped the fetch step?"
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "trace",
+          "skill": "Apply",
+          "question": "A tiny program runs: `LOAD A, 5` then `ADD A, 3`. What will register A hold at the end?",
+          "options": [
+            "3",
+            "5",
+            "8",
+            "15"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "code",
+              "lang": "asm",
+              "code": "LOAD A, 5\nADD A, 3",
+              "steps": [
+                {
+                  "lines": [
+                    1
+                  ],
+                  "note": "`LOAD A, 5` puts 5 into register A, so A = 5."
+                },
+                {
+                  "lines": [
+                    2
+                  ],
+                  "note": "`ADD A, 3` adds 3 to A, so A = 5 + 3 = 8."
+                }
+              ]
+            }
+          ],
+          "result": "Each instruction changes the registers a little. Together they build the answer."
+        },
+        {
+          "type": "concept",
+          "concept": "trace",
+          "title": "Trace a program",
+          "blocks": [
+            {
+              "type": "code",
+              "lang": "asm",
+              "code": "LOAD A, 4\nADD A, 6\nSTORE A, [20]",
+              "steps": [
+                {
+                  "lines": [
+                    1
+                  ],
+                  "note": "Cycle 1: fetch, decode, execute `LOAD`. A becomes 4."
+                },
+                {
+                  "lines": [
+                    2
+                  ],
+                  "note": "Cycle 2: `ADD` runs in the ALU. A becomes 10."
+                },
+                {
+                  "lines": [
+                    3
+                  ],
+                  "note": "Cycle 3: `STORE` copies A into memory address 20."
+                }
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Cycle",
+                "Instruction",
+                "A afterwards",
+                "Memory[20]"
+              ],
+              "rows": [
+                [
+                  "1",
+                  "LOAD A, 4",
+                  "4",
+                  "—"
+                ],
+                [
+                  "2",
+                  "ADD A, 6",
+                  "10",
+                  "—"
+                ],
+                [
+                  "3",
+                  "STORE A, [20]",
+                  "10",
+                  "10"
+                ]
+              ]
+            }
+          ],
+          "why": "Tracing by hand is how engineers find bugs, and how you will check your own understanding."
+        },
+        {
+          "type": "arrange",
+          "concept": "cycle",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the instruction cycle in the correct order.",
+          "items": [
+            "Fetch the instruction from memory",
+            "Decode it to see what it means",
+            "Execute it",
+            "Repeat with the next instruction"
+          ],
+          "why": "You cannot decode an instruction you have not fetched, and you cannot execute one you have not decoded."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Why must the CPU **fetch** an instruction before it can decode it?",
+          "think": 20,
+          "pair": 40,
+          "answer": "Decoding works on the instruction's bits, so the CPU must already have them. Fetching copies the instruction from memory into a register; only then can the control unit read it.",
+          "notes": {
+            "explain": "Let the timer run. Walk around; listen for the idea of 'you need it in hand first'.",
+            "discuss": "Does the CPU ever fetch the next instruction while still executing the last? (Yes: pipelining.)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "memory",
+      "label": "Memory",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "memory",
+          "title": "Memory: a study desk",
+          "blocks": [
+            {
+              "type": "analogy",
+              "realTitle": "Your study space",
+              "techTitle": "Your computer",
+              "pairs": [
+                {
+                  "real": "Your **desk**",
+                  "tech": "**Registers**",
+                  "note": "what you hold right now"
+                },
+                {
+                  "real": "The **drawer**",
+                  "tech": "**Cache**",
+                  "note": "things you use often"
+                },
+                {
+                  "real": "The **cabinet**",
+                  "tech": "**RAM**",
+                  "note": "everything for today"
+                },
+                {
+                  "real": "The **storage room**",
+                  "tech": "**SSD / hard drive**",
+                  "note": "everything you own"
+                }
+              ]
+            }
+          ],
+          "why": "Programs feel slow when the CPU waits for data. Knowing the hierarchy tells you where the wait comes from.",
+          "explainAgain": {
+            "beginner": "The closer something is to your hands, the faster you can use it — but the less room there is. That is why computers keep a little of everything close, and the rest further away."
+          },
+          "notes": {
+            "explain": "Use the 'Test me' button: hide the technical names and ask students to name them from the analogy."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "memory",
+          "title": "Faster means smaller",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Level",
+                "Speed",
+                "Size"
+              ],
+              "rows": [
+                [
+                  "Registers",
+                  "Fastest",
+                  "Tiny (bytes)"
+                ],
+                [
+                  "Cache",
+                  "Very fast",
+                  "Small (MB)"
+                ],
+                [
+                  "RAM",
+                  "Fast",
+                  "Medium (GB)"
+                ],
+                [
+                  "Storage",
+                  "Slowest",
+                  "Huge (TB)"
+                ]
+              ]
+            }
+          ],
+          "deeper": {
+            "text": "A register is read in under a nanosecond; RAM takes around 100 times longer; an SSD about 100,000 times longer. Caches exist to hide that gap."
+          },
+          "why": "A faster CPU does not help if it is always waiting for slower memory."
+        },
+        {
+          "type": "mcq",
+          "concept": "memory",
+          "skill": "Analyze",
+          "question": "Why not make all memory as fast as registers?",
+          "options": [
+            "It would be far too expensive and could not hold much",
+            "Fast memory forgets data",
+            "The CPU cannot use fast memory",
+            "Registers are slower than RAM"
+          ],
+          "answer": 0,
+          "why": "Very fast memory costs more and is physically small, so computers use a hierarchy of sizes and speeds.",
+          "misconception": "Speed is a trade-off with cost and capacity, not with reliability or compatibility."
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "cycle",
+          "skill": "Remember",
+          "think": 20,
+          "question": "Name the three steps of the instruction cycle, in order.",
+          "answer": "Fetch, then decode, then execute.",
+          "solution": "The CPU fetches the instruction from memory, the control unit decodes it, and then the ALU or memory executes it. Then it repeats."
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "trace",
+          "skill": "Apply",
+          "think": 40,
+          "question": "Trace this program. What does A hold at the end, and how many instruction cycles ran?",
+          "code": {
+            "lang": "asm",
+            "code": "LOAD A, 7\nADD A, 5\nADD A, 2"
+          },
+          "hint": "Do one line at a time and write down A after each.",
+          "answer": "A = 14, and 3 instruction cycles ran.",
+          "solution": "Line 1: A = 7.\nLine 2: A = 7 + 5 = 12.\nLine 3: A = 12 + 2 = 14.\nThree instructions means three fetch-decode-execute cycles."
+        },
+        {
+          "type": "find",
+          "concept": "parts",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One line below is wrong. Click it.",
+          "lines": [
+            "1. The CPU fetches an instruction from memory.",
+            "2. The ALU decodes the instruction.",
+            "3. The CPU executes the instruction.",
+            "4. The cycle repeats."
+          ],
+          "wrong": 1,
+          "explain": "Decoding is the control unit's job. The ALU only does arithmetic and logic.",
+          "fix": "The control unit decodes the instruction."
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "memory",
+          "skill": "Evaluate",
+          "think": 75,
+          "question": "A friend says: \"My computer is slow, so I need a faster CPU.\" Their programs keep waiting for data from the hard drive. Is a faster CPU the best fix? Argue your answer using the memory hierarchy.",
+          "hint": "Where is the CPU spending its time?",
+          "answer": "Probably not. The CPU is idle, waiting for slow storage. Adding RAM or switching to an SSD removes that wait.",
+          "solution": "The slowest step controls total speed. A faster CPU just waits faster. Moving data closer (more RAM so less swapping, or an SSD instead of a hard drive) reduces the wait. A faster CPU only helps when the CPU, not memory, is the bottleneck."
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 5,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "The CPU",
+          "branches": [
+            {
+              "label": "Role",
+              "example": "Executes instructions",
+              "section": "cpu"
+            },
+            {
+              "label": "Components",
+              "example": "ALU · Control Unit · Registers",
+              "section": "inside"
+            },
+            {
+              "label": "The cycle",
+              "example": "Fetch → Decode → Execute",
+              "section": "cycle"
+            },
+            {
+              "label": "Memory",
+              "example": "Registers → Cache → RAM → Storage",
+              "section": "memory"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Final review",
+          "remember": [
+            "The CPU executes instructions.",
+            "ALU = maths, Control Unit = directs, Registers = tiny fast storage.",
+            "Cycle: fetch, decode, execute, repeat."
+          ],
+          "understand": [
+            "The CPU is fast, not smart.",
+            "Faster memory is smaller and costs more.",
+            "The slowest part limits the whole system."
+          ],
+          "apply": [
+            "Trace a short program by hand.",
+            "Explain why a faster CPU may not fix a slow computer."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "The ALU decodes instructions.",
+              "right": "The control unit decodes; the ALU calculates."
+            },
+            {
+              "wrong": "The CPU decodes before it fetches.",
+              "right": "Order is fetch, decode, execute."
+            },
+            {
+              "wrong": "A faster CPU always makes a computer faster.",
+              "right": "If it waits for memory, it cannot."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "A CPU is a very fast instruction follower. The control unit decodes each instruction, the ALU calculates, and registers hold the values in use. This repeats in a fetch, decode, execute loop. Memory is arranged from small and fast (registers) to large and slow (storage), and the slowest part sets the pace."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "role",
+              "question": "What does CPU stand for?",
+              "options": [
+                "Central Processing Unit",
+                "Computer Personal Unit",
+                "Central Program Utility",
+                "Control Processing Unit"
+              ],
+              "answer": 0,
+              "why": "CPU is short for Central Processing Unit.",
+              "misconception": "The C stands for Central: the CPU sits at the centre of the computer, processing instructions."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "parts",
+              "statement": "The ALU performs arithmetic and logic operations.",
+              "answer": true,
+              "why": "That is exactly the ALU's job."
+            },
+            {
+              "level": "easy",
+              "concept": "cycle",
+              "question": "What is the first step of the instruction cycle?",
+              "options": [
+                "Execute",
+                "Decode",
+                "Fetch",
+                "Store"
+              ],
+              "answer": 2,
+              "why": "The instruction must be fetched before anything else can happen.",
+              "misconception": "Nothing can be decoded or executed until the instruction has been fetched from memory."
+            },
+            {
+              "level": "medium",
+              "concept": "parts",
+              "question": "Which component decodes instructions and tells the other parts what to do?",
+              "options": [
+                "ALU",
+                "Control Unit",
+                "Register",
+                "RAM"
+              ],
+              "answer": 1,
+              "why": "The control unit decodes and directs.",
+              "misconception": "The ALU calculates and registers store values. Decoding and directing is the control unit's job."
+            },
+            {
+              "level": "medium",
+              "concept": "memory",
+              "question": "Which list goes from fastest to slowest?",
+              "options": [
+                "Storage, RAM, Cache, Registers",
+                "Registers, Cache, RAM, Storage",
+                "Cache, Registers, Storage, RAM",
+                "RAM, Registers, Cache, Storage"
+              ],
+              "answer": 1,
+              "why": "Registers are fastest, then cache, RAM and finally storage.",
+              "misconception": "Order by distance from the CPU: the closer the memory, the faster and smaller it is."
+            },
+            {
+              "level": "medium",
+              "concept": "trace",
+              "question": "After these instructions, what does A hold?",
+              "code": {
+                "lang": "asm",
+                "code": "LOAD A, 2\nADD A, 9"
+              },
+              "options": [
+                "2",
+                "9",
+                "11",
+                "18"
+              ],
+              "answer": 2,
+              "why": "A = 2, then 2 + 9 = 11.",
+              "misconception": "Work one line at a time: LOAD sets A, then ADD adds to what A already holds."
+            },
+            {
+              "level": "hard",
+              "concept": "cycle",
+              "question": "After the CPU fetches an instruction, what does the Program Counter normally point to?",
+              "options": [
+                "The instruction just fetched",
+                "The address of the next instruction",
+                "The result of the instruction",
+                "The ALU"
+              ],
+              "answer": 1,
+              "why": "The PC is advanced so the next fetch reads the following instruction.",
+              "misconception": "The PC does not hold results. It holds an address, and moves on so the next fetch finds the next instruction."
+            },
+            {
+              "level": "hard",
+              "concept": "memory",
+              "question": "Why do CPUs have a small cache instead of making all RAM that fast?",
+              "options": [
+                "Cache is cheap and large",
+                "Very fast memory is expensive and small, so only a little is used",
+                "RAM cannot hold data",
+                "The CPU cannot read RAM"
+              ],
+              "answer": 1,
+              "why": "Speed, cost and size trade off, so a small fast cache hides RAM's slowness.",
+              "misconception": "Cache is small because fast memory is costly and takes up chip space. It is not about forgetting or compatibility."
+            },
+            {
+              "level": "challenge",
+              "concept": "trace",
+              "question": "How many instruction cycles run, and what is A at the end?",
+              "code": {
+                "lang": "asm",
+                "code": "LOAD A, 3\nADD A, 4\nADD A, A"
+              },
+              "options": [
+                "3 cycles, A = 7",
+                "3 cycles, A = 14",
+                "2 cycles, A = 14",
+                "3 cycles, A = 10"
+              ],
+              "answer": 1,
+              "why": "Three instructions give three cycles. A = 3, then 7, then 7 + 7 = 14.",
+              "misconception": "Count each instruction as one cycle, then update A line by line. Remember the last line adds A to itself."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "What is the job of the CPU?",
+              "a": "To execute instructions, one tiny step at a time.",
+              "concept": "role"
+            },
+            {
+              "q": "What are the three steps of the instruction cycle?",
+              "a": "Fetch, decode, execute — then repeat.",
+              "concept": "cycle"
+            },
+            {
+              "q": "What is the difference between the ALU and the control unit?",
+              "a": "The ALU calculates; the control unit decodes and directs.",
+              "concept": "parts"
+            },
+            {
+              "q": "Why is memory arranged in levels?",
+              "a": "Faster memory is smaller and costs more, so a hierarchy gives speed and capacity together.",
+              "concept": "memory"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}
