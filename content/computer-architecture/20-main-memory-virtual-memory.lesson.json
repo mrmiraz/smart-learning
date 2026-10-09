@@ -1,0 +1,1806 @@
+{
+  "id": "ca-20-main-memory-virtual-memory",
+  "title": "Main Memory, Virtual Memory and TLB",
+  "subtitle": "From DRAM chips to the address translation every access goes through.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "5",
+      "title": "Large and Fast: Exploiting Memory Hierarchy",
+      "topics": "Memory technologies (SRAM, DRAM); virtual memory: pages, page tables, page faults, the TLB, protection"
+    }
+  ],
+  "objectives": [
+    "Compare SRAM and DRAM and explain where each is used",
+    "Distinguish memory latency from bandwidth and calculate both",
+    "Translate a virtual address into a physical address using a page table",
+    "Follow the path virtual address, TLB, page table, physical address, RAM",
+    "Explain page faults, demand paging and protection"
+  ],
+  "concepts": [
+    {
+      "id": "memory",
+      "label": "Main memory",
+      "section": "memory"
+    },
+    {
+      "id": "virtual",
+      "label": "Virtual memory",
+      "section": "virtual"
+    },
+    {
+      "id": "tlb",
+      "label": "The TLB and page faults",
+      "section": "tlb"
+    },
+    {
+      "id": "protect",
+      "label": "Protection and cost",
+      "section": "protect"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "Every program believes it owns the whole memory starting at address 0. How can ten programs all think that at the same time?",
+          "clues": [
+            "Programs use **virtual addresses** that the hardware translates.",
+            "Each program has its own **page table**.",
+            "A small cache called the **TLB** makes the translation fast."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "memory",
+      "label": "Main memory",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "memory",
+          "title": "SRAM and DRAM",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "",
+                "SRAM",
+                "DRAM"
+              ],
+              "rows": [
+                [
+                  "Storage cell",
+                  "About six transistors",
+                  "One transistor and one capacitor"
+                ],
+                [
+                  "Refresh",
+                  "Not needed",
+                  "Needed: the charge leaks away and is periodically rewritten"
+                ],
+                [
+                  "Speed",
+                  "Faster (about 1 ns or less)",
+                  "Slower (tens of ns)"
+                ],
+                [
+                  "Density and cost",
+                  "Low density, expensive",
+                  "High density, cheap"
+                ],
+                [
+                  "Used for",
+                  "Caches, registers",
+                  "Main memory"
+                ]
+              ]
+            }
+          ],
+          "why": "This difference is why the hierarchy has fast small caches (SRAM) and slow large main memory (DRAM).",
+          "real": "Main memory is a bank of DRAM chips on modules; caches are SRAM on the processor die.",
+          "mistake": {
+            "wrong": "DRAM is faster because it is newer.",
+            "right": "DRAM is slower than SRAM; its advantage is density and cost per bit."
+          },
+          "explainAgain": {
+            "beginner": "SRAM is a notepad that keeps what you write; DRAM is a chalkboard that fades unless you keep rewriting it, but one board holds far more."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "memory",
+          "title": "Latency and bandwidth",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Term",
+                "Meaning",
+                "Typical"
+              ],
+              "rows": [
+                [
+                  "Latency",
+                  "Time from a request until the first data arrives",
+                  "tens of ns for DRAM"
+                ],
+                [
+                  "Bandwidth",
+                  "Data transferred per second once flowing",
+                  "tens of GB/s per memory channel"
+                ]
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "bandwidth = transfers per second × bytes per transfer",
+                  "note": "a DDR4-3200 module does 3.2 billion 8-byte transfers per second = 25.6 GB/s"
+                },
+                {
+                  "t": "time for a block = latency + block size ÷ bandwidth",
+                  "note": "latency usually dominates small blocks"
+                }
+              ]
+            }
+          ],
+          "why": "A cache miss pays the latency once and then streams the block at the memory bandwidth.",
+          "real": "Wide memory buses and several channels raise bandwidth, but latency has improved little.",
+          "deeper": {
+            "text": "DRAM is organised in rows and columns; reading a row that is already open (a row hit) is faster than opening a new row."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "memory",
+          "title": "Calculate: latency and bandwidth",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Fetching a cache block from DRAM (illustrative)",
+              "equation": "time = latency + block size ÷ bandwidth",
+              "inputs": [
+                {
+                  "id": "lat",
+                  "label": "DRAM latency",
+                  "value": 50,
+                  "min": 20,
+                  "max": 200,
+                  "step": 5,
+                  "unit": "ns"
+                },
+                {
+                  "id": "rate",
+                  "label": "Transfers per second",
+                  "value": 3200,
+                  "min": 800,
+                  "max": 6400,
+                  "step": 100,
+                  "unit": "MT/s"
+                },
+                {
+                  "id": "bus",
+                  "label": "Bytes per transfer",
+                  "value": 8,
+                  "min": 4,
+                  "max": 16,
+                  "step": 4,
+                  "unit": "bytes"
+                },
+                {
+                  "id": "blk",
+                  "label": "Cache block",
+                  "value": 64,
+                  "min": 16,
+                  "max": 256,
+                  "step": 16,
+                  "unit": "bytes"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Bandwidth",
+                  "formula": "rate * bus / 1000",
+                  "format": "num",
+                  "digits": 1,
+                  "unit": "GB/s"
+                },
+                {
+                  "label": "Time to transfer the block",
+                  "formula": "blk / (rate * bus / 1000)",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "ns"
+                },
+                {
+                  "label": "Total time for the block",
+                  "formula": "lat + blk / (rate * bus / 1000)",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "ns"
+                }
+              ]
+            }
+          ],
+          "why": "With the defaults: 25.6 GB/s, 2.5 ns of transfer, 52.5 ns in all. The latency is 95% of the time: a faster bus alone barely changes it."
+        },
+        {
+          "type": "predict",
+          "concept": "memory",
+          "skill": "Apply",
+          "question": "DRAM latency 50 ns, bandwidth 25.6 GB/s. How long does it take to fetch a 64-byte block?",
+          "options": [
+            "52.5 ns",
+            "2.5 ns",
+            "50 ns",
+            "128 ns"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The transfer takes 64 ÷ 25.6 = 2.5 ns after the 50 ns latency: **52.5 ns**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Latency dominates for a single small block."
+        },
+        {
+          "type": "match",
+          "concept": "memory",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each term with its meaning.",
+          "pairs": [
+            {
+              "a": "SRAM",
+              "b": "Fast, expensive memory used for caches"
+            },
+            {
+              "a": "DRAM",
+              "b": "Dense, cheap memory that needs refresh"
+            },
+            {
+              "a": "Latency",
+              "b": "Time until the first data arrives"
+            },
+            {
+              "a": "Bandwidth",
+              "b": "Bytes transferred per second"
+            }
+          ],
+          "why": "These four terms are the vocabulary of main memory."
+        },
+        {
+          "type": "mcq",
+          "concept": "memory",
+          "question": "Why does DRAM need refreshing?",
+          "options": [
+            "Its capacitors leak their charge",
+            "Its transistors overheat",
+            "It is read destructively by the CPU only",
+            "It has no clock"
+          ],
+          "answer": 0,
+          "why": "The charge in a DRAM capacitor leaks away, so the cells are rewritten periodically.",
+          "feedback": [
+            "",
+            "Heat is not the reason.",
+            "Refresh is needed even when idle.",
+            "The clock is unrelated."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "virtual",
+      "label": "Virtual memory",
+      "minutes": 11,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "virtual",
+          "title": "Why virtual addresses?",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Each program sees its own **virtual address space** starting at 0",
+                "The hardware and OS map **virtual pages** to **physical frames** in main memory",
+                "Many programs can run at once without overwriting each other",
+                "A program can be larger than physical memory: pages not in use stay on disk",
+                "The operating system can place pages anywhere, so memory need not be contiguous"
+              ]
+            }
+          ],
+          "why": "Virtual memory gives protection, convenience and the illusion of a large, private memory.",
+          "real": "Every modern operating system uses it; a process cannot read another process's memory.",
+          "mistake": {
+            "wrong": "A virtual address is a location in RAM.",
+            "right": "It is a name that must be translated into a physical address first."
+          },
+          "explainAgain": {
+            "beginner": "A hotel: your room number \"101\" means a different physical room on each floor of different hotels. The reception desk (the page table) knows which one is yours."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "virtual",
+          "title": "Pages, frames and the page table",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Term",
+                "Meaning"
+              ],
+              "rows": [
+                [
+                  "Page",
+                  "A fixed-size block of virtual memory (commonly 4 KiB)"
+                ],
+                [
+                  "Frame (physical page)",
+                  "A page-sized slot in physical memory"
+                ],
+                [
+                  "Virtual address",
+                  "Virtual page number (VPN) + page offset"
+                ],
+                [
+                  "Page table",
+                  "Per-process table mapping VPN to frame number, with a valid bit"
+                ]
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "page offset bits = log2(page size)",
+                  "note": "4 KiB: 12 bits; the offset is not translated"
+                },
+                {
+                  "t": "physical address = frame number × page size + offset",
+                  "note": "the VPN is replaced by the frame number"
+                }
+              ]
+            }
+          ],
+          "why": "Only the page number is translated; the offset inside the page is copied unchanged.",
+          "real": "A 32-bit address with 4 KiB pages has a 20-bit page number and a 12-bit offset."
+        },
+        {
+          "type": "concept",
+          "concept": "virtual",
+          "title": "Try it: translate an address",
+          "blocks": [
+            {
+              "type": "walkthrough",
+              "title": "Virtual to physical",
+              "inputs": [
+                {
+                  "id": "va",
+                  "label": "Virtual address",
+                  "value": 5000,
+                  "min": 0,
+                  "max": 65535,
+                  "step": 1
+                },
+                {
+                  "id": "pb",
+                  "label": "Page size = 2^n bytes, n =",
+                  "value": 12,
+                  "min": 10,
+                  "max": 13,
+                  "step": 1
+                },
+                {
+                  "id": "ppn",
+                  "label": "Frame number from the page table",
+                  "value": 7,
+                  "min": 0,
+                  "max": 15,
+                  "step": 1
+                }
+              ],
+              "stages": [
+                {
+                  "label": "Virtual address",
+                  "text": "{va} = `{va|hex4}`"
+                },
+                {
+                  "label": "Split",
+                  "text": "VPN = **{floor(va / pow(2, pb))}**, offset = **{mod(va, pow(2, pb))}**"
+                },
+                {
+                  "label": "Page table",
+                  "text": "Page {floor(va / pow(2, pb))} is in frame **{ppn}** (valid)"
+                },
+                {
+                  "label": "Physical address",
+                  "text": "{ppn} × {pow(2, pb)} + {mod(va, pow(2, pb))} = **{ppn * pow(2, pb) + mod(va, pow(2, pb))}** (`{ppn * pow(2, pb) + mod(va, pow(2, pb))|hex4}`)"
+                }
+              ],
+              "result": "VA {va} → PA {ppn * pow(2, pb) + mod(va, pow(2, pb))}",
+              "note": "With 4 KiB pages, address 5000 is page 1, offset 904; if page 1 is in frame 7 the physical address is 7 × 4096 + 904 = 29,576."
+            }
+          ],
+          "why": "Change the page size and see the VPN and offset change; the physical address always keeps the same offset."
+        },
+        {
+          "type": "predict",
+          "concept": "virtual",
+          "skill": "Apply",
+          "question": "4 KiB pages. Virtual address 5000 is in page 1 and page 1 is stored in frame 7. What is the physical address?",
+          "options": [
+            "29,576",
+            "5,000",
+            "7,000",
+            "28,672"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Offset = 5000 mod 4096 = 904. Physical address = 7 × 4096 + 904 = **29,576**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The offset passes through unchanged."
+        },
+        {
+          "type": "concept",
+          "concept": "virtual",
+          "title": "Calculate: how big is a page table?",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Single-level page table size",
+              "equation": "entries = 2^(virtual address bits − offset bits)",
+              "inputs": [
+                {
+                  "id": "va",
+                  "label": "Virtual address bits",
+                  "value": 32,
+                  "min": 16,
+                  "max": 48,
+                  "step": 1
+                },
+                {
+                  "id": "pg",
+                  "label": "Page size = 2^n bytes, n =",
+                  "value": 12,
+                  "min": 10,
+                  "max": 16,
+                  "step": 1
+                },
+                {
+                  "id": "pte",
+                  "label": "Bytes per page table entry",
+                  "value": 4,
+                  "min": 1,
+                  "max": 8,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "Page table entries",
+                  "formula": "pow(2, va - pg)",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Page table size",
+                  "formula": "pow(2, va - pg) * pte / 1048576",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "MiB"
+                }
+              ]
+            }
+          ],
+          "why": "32-bit addresses, 4 KiB pages, 4-byte entries: 2^20 entries = 4 MiB per process. With 16 KiB pages it is 1 MiB. This is why real systems use multi-level page tables."
+        },
+        {
+          "type": "find",
+          "concept": "virtual",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about paging is wrong. Click it.",
+          "lines": [
+            "1. The page offset is the same in the virtual and the physical address.",
+            "2. The page table maps virtual page numbers to physical frames.",
+            "3. Each process normally has its own page table.",
+            "4. The whole virtual address is replaced by the frame number."
+          ],
+          "wrong": 3,
+          "explain": "Only the virtual page number is replaced; the offset is kept.",
+          "fix": "The offset is not translated."
+        }
+      ]
+    },
+    {
+      "id": "tlb",
+      "label": "The TLB and page faults",
+      "minutes": 11,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "The translation problem",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "The page table lives in **main memory**, so a translation would cost an extra memory access on **every** load and store",
+                "The **translation lookaside buffer (TLB)** is a small cache of recent translations (VPN to frame)",
+                "TLB hit: translation in about one cycle. TLB miss: read the page table, then update the TLB",
+                "The TLB works because of **locality**: successive accesses fall in the same few pages"
+              ]
+            }
+          ],
+          "why": "Without a TLB every memory access would take about twice as long.",
+          "real": "A typical TLB has 32 to 1024 entries and hits over 99% of the time."
+        },
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "The path of an address",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Follow the whole journey of an address through the hardware."
+            }
+          ],
+          "why": "This is the path to remember: Virtual address → TLB → page table → physical address → RAM."
+        },
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "Build the path",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Address translation (build-up)",
+              "width": 960,
+              "height": 290,
+              "nodes": [
+                {
+                  "id": "cpu",
+                  "label": "CPU\n(virtual address)",
+                  "kind": "unit",
+                  "x": 20,
+                  "y": 40,
+                  "w": 130,
+                  "h": 80
+                },
+                {
+                  "id": "tlb",
+                  "label": "TLB",
+                  "kind": "mem",
+                  "x": 250,
+                  "y": 40,
+                  "w": 120,
+                  "h": 80
+                },
+                {
+                  "id": "pa",
+                  "label": "Physical\naddress",
+                  "kind": "unit",
+                  "x": 540,
+                  "y": 40,
+                  "w": 130,
+                  "h": 80
+                },
+                {
+                  "id": "ram",
+                  "label": "Main memory\n(RAM)",
+                  "kind": "mem",
+                  "x": 790,
+                  "y": 40,
+                  "w": 150,
+                  "h": 80
+                },
+                {
+                  "id": "pt",
+                  "label": "Page table\n(in memory)",
+                  "kind": "mem",
+                  "x": 250,
+                  "y": 190,
+                  "w": 120,
+                  "h": 70
+                },
+                {
+                  "id": "disk",
+                  "label": "Disk",
+                  "kind": "mem",
+                  "x": 20,
+                  "y": 190,
+                  "w": 130,
+                  "h": 70
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_cpu_tlb",
+                  "points": [
+                    [
+                      150,
+                      80
+                    ],
+                    [
+                      250,
+                      80
+                    ]
+                  ],
+                  "label": "virtual address",
+                  "labelAt": [
+                    200,
+                    74
+                  ]
+                },
+                {
+                  "id": "e_tlb_pa",
+                  "points": [
+                    [
+                      370,
+                      80
+                    ],
+                    [
+                      540,
+                      80
+                    ]
+                  ],
+                  "label": "TLB hit: frame number",
+                  "labelAt": [
+                    455,
+                    74
+                  ]
+                },
+                {
+                  "id": "e_tlb_pt",
+                  "points": [
+                    [
+                      310,
+                      120
+                    ],
+                    [
+                      310,
+                      190
+                    ]
+                  ],
+                  "label": "TLB miss",
+                  "labelAt": [
+                    345,
+                    160
+                  ]
+                },
+                {
+                  "id": "e_pt_pa",
+                  "points": [
+                    [
+                      370,
+                      225
+                    ],
+                    [
+                      605,
+                      225
+                    ],
+                    [
+                      605,
+                      120
+                    ]
+                  ],
+                  "label": "valid: frame number",
+                  "labelAt": [
+                    490,
+                    219
+                  ]
+                },
+                {
+                  "id": "e_pt_disk",
+                  "points": [
+                    [
+                      250,
+                      225
+                    ],
+                    [
+                      150,
+                      225
+                    ]
+                  ],
+                  "label": "page fault",
+                  "labelAt": [
+                    200,
+                    219
+                  ]
+                },
+                {
+                  "id": "e_pa_ram",
+                  "points": [
+                    [
+                      670,
+                      80
+                    ],
+                    [
+                      790,
+                      80
+                    ]
+                  ],
+                  "label": "physical address",
+                  "labelAt": [
+                    730,
+                    74
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "cpu",
+                    "tlb",
+                    "e_cpu_tlb"
+                  ],
+                  "text": "The program uses a **virtual address**. The first stop is the **TLB**, a small cache of recent translations."
+                },
+                {
+                  "show": [
+                    "pa",
+                    "ram",
+                    "e_tlb_pa",
+                    "e_pa_ram"
+                  ],
+                  "text": "On a **TLB hit** the frame number is available at once: it is combined with the offset into a **physical address** and sent to main memory."
+                },
+                {
+                  "show": [
+                    "pt",
+                    "e_tlb_pt",
+                    "e_pt_pa"
+                  ],
+                  "text": "On a **TLB miss** the **page table** in memory is consulted. If the page is in memory its entry gives the frame number, and the TLB is updated."
+                },
+                {
+                  "show": [
+                    "disk",
+                    "e_pt_disk"
+                  ],
+                  "text": "If the entry is invalid the page is not in memory: a **page fault**. The operating system loads the page from disk."
+                }
+              ]
+            }
+          ],
+          "why": "Each click adds one component. The page table is only visited on a TLB miss."
+        },
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "Follow three accesses",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Address translation (scenarios)",
+              "width": 960,
+              "height": 290,
+              "nodes": [
+                {
+                  "id": "cpu",
+                  "label": "CPU\n(virtual address)",
+                  "kind": "unit",
+                  "x": 20,
+                  "y": 40,
+                  "w": 130,
+                  "h": 80
+                },
+                {
+                  "id": "tlb",
+                  "label": "TLB",
+                  "kind": "mem",
+                  "x": 250,
+                  "y": 40,
+                  "w": 120,
+                  "h": 80
+                },
+                {
+                  "id": "pa",
+                  "label": "Physical\naddress",
+                  "kind": "unit",
+                  "x": 540,
+                  "y": 40,
+                  "w": 130,
+                  "h": 80
+                },
+                {
+                  "id": "ram",
+                  "label": "Main memory\n(RAM)",
+                  "kind": "mem",
+                  "x": 790,
+                  "y": 40,
+                  "w": 150,
+                  "h": 80
+                },
+                {
+                  "id": "pt",
+                  "label": "Page table\n(in memory)",
+                  "kind": "mem",
+                  "x": 250,
+                  "y": 190,
+                  "w": 120,
+                  "h": 70
+                },
+                {
+                  "id": "disk",
+                  "label": "Disk",
+                  "kind": "mem",
+                  "x": 20,
+                  "y": 190,
+                  "w": 130,
+                  "h": 70
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_cpu_tlb",
+                  "points": [
+                    [
+                      150,
+                      80
+                    ],
+                    [
+                      250,
+                      80
+                    ]
+                  ],
+                  "label": "virtual address",
+                  "labelAt": [
+                    200,
+                    74
+                  ]
+                },
+                {
+                  "id": "e_tlb_pa",
+                  "points": [
+                    [
+                      370,
+                      80
+                    ],
+                    [
+                      540,
+                      80
+                    ]
+                  ],
+                  "label": "TLB hit: frame number",
+                  "labelAt": [
+                    455,
+                    74
+                  ]
+                },
+                {
+                  "id": "e_tlb_pt",
+                  "points": [
+                    [
+                      310,
+                      120
+                    ],
+                    [
+                      310,
+                      190
+                    ]
+                  ],
+                  "label": "TLB miss",
+                  "labelAt": [
+                    345,
+                    160
+                  ]
+                },
+                {
+                  "id": "e_pt_pa",
+                  "points": [
+                    [
+                      370,
+                      225
+                    ],
+                    [
+                      605,
+                      225
+                    ],
+                    [
+                      605,
+                      120
+                    ]
+                  ],
+                  "label": "valid: frame number",
+                  "labelAt": [
+                    490,
+                    219
+                  ]
+                },
+                {
+                  "id": "e_pt_disk",
+                  "points": [
+                    [
+                      250,
+                      225
+                    ],
+                    [
+                      150,
+                      225
+                    ]
+                  ],
+                  "label": "page fault",
+                  "labelAt": [
+                    200,
+                    219
+                  ]
+                },
+                {
+                  "id": "e_pa_ram",
+                  "points": [
+                    [
+                      670,
+                      80
+                    ],
+                    [
+                      790,
+                      80
+                    ]
+                  ],
+                  "label": "physical address",
+                  "labelAt": [
+                    730,
+                    74
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "pt",
+                    "pa",
+                    "e_cpu_tlb",
+                    "e_pt_pa",
+                    "e_tlb_pt",
+                    "e_tlb_pa",
+                    "tlb",
+                    "ram",
+                    "e_pt_disk",
+                    "e_pa_ram",
+                    "cpu",
+                    "disk"
+                  ],
+                  "text": "The complete path. Choose a scenario and press Play or Step."
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "TLB hit",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "cpu",
+                        "e_cpu_tlb",
+                        "tlb"
+                      ],
+                      "text": "The CPU sends virtual address 4200 (page 1, offset 104). The TLB already holds page 1.",
+                      "values": {
+                        "tlb": "page 1 → frame 0"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "tlb",
+                        "e_tlb_pa",
+                        "pa"
+                      ],
+                      "text": "The frame number is combined with the offset: 0 × 4096 + 104.",
+                      "values": {
+                        "pa": "104"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "pa",
+                        "e_pa_ram",
+                        "ram"
+                      ],
+                      "text": "Main memory is accessed at physical address 104. No page table access was needed."
+                    }
+                  ]
+                },
+                {
+                  "name": "TLB miss, page in memory",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "cpu",
+                        "e_cpu_tlb",
+                        "tlb"
+                      ],
+                      "text": "Virtual address 100 (page 0). The TLB does not have it.",
+                      "values": {
+                        "tlb": "miss"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "tlb",
+                        "e_tlb_pt",
+                        "pt"
+                      ],
+                      "text": "The page table is read from memory: page 0 is valid and lives in frame 2.",
+                      "values": {
+                        "pt": "page 0 → frame 2, valid"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "pt",
+                        "e_pt_pa",
+                        "pa"
+                      ],
+                      "text": "Physical address = 2 × 4096 + 100 = 8292. The TLB is updated with this translation.",
+                      "values": {
+                        "pa": "8292"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "pa",
+                        "e_pa_ram",
+                        "ram"
+                      ],
+                      "text": "Main memory is accessed at 8292."
+                    }
+                  ]
+                },
+                {
+                  "name": "Page fault",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "cpu",
+                        "e_cpu_tlb",
+                        "tlb"
+                      ],
+                      "text": "Virtual address 5000 (page 1, offset 904). TLB miss.",
+                      "values": {
+                        "tlb": "miss"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "tlb",
+                        "e_tlb_pt",
+                        "pt"
+                      ],
+                      "text": "The page table entry for page 1 is **invalid**: the page is not in memory.",
+                      "values": {
+                        "pt": "page 1: invalid"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "pt",
+                        "e_pt_disk",
+                        "disk"
+                      ],
+                      "text": "**Page fault.** The operating system reads the page from disk (millions of cycles), picks a free frame (or evicts one), updates the page table and the TLB, and restarts the instruction.",
+                      "values": {
+                        "disk": "load page 1"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "pt",
+                        "e_pt_pa",
+                        "pa",
+                        "e_pa_ram",
+                        "ram"
+                      ],
+                      "text": "The retried access now succeeds: page 1 is in frame 0, so the physical address is 904.",
+                      "values": {
+                        "pa": "904"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "Run the TLB hit, the TLB miss with the page in memory, and the page fault."
+        },
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "Page faults and demand paging",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "A page table entry is **invalid** when the page is not in physical memory",
+                "The access causes a **page fault**: an exception handled by the operating system",
+                "**Demand paging**: pages are brought in only when first used",
+                "The OS picks a free frame (or evicts one, usually the least recently used), reads the page from **disk**, updates the page table and TLB, and restarts the instruction",
+                "A disk access takes millions of cycles, so page faults must be rare"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Event",
+                "Cost (about)"
+              ],
+              "rows": [
+                [
+                  "TLB hit",
+                  "1 cycle"
+                ],
+                [
+                  "TLB miss, page in memory",
+                  "tens to hundreds of cycles (page table read)"
+                ],
+                [
+                  "Page fault",
+                  "millions of cycles (disk)"
+                ]
+              ]
+            }
+          ],
+          "why": "A page fault is thousands of times costlier than a memory access, so even a tiny fault rate matters.",
+          "real": "When a computer starts using the disk heavily because it lacks memory it is \"thrashing\".",
+          "mistake": {
+            "wrong": "A page fault means the program has a bug.",
+            "right": "It is a normal event: the page was simply not in memory yet."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "Try it: a sequence of accesses",
+          "blocks": [
+            {
+              "type": "vm",
+              "title": "Address translation",
+              "config": {
+                "pageBytes": 4096,
+                "tlbEntries": 2,
+                "frames": 3,
+                "vaBits": 16,
+                "pageTable": {
+                  "0": {
+                    "valid": true,
+                    "ppn": 2
+                  }
+                }
+              },
+              "sequence": [
+                100,
+                5000,
+                4200,
+                9000,
+                13000,
+                100
+              ],
+              "hint": "Step through the six addresses. Page size 4 KiB, a 2-entry TLB, 3 frames. Page 0 starts in frame 2."
+            }
+          ],
+          "why": "Results: 100 = TLB miss but page valid (frame 2), 5000 = page fault (frame 0), 4200 = TLB hit, 9000 = page fault, 13000 = page fault that evicts page 0, and 100 again = a fault because page 0 was evicted."
+        },
+        {
+          "type": "predict",
+          "concept": "tlb",
+          "skill": "Apply",
+          "question": "In the sequence above, address 4200 follows 5000. Why is it a TLB hit?",
+          "options": [
+            "Both are in virtual page 1, whose translation was just stored in the TLB",
+            "Addresses 4200 and 5000 are equal",
+            "The TLB holds every page",
+            "4200 is never translated"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "5000 and 4200 are both in page 1 (4096 to 8191). The page fault for 5000 loaded page 1 and put its translation in the TLB, so 4200 hits: **locality again**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Next access to a different page needs a new translation."
+        },
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "Calculate: effective access time",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Effective access time with a TLB (illustrative)",
+              "equation": "EAT = hit rate × (TLB + memory) + miss rate × (TLB + 2 × memory)",
+              "inputs": [
+                {
+                  "id": "t",
+                  "label": "TLB lookup",
+                  "value": 1,
+                  "min": 1,
+                  "max": 5,
+                  "step": 1,
+                  "unit": "ns"
+                },
+                {
+                  "id": "m",
+                  "label": "Memory access",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ns"
+                },
+                {
+                  "id": "h",
+                  "label": "TLB hit rate",
+                  "value": 98,
+                  "min": 50,
+                  "max": 100,
+                  "step": 1,
+                  "unit": "%"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Effective access time",
+                  "formula": "(h/100) * (t + m) + (1 - h/100) * (t + 2*m)",
+                  "format": "num",
+                  "digits": 1,
+                  "unit": "ns"
+                },
+                {
+                  "label": "Compared with no TLB (2 memory accesses)",
+                  "formula": "(2*m) / ((h/100) * (t + m) + (1 - h/100) * (t + 2*m))",
+                  "format": "x",
+                  "digits": 2
+                }
+              ]
+            }
+          ],
+          "why": "A 98% TLB hit rate gives 103 ns, close to the single memory access time; without a TLB every access would take about 200 ns."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Why is a TLB with only 64 entries so effective when the page table has a million entries?",
+          "think": 20,
+          "pair": 40,
+          "answer": "Programs use only a small set of pages at a time (locality): a loop touches a few code pages and a few data pages. 64 entries cover the working set of pages, so almost every translation hits in the TLB."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What does the TLB store?",
+              "a": "Recent translations from virtual page number to frame number.",
+              "concept": "tlb"
+            },
+            {
+              "q": "What happens on a page fault?",
+              "a": "The OS loads the page from disk, updates the page table and TLB, and restarts the instruction.",
+              "concept": "tlb"
+            },
+            {
+              "q": "Give the path of an address.",
+              "a": "Virtual address, TLB, page table (on a miss), physical address, RAM.",
+              "concept": "tlb"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "protect",
+      "label": "Protection and cost",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "protect",
+          "title": "Protection and sharing",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Each process has its **own page table**, so it can only reach the frames the OS maps for it",
+                "Page table entries also hold **permission bits** (read, write, execute) and **dirty** and **reference** bits",
+                "A forbidden access causes an exception and the OS stops the program (a segmentation fault)",
+                "Two processes can share a library by mapping the **same frame** into both address spaces",
+                "The OS alone can change page tables: the hardware enforces user / kernel modes"
+              ]
+            }
+          ],
+          "why": "The same mechanism that makes memory look big and private also keeps programs apart.",
+          "real": "This is how a crashing program cannot corrupt another program or the operating system."
+        },
+        {
+          "type": "concept",
+          "concept": "protect",
+          "title": "The cost of page faults",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Effective access time with page faults (illustrative)",
+              "equation": "EAT = memory time + fault rate × disk time",
+              "inputs": [
+                {
+                  "id": "mem",
+                  "label": "Memory access",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ns"
+                },
+                {
+                  "id": "pf",
+                  "label": "Page faults per million accesses",
+                  "value": 1,
+                  "min": 0,
+                  "max": 2000,
+                  "step": 1
+                },
+                {
+                  "id": "disk",
+                  "label": "Disk access (page fault service)",
+                  "value": 8000000,
+                  "min": 1000000,
+                  "max": 20000000,
+                  "step": 1000000,
+                  "unit": "ns"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Effective access time",
+                  "formula": "mem + (pf / 1000000) * disk",
+                  "format": "num",
+                  "digits": 1,
+                  "unit": "ns"
+                },
+                {
+                  "label": "Slowdown vs no faults",
+                  "formula": "(mem + (pf / 1000000) * disk) / mem",
+                  "format": "x",
+                  "digits": 2
+                }
+              ]
+            }
+          ],
+          "why": "One fault per million accesses already raises 100 ns to 108 ns. At one fault per thousand accesses (1,000 per million) it becomes 8,100 ns: 81 times slower."
+        },
+        {
+          "type": "predict",
+          "concept": "protect",
+          "skill": "Apply",
+          "question": "One page fault per million memory accesses, memory 100 ns, fault service 8 ms (8,000,000 ns). What is the effective access time?",
+          "options": [
+            "108 ns",
+            "100 ns",
+            "8,100 ns",
+            "1,000 ns"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "EAT = 100 + (1 ÷ 1,000,000) × 8,000,000 = 100 + 8 = **108 ns**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "At 1 fault per 1000 accesses it would be 8,100 ns."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "protect",
+          "question": "Why do operating systems use virtual memory even on machines with plenty of RAM?",
+          "seconds": 60,
+          "ideas": [
+            "Protection: processes cannot read each other's memory.",
+            "Convenience: each program has a simple, private address space.",
+            "Sharing: libraries can be mapped into many processes with one copy.",
+            "Flexibility: the OS can move or swap pages freely."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "protect",
+          "statement": "Two processes may map the same physical frame into their address spaces.",
+          "answer": true,
+          "why": "This is how shared libraries and shared memory are implemented."
+        },
+        {
+          "type": "mcq",
+          "concept": "protect",
+          "question": "Where does the OS keep each process's mapping from virtual pages to frames?",
+          "options": [
+            "In that process's page table",
+            "In the TLB only",
+            "In the cache tags",
+            "On the disk only"
+          ],
+          "answer": 0,
+          "why": "Each process has its own page table; the TLB caches recent entries.",
+          "feedback": [
+            "",
+            "The TLB is only a cache of the page table.",
+            "Cache tags are unrelated.",
+            "The page table is in main memory."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "virtual",
+          "question": "Define virtual address and physical address.",
+          "answer": "A virtual address is the address used by the program; a physical address is the location in main memory after translation.",
+          "solution": "The page table (and TLB) performs the translation.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "virtual",
+          "question": "4 KiB pages. Split virtual address 0x3A7C into page number and offset.",
+          "answer": "VPN 3, offset 0xA7C = 2,684.",
+          "solution": "0x3A7C = 14,972. 14,972 ÷ 4096 = 3 remainder 2,684. The low 12 bits (0xA7C) are the offset.",
+          "hint": "The offset is the low 12 bits.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "virtual",
+          "question": "4 KiB pages, page 1 in frame 7. What is the physical address of virtual address 5000?",
+          "answer": "29,576 (0x7388).",
+          "solution": "Offset 904; 7 × 4096 = 28,672; 28,672 + 904 = 29,576.",
+          "hint": "Keep the offset and swap the page number for the frame number.",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "virtual",
+          "question": "32-bit virtual addresses, 4 KiB pages, 4-byte page table entries. Give the VPN and offset bits, the number of entries and the page table size. Repeat for 16 KiB pages.",
+          "answer": "4 KiB: 20 + 12 bits, 2^20 entries, 4 MiB. 16 KiB: 18 + 14 bits, 2^18 entries, 1 MiB.",
+          "solution": "Offset = log2(page size). VPN = 32 − offset. Size = entries × 4 bytes: 2^20 × 4 = 4 MiB; 2^18 × 4 = 1 MiB.",
+          "mistake": "Counting the offset bits in the page table index.",
+          "title": "Exam practice: sizes",
+          "think": 105,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "tlb",
+          "question": "4 KiB pages, a 2-entry TLB, 3 frames. Page 0 starts valid in frame 2. Translate 100, 5000, 4200, 9000, 13000, 100. Give hit / miss / fault for each and the physical addresses of the first three.",
+          "answer": "100: TLB miss, page valid, PA 8,292. 5000: page fault, frame 0, PA 904. 4200: TLB hit, PA 104. 9000: page fault (frame 1). 13000: page fault, evicts page 0. 100: page fault (page 0 was evicted).",
+          "solution": "Page numbers: 0, 1, 1, 2, 3, 0. Only three frames, so loading page 3 forces an eviction of the least recently used page, which is page 0.",
+          "mistake": "Treating the first 100 as a TLB hit: the TLB starts empty.",
+          "title": "Exam practice: tracing",
+          "think": 120,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "tlb",
+          "question": "TLB lookup 1 ns, memory 100 ns, TLB hit rate 98%. A TLB miss needs one extra memory access. Find the effective access time.",
+          "answer": "103 ns.",
+          "solution": "Hit: 1 + 100 = 101 ns. Miss: 1 + 100 + 100 = 201 ns. EAT = 0.98 × 101 + 0.02 × 201 = 98.98 + 4.02 = 103.0 ns.",
+          "mistake": "Forgetting the final data access on a miss.",
+          "title": "Exam practice: effective access time",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "protect",
+          "question": "Memory takes 100 ns and a page fault takes 8 ms. What page-fault rate raises the effective access time by 10%?",
+          "answer": "1.25 faults per million accesses.",
+          "solution": "10% of 100 ns is 10 ns. 10 = rate × 8,000,000 ns, so rate = 1.25 × 10⁻⁶.",
+          "mistake": "Using the hit rate instead of the fault rate.",
+          "title": "Exam practice: page faults",
+          "think": 105,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "memory",
+          "question": "Explain why the TLB is needed and why it works.",
+          "answer": "The page table is in main memory, so without a TLB every load and store would need an extra memory access for the translation. The TLB caches recent translations; because programs show locality and keep using the same few pages, almost every translation hits in the TLB and costs about one cycle.",
+          "solution": "A strong answer states the extra memory access and the locality argument.",
+          "mistake": "Saying the TLB stores data.",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Main memory and virtual memory",
+          "branches": [
+            {
+              "label": "Main memory",
+              "example": "SRAM, DRAM, latency, bandwidth",
+              "section": "memory"
+            },
+            {
+              "label": "Virtual memory",
+              "example": "pages, page table",
+              "section": "virtual"
+            },
+            {
+              "label": "TLB and faults",
+              "example": "path of an address",
+              "section": "tlb"
+            },
+            {
+              "label": "Protection",
+              "example": "permissions, cost",
+              "section": "protect"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "SRAM is fast and costly (caches); DRAM is dense and cheap but needs refresh (main memory).",
+            "Latency is time to the first data; bandwidth is bytes per second. Block time = latency + size ÷ bandwidth.",
+            "A virtual address = page number + offset; the page table maps pages to frames; the offset is unchanged.",
+            "The TLB caches translations: virtual address, TLB, page table (on a miss), physical address, RAM.",
+            "A page fault is an invalid page table entry: the OS loads the page from disk (demand paging).",
+            "Protection comes from per-process page tables and permission bits."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "A virtual address is a location in RAM.",
+              "right": "It must be translated first."
+            },
+            {
+              "wrong": "The offset is translated too.",
+              "right": "Only the page number is."
+            },
+            {
+              "wrong": "The TLB stores data.",
+              "right": "It stores translations."
+            },
+            {
+              "wrong": "Page faults are rare bugs.",
+              "right": "They are normal but must be infrequent because disk is slow."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "DRAM gives large, cheap main memory while SRAM provides fast caches. Programs use virtual addresses split into a page number and an offset; the page table maps pages to physical frames and the TLB caches recent translations. A page fault brings a page from disk on demand, and per-process page tables with permission bits provide protection."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "memory",
+              "question": "Which memory needs refreshing?",
+              "options": [
+                "DRAM",
+                "SRAM",
+                "Registers",
+                "L1 cache"
+              ],
+              "answer": 0,
+              "why": "DRAM capacitors leak.",
+              "misconception": "SRAM keeps its data while powered."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "virtual",
+              "statement": "Only the page number is translated; the offset is unchanged.",
+              "answer": true,
+              "why": "The offset selects the byte inside the page.",
+              "misconception": "The offset bits are copied to the physical address."
+            },
+            {
+              "level": "easy",
+              "concept": "tlb",
+              "question": "What does the TLB cache?",
+              "options": [
+                "Address translations",
+                "Instructions",
+                "Disk blocks",
+                "Register values"
+              ],
+              "answer": 0,
+              "why": "Recent virtual-to-physical translations.",
+              "misconception": "It is a cache of the page table."
+            },
+            {
+              "level": "medium",
+              "concept": "virtual",
+              "question": "4 KiB pages, page 1 in frame 7: physical address of virtual address 5000?",
+              "options": [
+                "29,576",
+                "5,000",
+                "28,672",
+                "7,904"
+              ],
+              "answer": 0,
+              "why": "7 × 4096 + 904 = 29,576.",
+              "misconception": "The offset is 904."
+            },
+            {
+              "level": "medium",
+              "concept": "virtual",
+              "question": "32-bit addresses, 4 KiB pages, 4-byte entries: page table size?",
+              "options": [
+                "4 MiB",
+                "1 MiB",
+                "16 MiB",
+                "4 KiB"
+              ],
+              "answer": 0,
+              "why": "2^20 entries × 4 bytes = 4 MiB.",
+              "misconception": "The VPN is 20 bits."
+            },
+            {
+              "level": "medium",
+              "concept": "tlb",
+              "question": "What is the path of an address on a TLB miss with the page in memory?",
+              "options": [
+                "Virtual address, TLB, page table, physical address, RAM",
+                "Virtual address, disk, RAM",
+                "TLB, disk, page table",
+                "RAM, TLB, CPU"
+              ],
+              "answer": 0,
+              "why": "The page table is consulted after the TLB misses.",
+              "misconception": "Disk is only visited on a page fault."
+            },
+            {
+              "level": "hard",
+              "concept": "tlb",
+              "question": "TLB 1 ns, memory 100 ns, hit rate 98%, miss needs one extra memory access: EAT?",
+              "options": [
+                "103 ns",
+                "101 ns",
+                "100 ns",
+                "201 ns"
+              ],
+              "answer": 0,
+              "why": "0.98 × 101 + 0.02 × 201 = 103 ns.",
+              "misconception": "A miss costs 201 ns."
+            },
+            {
+              "level": "hard",
+              "concept": "protect",
+              "question": "Memory 100 ns, fault service 8 ms, 1 fault per million accesses: EAT?",
+              "options": [
+                "108 ns",
+                "100 ns",
+                "8,100 ns",
+                "800 ns"
+              ],
+              "answer": 0,
+              "why": "100 + 10⁻⁶ × 8,000,000 = 108 ns.",
+              "misconception": "At 1 fault per thousand it would be 8,100 ns."
+            },
+            {
+              "level": "challenge",
+              "concept": "memory",
+              "question": "DRAM latency 50 ns, bandwidth 25.6 GB/s: time to fetch a 64-byte block?",
+              "options": [
+                "52.5 ns",
+                "2.5 ns",
+                "50 ns",
+                "75 ns"
+              ],
+              "answer": 0,
+              "why": "50 + 64 ÷ 25.6 = 52.5 ns.",
+              "misconception": "Latency dominates a small block."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "Why use DRAM for main memory?",
+              "a": "It is dense and cheap per bit.",
+              "concept": "memory"
+            },
+            {
+              "q": "What is a page table?",
+              "a": "A per-process table mapping virtual pages to physical frames.",
+              "concept": "virtual"
+            },
+            {
+              "q": "What is a page fault?",
+              "a": "Access to a page not in memory; the OS loads it from disk.",
+              "concept": "tlb"
+            },
+            {
+              "q": "Why is the TLB needed?",
+              "a": "To avoid an extra memory access for every translation.",
+              "concept": "tlb"
+            },
+            {
+              "q": "How is protection achieved?",
+              "a": "Per-process page tables and permission bits enforced by hardware.",
+              "concept": "protect"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

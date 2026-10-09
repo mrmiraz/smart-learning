@@ -1,0 +1,1310 @@
+{
+  "id": "ca-02-technology-trends",
+  "title": "Technology Trends, Moore's Law and Computer Performance",
+  "subtitle": "Computer architecture changes because technology changes.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "1",
+      "title": "Computer Abstractions and Technology",
+      "topics": "Technologies for building processors and memory; the power wall; the switch from uniprocessors to multiprocessors; performance"
+    },
+    {
+      "book": "CAQA",
+      "chapter": "1",
+      "title": "Fundamentals of Computer Design",
+      "topics": "Technology and computer usage trends; cost and trends in cost"
+    }
+  ],
+  "objectives": [
+    "Explain how transistors become integrated circuits and why chip cost depends on yield",
+    "Use Moore's Law to estimate how transistor counts grow",
+    "Compare SRAM, DRAM, flash and magnetic disk by speed, cost and use",
+    "Explain why power stopped clock frequency from rising",
+    "Explain why processors became multicore and what that means for performance"
+  ],
+  "concepts": [
+    {
+      "id": "ics",
+      "label": "Integrated circuits and cost",
+      "section": "ics"
+    },
+    {
+      "id": "moore",
+      "label": "Moore's Law and CPU evolution",
+      "section": "moore"
+    },
+    {
+      "id": "memstore",
+      "label": "Memory and storage technology",
+      "section": "memstore"
+    },
+    {
+      "id": "power",
+      "label": "Power, energy and the clock-speed stall",
+      "section": "power"
+    },
+    {
+      "id": "multicore",
+      "label": "Multicore processors",
+      "section": "multicore"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "In 1971 a processor had 2,300 transistors. Today a phone chip has billions. So why did clock speeds stop climbing around 2004?",
+          "clues": [
+            "That is millions of times more transistors in about fifty years.",
+            "Yet most chips still run at roughly 3 to 5 GHz, close to where they were in the mid-2000s.",
+            "Something other than transistor count became the limit. By the end of this lesson you will know what."
+          ],
+          "notes": {
+            "explain": "Let students guess the limit before you reveal anything. Common guesses: cost, physics, no demand. The answer is power and heat. Tie it to today's idea: architecture changes because technology changes.",
+            "ask": "If you could have either a faster clock or more cores, which would you pick for a phone?",
+            "difficulty": "Easy: curiosity warm-up."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the five objectives. Introduce the core idea of the class: computer architecture changes because technology changes."
+          }
+        }
+      ]
+    },
+    {
+      "id": "ics",
+      "label": "Chips",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "ics",
+          "title": "From transistor to chip",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "Transistor",
+                  "sub": "a tiny electronic switch",
+                  "note": "A **transistor** switches a current on or off. Everything a computer does is built from billions of these switches.",
+                  "example": "Roughly 2,300 in the first microprocessor (1971); billions in a phone chip today."
+                },
+                {
+                  "label": "Logic gate",
+                  "sub": "a few transistors",
+                  "note": "A few transistors wired together make a gate such as AND, OR or NOT."
+                },
+                {
+                  "label": "Circuit",
+                  "sub": "gates combined",
+                  "note": "Gates combine into circuits such as an adder or a register."
+                },
+                {
+                  "label": "Integrated circuit",
+                  "sub": "all on one silicon chip",
+                  "note": "An **integrated circuit** (IC) puts millions or billions of transistors and their wiring on one small piece of silicon."
+                },
+                {
+                  "label": "Processor",
+                  "sub": "circuits that execute instructions",
+                  "note": "The processor is a very large integrated circuit made of many such circuits."
+                }
+              ]
+            }
+          ],
+          "why": "Smaller transistors mean more of them per chip, which is the engine behind every trend in this lesson.",
+          "real": "The processor in your phone, the memory chips in your laptop and the controller in a washing machine are all integrated circuits.",
+          "mistake": {
+            "wrong": "A chip is one big transistor.",
+            "right": "A chip is billions of transistors, wired into gates and circuits, on one piece of silicon."
+          },
+          "explainAgain": {
+            "beginner": "A transistor is like a light switch with no hands. Wire enough of them together and they can add, compare and remember."
+          },
+          "notes": {
+            "explain": "Click each stage. The point is the climb from one switch to a whole processor.",
+            "terms": [
+              "**Transistor**",
+              "**Integrated circuit**"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "ics",
+          "title": "From wafer to chip",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "Wafer",
+                  "sub": "a silicon disc",
+                  "note": "Hundreds of identical chips are printed on one **wafer** at the same time."
+                },
+                {
+                  "label": "Cut",
+                  "sub": "into dies",
+                  "note": "The wafer is cut into individual chips called **dies**."
+                },
+                {
+                  "label": "Test",
+                  "sub": "find the faulty ones",
+                  "note": "Some dies have defects and must be thrown away. The fraction that work is the **yield**."
+                },
+                {
+                  "label": "Package",
+                  "sub": "protect and connect",
+                  "note": "Good dies are put into packages with pins or pads."
+                },
+                {
+                  "label": "Sell",
+                  "sub": "to customers",
+                  "note": "The cost of the whole process is shared among the good chips."
+                }
+              ]
+            }
+          ],
+          "why": "Every chip you buy has to pay for the faulty chips that were thrown away.",
+          "real": "Large chips such as high-end graphics processors cost far more per chip than small phone chips, partly because fewer fit on a wafer and more of them have a defect.",
+          "mistake": {
+            "wrong": "A chip twice as large costs twice as much.",
+            "right": "It costs more than twice as much: fewer dies fit on a wafer and each has more chance of a defect."
+          },
+          "explainAgain": {
+            "beginner": "Imagine cutting cookies from one big sheet of dough. Bigger cookies mean fewer cookies, and a bad spot in the dough ruins a bigger piece.",
+            "technical": "Die cost = wafer cost ÷ (dies per wafer × die yield). Larger die area reduces dies per wafer and lowers yield, so cost grows faster than area."
+          },
+          "notes": {
+            "explain": "Click each stage. Emphasize that yield is a fraction between 0 and 1.",
+            "terms": [
+              "**Wafer** — a thin silicon disc",
+              "**Die** — one chip cut from the wafer",
+              "**Yield** — the fraction of dies that work"
+            ],
+            "misconceptions": [
+              "Students assume cost is proportional to area."
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "ics",
+          "title": "What does one good chip cost?",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "Cost per good die",
+                  "note": "What the manufacturer actually pays for each working chip."
+                },
+                {
+                  "t": "="
+                },
+                {
+                  "t": "Wafer cost",
+                  "note": "The price of processing one whole wafer."
+                },
+                {
+                  "t": "÷"
+                },
+                {
+                  "t": "(Dies per wafer",
+                  "note": "How many chips fit on the wafer. Smaller dies means more of them."
+                },
+                {
+                  "t": "×"
+                },
+                {
+                  "t": "Yield)",
+                  "note": "The fraction of dies that work, for example 0.8 for 80%."
+                }
+              ]
+            },
+            {
+              "type": "calculator",
+              "title": "Try it: die cost calculator",
+              "equation": "**Cost per good die = Wafer cost ÷ (Dies per wafer × Yield)**",
+              "inputs": [
+                {
+                  "id": "wafer",
+                  "label": "Wafer cost",
+                  "value": 8000,
+                  "min": 1000,
+                  "max": 20000,
+                  "step": 500,
+                  "unit": "USD"
+                },
+                {
+                  "id": "dies",
+                  "label": "Dies per wafer",
+                  "value": 200,
+                  "min": 50,
+                  "max": 800,
+                  "step": 10
+                },
+                {
+                  "id": "yld",
+                  "label": "Yield",
+                  "value": 80,
+                  "min": 20,
+                  "max": 100,
+                  "step": 1,
+                  "unit": "%"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Good dies per wafer",
+                  "formula": "dies*yld/100",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "dies"
+                },
+                {
+                  "label": "Cost per good die",
+                  "formula": "wafer/(dies*yld/100)",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "USD",
+                  "better": "lower"
+                }
+              ],
+              "trace": "Cost = {wafer} ÷ ({dies} × {yld}%) = {r1}"
+            }
+          ],
+          "why": "Architects must know that a bigger, more complex design directly raises the cost of every chip.",
+          "notes": {
+            "explain": "Move the yield slider down and ask what happens to cost. Then move dies per wafer down to simulate a larger chip."
+          },
+          "deeper": {
+            "text": "The textbook models are more detailed. Dies per wafer is roughly the wafer area divided by the die area, minus the partial dies lost around the wafer's edge. Die yield falls as the die area and the number of defects per unit area rise, with a factor for how complex the process is. The simple formula here is the same idea with those details left out."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "ics",
+          "skill": "Apply",
+          "question": "A wafer costs $8,000 and holds 200 dies. 80% of the dies work. What does one good die cost?",
+          "options": [
+            "$40",
+            "$50",
+            "$62.50",
+            "$80"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "transform",
+              "before": {
+                "title": "Start",
+                "text": "200 dies at 80% yield"
+              },
+              "process": "200 × 0.8 = 160 good dies; $8,000 ÷ 160",
+              "after": {
+                "title": "Result",
+                "text": "$50 per good die"
+              }
+            }
+          ],
+          "result": "Only 160 dies are good, so each good die carries $50 of the wafer's cost, not $40."
+        }
+      ]
+    },
+    {
+      "id": "moore",
+      "label": "Moore's Law",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "moore",
+          "title": "CPU evolution: transistors over time",
+          "blocks": [
+            {
+              "type": "timeline",
+              "items": [
+                {
+                  "when": "1971",
+                  "label": "Intel 4004",
+                  "note": "about 2,300 transistors"
+                },
+                {
+                  "when": "1989",
+                  "label": "Intel 486",
+                  "note": "about 1.2 million"
+                },
+                {
+                  "when": "2000",
+                  "label": "Pentium 4",
+                  "note": "about 42 million"
+                },
+                {
+                  "when": "2006",
+                  "label": "Core 2 Duo",
+                  "note": "about 291 million"
+                },
+                {
+                  "when": "2020",
+                  "label": "Apple M1",
+                  "note": "about 16 billion"
+                }
+              ]
+            }
+          ],
+          "why": "More transistors let architects add caches, more cores and special units, which is why a phone today far outperforms 1990s supercomputers.",
+          "notes": {
+            "explain": "Ask students to guess each number before revealing it. The jump is the point.",
+            "terms": [
+              "**Transistor** — the tiny electronic switch that chips are built from"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "moore",
+          "title": "Moore's Law",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Today",
+                  "sub": "1×",
+                  "note": "Start with some number of transistors."
+                },
+                {
+                  "label": "+2 years",
+                  "sub": "2×",
+                  "note": "The count doubles."
+                },
+                {
+                  "label": "+4 years",
+                  "sub": "4×",
+                  "note": "Doubles again."
+                },
+                {
+                  "label": "+6 years",
+                  "sub": "8×",
+                  "note": "And again."
+                },
+                {
+                  "label": "+8 years",
+                  "sub": "16×",
+                  "note": "Repeated doubling is **exponential growth**."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "Gordon Moore noticed in 1965 that the number of transistors per chip was doubling regularly. Since about 1975 the pace has been roughly **every two years**.",
+              "reveal": true
+            }
+          ],
+          "why": "For decades programmers and companies could count on cheaper, faster hardware every couple of years and plan products around it.",
+          "explainAgain": {
+            "beginner": "If you double a pile of coins every two years, after ten years you have 32 times as many as you began with.",
+            "technical": "Moore's Law is an empirical observation about the economics of manufacturing: the number of transistors that can be integrated at minimum cost has doubled roughly every two years."
+          },
+          "deeper": {
+            "text": "Over many years, bandwidth (how much data moves per second) has improved much faster than latency (how long one access takes), for memory, disks and networks alike. Architects respond with caching, parallelism and prediction to hide latency."
+          },
+          "real": "Every few years phones and laptops offer more memory and speed for about the same price. That steady improvement is Moore's Law at work.",
+          "mistake": {
+            "wrong": "Moore's Law is a law of physics.",
+            "right": "It is an observation about manufacturing economics, and the pace has slowed.",
+            "why": "Nothing in nature forces transistor counts to double."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "moore",
+          "skill": "Apply",
+          "question": "If transistor counts double every two years, how many times more transistors will a chip have after 10 years?",
+          "options": [
+            "5 times",
+            "10 times",
+            "32 times",
+            "100 times"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "Years",
+                "Doublings",
+                "Times more"
+              ],
+              "rows": [
+                [
+                  "2",
+                  "1",
+                  "2×"
+                ],
+                [
+                  "4",
+                  "2",
+                  "4×"
+                ],
+                [
+                  "6",
+                  "3",
+                  "8×"
+                ],
+                [
+                  "8",
+                  "4",
+                  "16×"
+                ],
+                [
+                  "10",
+                  "5",
+                  "32×"
+                ]
+              ]
+            }
+          ],
+          "result": "Every two years multiplies the count by 2, so ten years is 2 × 2 × 2 × 2 × 2 = 32."
+        },
+        {
+          "type": "concept",
+          "concept": "moore",
+          "title": "Semiconductor technology",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Chips are made by printing tiny transistors onto **silicon wafers**",
+                "Smaller transistors (measured in **nanometers**) mean more per chip and faster switching",
+                "But wires inside the chip do not speed up as much as the transistors do",
+                "And each new factory generation costs more to build"
+              ]
+            }
+          ],
+          "why": "Every manufacturing generation hands architects more transistors to spend, along with new problems to solve."
+        },
+        {
+          "type": "mcq",
+          "concept": "moore",
+          "skill": "Apply",
+          "question": "A chip has 4 billion transistors. If the count doubles every two years, about how many will a chip have 6 years later?",
+          "options": [
+            "8 billion",
+            "12 billion",
+            "16 billion",
+            "32 billion"
+          ],
+          "answer": 3,
+          "why": "6 years is 3 doublings: 4 × 2 × 2 × 2 = 32 billion.",
+          "feedback": [
+            "That is only one doubling (two years).",
+            "Doubling multiplies; it does not add 2 billion each step.",
+            "That is two doublings (four years).",
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "id": "memstore",
+      "label": "Memory & Storage",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "memstore",
+          "title": "Memory and storage technologies",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Technology",
+                "Speed",
+                "Cost per bit",
+                "Keeps data without power?",
+                "Typical use"
+              ],
+              "rows": [
+                [
+                  "SRAM",
+                  "Fastest",
+                  "Highest",
+                  "No",
+                  "CPU caches and registers"
+                ],
+                [
+                  "DRAM",
+                  "Fast",
+                  "Medium",
+                  "No (needs refreshing)",
+                  "Main memory (RAM)"
+                ],
+                [
+                  "Flash",
+                  "Slower than DRAM",
+                  "Lower than DRAM",
+                  "Yes",
+                  "SSDs, phones, USB sticks"
+                ],
+                [
+                  "Magnetic disk",
+                  "Slowest (mechanical)",
+                  "Lowest",
+                  "Yes",
+                  "Large, cheap storage"
+                ]
+              ]
+            }
+          ],
+          "why": "Each technology fills a different gap between speed, cost and capacity, which is why computers use several of them together.",
+          "real": "A phone's flash storage keeps your photos with the power off, while its DRAM holds the apps you are running right now.",
+          "mistake": {
+            "wrong": "The fastest memory technology can simply replace all the others.",
+            "right": "The fastest technologies cost far more per bit, so computers combine several (the memory hierarchy, Class 17)."
+          },
+          "explainAgain": {
+            "beginner": "A desk is fast to reach but small, a filing cabinet is bigger and slower, and a warehouse is huge and slowest. Computers use all three kinds of storage."
+          },
+          "deeper": {
+            "text": "Magnetic disks are slow because a mechanical arm must move to the right place. Flash has no moving parts. Both keep their data when the power is off, which DRAM and SRAM do not."
+          },
+          "notes": {
+            "explain": "Reveal one row at a time and ask students to guess the use before you show it. All comparisons are relative; the exact numbers change every year.",
+            "terms": [
+              "**SRAM**",
+              "**DRAM**",
+              "**Flash**",
+              "**Volatile** — loses data without power"
+            ],
+            "misconceptions": [
+              "Students mix up memory (DRAM) and storage (flash or disk)."
+            ]
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "memstore",
+          "skill": "Analyze",
+          "question": "Over the past several decades, which improved much more: how much data a memory chip can hold, or how quickly one access to it completes?",
+          "options": [
+            "Capacity improved far more than access time",
+            "Access time improved far more than capacity",
+            "They improved by about the same amount",
+            "Neither has improved"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Memory capacity",
+                "items": [
+                  "Grew enormously",
+                  "Each new chip generation holds many times more"
+                ]
+              },
+              "right": {
+                "title": "Access time (latency)",
+                "items": [
+                  "Improved only slowly",
+                  "Waiting for one value is still comparatively long"
+                ]
+              }
+            }
+          ],
+          "result": "Capacity and total data rate improved dramatically; the time for one access improved only modestly. That growing gap is the reason for caches."
+        },
+        {
+          "type": "match",
+          "concept": "memstore",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each technology with its typical use.",
+          "pairs": [
+            {
+              "a": "SRAM",
+              "b": "CPU caches"
+            },
+            {
+              "a": "DRAM",
+              "b": "Main memory (RAM)"
+            },
+            {
+              "a": "Flash",
+              "b": "SSDs and phone storage"
+            },
+            {
+              "a": "Magnetic disk",
+              "b": "Large, cheap storage"
+            }
+          ],
+          "why": "Speed and cost per bit decide which technology goes where."
+        },
+        {
+          "type": "mcq",
+          "concept": "memstore",
+          "skill": "Apply",
+          "question": "Which technology is normally used for a CPU's caches?",
+          "options": [
+            "SRAM",
+            "DRAM",
+            "Flash",
+            "Magnetic disk"
+          ],
+          "answer": 0,
+          "why": "SRAM is the fastest of the four, and a cache needs speed above all.",
+          "feedback": [
+            "",
+            "DRAM is used for main memory. It is cheaper but slower than SRAM.",
+            "Flash is non-volatile storage and much slower than a cache needs.",
+            "A disk is the slowest of the four."
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What is an integrated circuit?",
+              "a": "A large number of transistors and their wiring on one piece of silicon.",
+              "concept": "ics"
+            },
+            {
+              "q": "Why does yield matter for chip cost?",
+              "a": "Cost per good chip is wafer cost divided by the number of good dies, so lower yield means a higher cost.",
+              "concept": "ics"
+            },
+            {
+              "q": "Why do computers use several memory technologies?",
+              "a": "Faster technologies cost more per bit, so a mix gives speed and capacity at an acceptable price.",
+              "concept": "memstore"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "power",
+      "label": "Power",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "power",
+          "title": "Why clock speeds stalled",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Faster clock",
+                  "sub": "more cycles per second",
+                  "note": "Raising the clock frequency makes the chip switch more often."
+                },
+                {
+                  "label": "More switching",
+                  "sub": "per second",
+                  "note": "Every switch uses a little energy."
+                },
+                {
+                  "label": "More power",
+                  "sub": "and heat",
+                  "note": "Power is energy per second, and it all turns into heat."
+                },
+                {
+                  "label": "Cooling limit",
+                  "sub": "the power wall",
+                  "note": "Around 2004 chips reached the most heat that could be removed affordably."
+                }
+              ]
+            }
+          ],
+          "why": "A phone has no room for a fan, and a data center pays for both the electricity and the cooling, so power limits every design.",
+          "notes": {
+            "explain": "This is the answer to the opening question. Replay the flow once the class has seen it.",
+            "terms": [
+              "**Power wall** — the limit set by how much heat can be removed"
+            ]
+          },
+          "real": "Your phone slows itself down when it gets hot (thermal throttling), and data centers spend a large share of their cost on electricity and cooling.",
+          "mistake": {
+            "wrong": "A higher GHz number always means a faster computer.",
+            "right": "Higher frequency raises power and heat, and performance also depends on how much work each cycle does.",
+            "why": "We will measure this properly in the next lessons."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "power",
+          "title": "Dynamic power",
+          "blocks": [
+            {
+              "type": "code",
+              "lang": "text",
+              "code": "Power  ≈  1/2  ×  C  ×  V²  ×  f"
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "**C** — capacitance: more transistors and wires mean more to charge",
+                "**V** — voltage: it is **squared**, so lowering it saves a lot",
+                "**f** — frequency: doubling the clock doubles the power"
+              ]
+            }
+          ],
+          "why": "Lowering the voltage a little saves far more power than lowering the clock, which is why phones run at low voltage.",
+          "explainAgain": {
+            "beginner": "Charging a bucket takes energy. A bigger bucket (C), a harder push (V) and more refills per second (f) all cost more power."
+          },
+          "deeper": {
+            "text": "The energy to switch a transistor once is about 1/2 × C × V². Power is that energy times the number of switches per second. Energy decides battery life; power decides heat."
+          },
+          "notes": {
+            "explain": "Do not derive the formula; focus on what each term means.",
+            "misconceptions": [
+              "Students think power and energy are the same thing."
+            ]
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "power",
+          "skill": "Apply",
+          "question": "A chip's voltage is lowered from 1.0 V to 0.8 V, with the same capacitance and frequency. What happens to dynamic power?",
+          "options": [
+            "Falls by 20%",
+            "Falls by 36%",
+            "Falls by 64%",
+            "Does not change"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "transform",
+              "before": {
+                "title": "Before",
+                "text": "1.0 V → relative power 1.00"
+              },
+              "process": "multiply by 0.8² = 0.64",
+              "after": {
+                "title": "After",
+                "text": "0.8 V → relative power 0.64, which is 36% less"
+              }
+            }
+          ],
+          "result": "Voltage is squared, so a 20% cut in voltage cuts power by 36%."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Your phone gets warm when you play a game. What does that tell you about power, and why can't designers just add a fan?",
+          "think": 20,
+          "pair": 40,
+          "answer": "The heat is the power the chip uses. A phone has no space or battery budget for a fan, so designers must keep power low enough to remove the heat passively.",
+          "notes": {
+            "explain": "Listen for 'power becomes heat' and 'size and battery limits'.",
+            "discuss": "How does a phone stay cool? (It slows itself down: thermal throttling.)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "multicore",
+      "label": "Multicore",
+      "minutes": 5,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "multicore",
+          "title": "The shift to multicore processors",
+          "blocks": [
+            {
+              "type": "transform",
+              "before": {
+                "title": "Before about 2004",
+                "text": "One core, with a higher clock every year"
+              },
+              "process": "the power wall",
+              "after": {
+                "title": "After",
+                "text": "Several cores at moderate clock speeds"
+              }
+            }
+          ],
+          "why": "That is why your laptop has many cores instead of one 20 GHz core, and why programmers now have to write parallel programs.",
+          "explainAgain": {
+            "beginner": "If one worker cannot go faster without overheating, hire more workers who each go at a comfortable pace."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "multicore",
+          "title": "Performance now depends on software too",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "Performance",
+                  "note": "How fast a machine is on a given program."
+                },
+                {
+                  "t": "="
+                },
+                {
+                  "t": "1"
+                },
+                {
+                  "t": "÷"
+                },
+                {
+                  "t": "Execution time",
+                  "note": "A smaller time means higher performance. We use this properly in Class 3."
+                }
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "More cores do **not** speed up a program that uses only one",
+                "The program must be split into parts that can run at the same time",
+                "Some work cannot be split, so the gain is limited (Amdahl's Law, Class 3)"
+              ]
+            }
+          ],
+          "why": "Hardware gives more cores, but only software that uses them turns them into speed.",
+          "real": "A game or video editor that spreads work across all cores feels much faster than one that does not.",
+          "mistake": {
+            "wrong": "More cores always means a faster program.",
+            "right": "Only programs written to use several cores speed up, and only the parts that can be split."
+          },
+          "notes": {
+            "explain": "Connect back to the hook: the clock stopped, so performance growth moved from the hardware's clock to parallel software."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "multicore",
+          "skill": "Apply",
+          "question": "A program written to run on one core is started on a 16-core processor. What happens to its running time?",
+          "options": [
+            "It stays about the same",
+            "It becomes 16 times shorter",
+            "It becomes 4 times shorter",
+            "It doubles"
+          ],
+          "answer": 0,
+          "why": "A single-threaded program uses one core at a time, so the other cores do not help it.",
+          "feedback": [
+            "",
+            "That would need the program to split all of its work perfectly across 16 cores.",
+            "There is no reason for exactly 4 times; the program simply does not use the extra cores.",
+            "Extra cores do not make it slower."
+          ]
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "multicore",
+          "question": "Why can't designers simply keep raising the clock speed forever?",
+          "seconds": 60,
+          "ideas": [
+            "Power grows with frequency, and higher frequency also needs higher voltage.",
+            "Heat must be removed, and phones and laptops have little room for cooling.",
+            "Wires and transistors approach physical limits.",
+            "So designers add cores and specialized hardware instead."
+          ],
+          "notes": {
+            "explain": "This revisits the opening question. Let students answer before you reveal the key ideas.",
+            "discuss": "Which of these limits could better cooling remove, and which could it not?"
+          }
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "memstore",
+          "skill": "Remember",
+          "think": 20,
+          "question": "Name three memory or storage technologies and one typical use for each.",
+          "answer": "For example: SRAM for CPU caches, DRAM for main memory, flash for SSDs and phone storage, magnetic disk for large cheap storage.",
+          "solution": "SRAM is fastest and most expensive, DRAM is the main memory, flash keeps data without power and has no moving parts, and a disk is slowest and cheapest per bit."
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "moore",
+          "skill": "Apply",
+          "think": 40,
+          "question": "A chip has 1 billion transistors today. If the count doubles every two years, how many will a chip have in 8 years?",
+          "hint": "How many doublings fit in 8 years?",
+          "answer": "16 billion.",
+          "solution": "8 years is 4 doublings.\n1 → 2 → 4 → 8 → 16 billion."
+        },
+        {
+          "type": "find",
+          "concept": "power",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement is wrong. Click it.",
+          "lines": [
+            "1. Dynamic power depends on capacitance, voltage and frequency.",
+            "2. Lowering the voltage has little effect because it appears only once in the formula.",
+            "3. Raising the frequency raises power.",
+            "4. The power a chip uses turns into heat that must be removed."
+          ],
+          "wrong": 1,
+          "explain": "Voltage is squared in the formula, so lowering it has a large effect.",
+          "fix": "Voltage appears squared, so a small cut in voltage saves a lot of power."
+        },
+        {
+          "type": "arrange",
+          "concept": "power",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the chain that led to the power wall in order.",
+          "items": [
+            "Designers raise the clock frequency",
+            "The chip switches more times per second",
+            "Power use and heat rise",
+            "Cooling limits are reached"
+          ],
+          "why": "Each step causes the next, and the last step is the wall that stopped clock speeds from climbing."
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "power",
+          "skill": "Evaluate",
+          "think": 90,
+          "question": "Engineers raise a phone chip's frequency by 20%, which needs a 10% higher voltage. By what factor does dynamic power rise, and what happens to the energy used per task? Is it worth it for a phone?",
+          "hint": "Power scales with V² × f. A faster chip also finishes the task sooner.",
+          "answer": "Power rises about 1.45× (45% more). The task finishes in 1/1.2 of the time, so energy per task rises about 21%. For a phone it is probably not worth it.",
+          "solution": "Power factor = 1.1² × 1.2 = 1.21 × 1.2 = 1.452.\nTime factor = 1 / 1.2 = 0.833.\nEnergy = power × time = 1.452 × 0.833 ≈ 1.21.\nPerformance is up 20%, but battery use per task is up about 21% and heat is up 45%, which hurts a phone."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "moore",
+          "skill": "Apply",
+          "title": "Exam practice: numerical",
+          "think": 75,
+          "question": "A chip has 500 million transistors. If the count doubles every two years, how many transistors will a chip have after 12 years?",
+          "hint": "How many doublings fit in 12 years?",
+          "answer": "32 billion transistors.",
+          "solution": "12 years is 6 doublings, so the count is multiplied by 2^6 = 64.\n500 million × 64 = 32,000 million = 32 billion.",
+          "mistake": "Multiplying by 6 or by 12 instead of by 2 six times."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "power",
+          "skill": "Apply",
+          "title": "Exam practice: power calculation",
+          "think": 90,
+          "question": "A designer lowers a chip's voltage from 1.2 V to 0.9 V and keeps the frequency and capacitance the same. What is the new dynamic power as a fraction of the old?",
+          "hint": "Power is proportional to V².",
+          "answer": "About 0.56, which is a 44% reduction.",
+          "solution": "Ratio of voltages = 0.9 / 1.2 = 0.75.\nPower ratio = 0.75² = 0.5625.\nSo the chip uses about 56% of the old power, a reduction of about 44%.",
+          "mistake": "Forgetting to square the voltage ratio and answering 0.75."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "power",
+          "skill": "Evaluate",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "question": "Explain why the power wall pushed processor designers toward multicore chips.",
+          "answer": "Raising the clock frequency raises power and heat beyond what can be cooled. Several cores at moderate speeds give more total work per second within the same power budget.",
+          "solution": "A strong answer links frequency to power, power to heat, and heat to the cooling limit, then explains that more cores deliver more throughput without the extreme clock speed. It may also mention that programs must be written to use several cores.",
+          "mistake": "Saying cores were added because transistors stopped getting smaller. They were still getting smaller; power was the limit."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "ics",
+          "skill": "Apply",
+          "title": "Exam practice: cost",
+          "think": 60,
+          "question": "A wafer costs $6,000 and holds 300 dies. The yield is 70%. What is the cost of one good die?",
+          "answer": "About $28.57.",
+          "solution": "Good dies = 300 × 0.7 = 210.\nCost = $6,000 ÷ 210 ≈ $28.57.",
+          "mistake": "Dividing by 300 instead of by the number of good dies."
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Technology drives architecture",
+          "branches": [
+            {
+              "label": "Chips",
+              "example": "Transistor → IC → cost",
+              "section": "ics"
+            },
+            {
+              "label": "Moore's Law",
+              "example": "Transistors double",
+              "section": "moore"
+            },
+            {
+              "label": "Memory",
+              "example": "SRAM · DRAM · Flash · Disk",
+              "section": "memstore"
+            },
+            {
+              "label": "Power",
+              "example": "P ≈ ½ C V² f",
+              "section": "power"
+            },
+            {
+              "label": "Multicore",
+              "example": "More cores, parallel software",
+              "section": "multicore"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Computer architecture changes because technology changes.",
+            "An integrated circuit puts billions of transistors on one chip; cost per good chip depends on yield.",
+            "Moore's Law: transistor counts have doubled roughly every two years.",
+            "SRAM, DRAM, flash and disk trade speed against cost per bit, so computers combine them.",
+            "Dynamic power is proportional to capacitance × voltage² × frequency; heat stopped clock speeds rising.",
+            "Multicore chips are the response, and software must be parallel to benefit."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "Moore's Law is a law of physics.",
+              "right": "It is an observation about manufacturing economics, and it has slowed."
+            },
+            {
+              "wrong": "A higher GHz number always means a faster computer.",
+              "right": "Power limits the clock, and performance also depends on the work done per cycle."
+            },
+            {
+              "wrong": "More cores always mean a faster program.",
+              "right": "Only parallel programs benefit."
+            },
+            {
+              "wrong": "Memory and storage are the same thing.",
+              "right": "Memory holds what is running; storage keeps files with the power off."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Transistors are built into integrated circuits, and the cost of a chip depends on how many good dies a wafer yields. Transistor counts have doubled about every two years, while memory capacity grew much faster than access speed. Power and heat stopped clock speeds from rising, so processors became multicore, and performance now depends on parallel software."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "moore",
+              "statement": "Moore's Law says the number of transistors on a chip doubles about every two years.",
+              "answer": true,
+              "why": "That is the commonly used form of Moore's Law.",
+              "misconception": "It is about doubling, not adding a fixed number."
+            },
+            {
+              "level": "easy",
+              "concept": "memstore",
+              "question": "Which memory technology is normally used for CPU caches?",
+              "options": [
+                "SRAM",
+                "DRAM",
+                "Flash",
+                "Magnetic disk"
+              ],
+              "answer": 0,
+              "why": "SRAM is the fastest of the four.",
+              "misconception": "DRAM is the main memory technology: cheaper and slower."
+            },
+            {
+              "level": "easy",
+              "concept": "ics",
+              "question": "What does yield mean?",
+              "options": [
+                "The fraction of dies on a wafer that work",
+                "The price of a wafer",
+                "The number of dies per wafer",
+                "The clock rate of a chip"
+              ],
+              "answer": 0,
+              "why": "Yield is the fraction of dies that work.",
+              "misconception": "Price and count are different quantities; yield is a fraction between 0 and 1."
+            },
+            {
+              "level": "medium",
+              "concept": "moore",
+              "question": "A chip has 2 billion transistors. After 6 years at one doubling per 2 years, about how many does a new chip have?",
+              "options": [
+                "6 billion",
+                "8 billion",
+                "16 billion",
+                "12 billion"
+              ],
+              "answer": 2,
+              "why": "6 years is 3 doublings: 2 × 2 × 2 × 2 = 16 billion.",
+              "misconception": "Doubling multiplies the count; it does not add the same amount each step."
+            },
+            {
+              "level": "medium",
+              "concept": "ics",
+              "question": "A wafer costs $9,000 and holds 300 dies at 60% yield. What does one good die cost?",
+              "options": [
+                "$30",
+                "$50",
+                "$60",
+                "$90"
+              ],
+              "answer": 1,
+              "why": "Good dies = 300 × 0.6 = 180, and $9,000 ÷ 180 = $50.",
+              "misconception": "Divide by the number of good dies (180), not by the 300 dies on the wafer."
+            },
+            {
+              "level": "medium",
+              "concept": "power",
+              "question": "Why did processors move from one fast core to several cores?",
+              "options": [
+                "Power and heat limited clock frequency",
+                "Transistors stopped working",
+                "Software became slower",
+                "Cores are cheaper than transistors"
+              ],
+              "answer": 0,
+              "why": "The power wall stopped clock speeds rising, so designers used the extra transistors for more cores.",
+              "misconception": "Transistors kept getting cheaper; the limit was heat, not the transistors."
+            },
+            {
+              "level": "hard",
+              "concept": "power",
+              "question": "Voltage is cut by 50% with the same frequency and capacitance. What is the dynamic power relative to before?",
+              "options": [
+                "50%",
+                "25%",
+                "75%",
+                "12.5%"
+              ],
+              "answer": 1,
+              "why": "Power scales with V², so 0.5² = 0.25, or 25%.",
+              "misconception": "Because voltage is squared, halving it cuts power to a quarter, not a half."
+            },
+            {
+              "level": "hard",
+              "concept": "memstore",
+              "question": "A phone needs a large, inexpensive store that keeps data with the power off and has no moving parts. Which technology fits best?",
+              "options": [
+                "Flash",
+                "SRAM",
+                "DRAM",
+                "Magnetic disk"
+              ],
+              "answer": 0,
+              "why": "Flash is non-volatile, has no moving parts and is cheap enough for large capacity.",
+              "misconception": "SRAM and DRAM lose data without power, and a disk has moving parts."
+            },
+            {
+              "level": "challenge",
+              "concept": "power",
+              "question": "A design raises the frequency by 25% with no change in voltage and finishes the same task in 80% of the time. What happens to the energy used per task?",
+              "options": [
+                "Energy rises by 25%",
+                "Energy falls by 20%",
+                "Energy stays the same",
+                "Energy doubles"
+              ],
+              "answer": 2,
+              "why": "Power rises 1.25× and time falls to 0.8×, and 1.25 × 0.8 = 1, so energy is unchanged.",
+              "misconception": "Energy is power multiplied by time, so a faster clock draws more power for less time."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "What is an integrated circuit, and what decides the cost of one good chip?",
+              "a": "Billions of transistors and wiring on one silicon chip. Cost per good chip depends on wafer cost, dies per wafer and yield.",
+              "concept": "ics"
+            },
+            {
+              "q": "What does Moore's Law say?",
+              "a": "The number of transistors on a chip doubles about every two years.",
+              "concept": "moore"
+            },
+            {
+              "q": "Why do computers use more than one memory technology?",
+              "a": "Faster memory costs more per bit and holds less, so a mix gives speed and capacity at a reasonable price.",
+              "concept": "memstore"
+            },
+            {
+              "q": "Why did clock speeds stop rising, and what did designers do?",
+              "a": "Power and heat hit a limit, so designers added more cores.",
+              "concept": "power"
+            },
+            {
+              "q": "Why does a multicore chip not speed up every program?",
+              "a": "Only programs that split their work across cores benefit.",
+              "concept": "multicore"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

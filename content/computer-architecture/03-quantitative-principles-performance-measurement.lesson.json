@@ -1,26 +1,35 @@
 {
-  "id": "ca-03-cost-performance",
-  "title": "Cost, Performance and Quantitative Principles",
-  "subtitle": "Why a faster part does not always make a faster computer, and how to calculate it.",
+  "id": "ca-03-quantitative-principles",
+  "title": "Quantitative Principles and Performance Measurement",
+  "subtitle": "A problem-solving class: from response time to Amdahl's Law.",
   "level": "Beginner",
   "duration": 60,
   "practiceLevels": 4,
+  "references": [
+    {
+      "book": "CAQA",
+      "chapter": "1",
+      "title": "Fundamentals of Computer Design",
+      "topics": "Quantitative principles of computer design (parallelism, locality, the common case); Amdahl's Law; the processor performance equation; measuring and reporting performance; benchmarks"
+    },
+    {
+      "book": "COD",
+      "chapter": "1",
+      "title": "Computer Abstractions and Technology",
+      "topics": "Defining performance (response time and throughput); CPU performance and its factors; benchmarking with the SPEC CPU suite; fallacies and pitfalls (MIPS, improving one aspect, using part of the equation)"
+    }
+  ],
   "objectives": [
-    "Explain how chip cost depends on wafers, yield, die size and volume",
-    "Tell response time from throughput and compare machines using execution time",
-    "Use the CPU performance equation with instruction count, CPI and clock rate",
-    "Apply Amdahl's Law to estimate the speedup from an improvement",
-    "Name the quantitative principles architects use to guide design"
+    "Tell response time from throughput, and compare machines using execution time and speedup",
+    "Distinguish elapsed time from CPU time",
+    "Solve problems with the CPU performance equation: instruction count, CPI, clock cycle time and clock rate",
+    "Apply Amdahl's Law and the quantitative principles of computer design",
+    "Explain why MIPS and peak rates mislead, and how benchmarks measure honestly"
   ],
   "concepts": [
     {
-      "id": "cost",
-      "label": "Cost trends",
-      "section": "cost"
-    },
-    {
       "id": "perf",
-      "label": "Response time and throughput",
+      "label": "Response time, throughput and speedup",
       "section": "perf"
     },
     {
@@ -37,6 +46,11 @@
       "id": "principles",
       "label": "Quantitative principles",
       "section": "amdahl"
+    },
+    {
+      "id": "measure",
+      "label": "Benchmarks and measurement pitfalls",
+      "section": "measure"
     }
   ],
   "sections": [
@@ -62,253 +76,15 @@
         {
           "type": "objectives",
           "notes": {
-            "explain": "Read the five objectives. Tell students the calculators later in the lesson let them test their own predictions."
+            "explain": "This is a problem-solving class. Tell students to have a calculator ready: every concept ends with numbers."
           }
-        }
-      ]
-    },
-    {
-      "id": "cost",
-      "label": "Cost",
-      "minutes": 8,
-      "steps": [
-        {
-          "type": "concept",
-          "concept": "cost",
-          "title": "From wafer to chip",
-          "blocks": [
-            {
-              "type": "flow",
-              "zoom": true,
-              "nodes": [
-                {
-                  "label": "Wafer",
-                  "sub": "a silicon disc",
-                  "note": "Hundreds of identical chips are printed on one **wafer** at the same time."
-                },
-                {
-                  "label": "Cut",
-                  "sub": "into dies",
-                  "note": "The wafer is cut into individual chips called **dies**."
-                },
-                {
-                  "label": "Test",
-                  "sub": "find the faulty ones",
-                  "note": "Some dies have defects and must be thrown away. The fraction that work is the **yield**."
-                },
-                {
-                  "label": "Package",
-                  "sub": "protect and connect",
-                  "note": "Good dies are put into packages with pins or pads."
-                },
-                {
-                  "label": "Sell",
-                  "sub": "to customers",
-                  "note": "The cost of the whole process is shared among the good chips."
-                }
-              ]
-            }
-          ],
-          "why": "Every chip you buy has to pay for the faulty chips that were thrown away.",
-          "real": "Large chips such as high-end graphics processors cost far more per chip than small phone chips, partly because fewer fit on a wafer and more of them have a defect.",
-          "mistake": {
-            "wrong": "A chip twice as large costs twice as much.",
-            "right": "It costs more than twice as much: fewer dies fit on a wafer and each has more chance of a defect."
-          },
-          "explainAgain": {
-            "beginner": "Imagine cutting cookies from one big sheet of dough. Bigger cookies mean fewer cookies, and a bad spot in the dough ruins a bigger piece.",
-            "technical": "Die cost = wafer cost ÷ (dies per wafer × die yield). Larger die area reduces dies per wafer and lowers yield, so cost grows faster than area."
-          },
-          "notes": {
-            "explain": "Click each stage. Emphasize that yield is a fraction between 0 and 1.",
-            "terms": [
-              "**Wafer** — a thin silicon disc",
-              "**Die** — one chip cut from the wafer",
-              "**Yield** — the fraction of dies that work"
-            ],
-            "misconceptions": [
-              "Students assume cost is proportional to area."
-            ]
-          }
-        },
-        {
-          "type": "concept",
-          "concept": "cost",
-          "title": "What does one good chip cost?",
-          "blocks": [
-            {
-              "type": "formula",
-              "terms": [
-                {
-                  "t": "Cost per good die",
-                  "note": "What the manufacturer actually pays for each working chip."
-                },
-                {
-                  "t": "="
-                },
-                {
-                  "t": "Wafer cost",
-                  "note": "The price of processing one whole wafer."
-                },
-                {
-                  "t": "÷"
-                },
-                {
-                  "t": "(Dies per wafer",
-                  "note": "How many chips fit on the wafer. Smaller dies means more of them."
-                },
-                {
-                  "t": "×"
-                },
-                {
-                  "t": "Yield)",
-                  "note": "The fraction of dies that work, for example 0.8 for 80%."
-                }
-              ]
-            },
-            {
-              "type": "calculator",
-              "title": "Try it: die cost calculator",
-              "equation": "**Cost per good die = Wafer cost ÷ (Dies per wafer × Yield)**",
-              "inputs": [
-                {
-                  "id": "wafer",
-                  "label": "Wafer cost",
-                  "value": 8000,
-                  "min": 1000,
-                  "max": 20000,
-                  "step": 500,
-                  "unit": "USD"
-                },
-                {
-                  "id": "dies",
-                  "label": "Dies per wafer",
-                  "value": 200,
-                  "min": 50,
-                  "max": 800,
-                  "step": 10
-                },
-                {
-                  "id": "yld",
-                  "label": "Yield",
-                  "value": 80,
-                  "min": 20,
-                  "max": 100,
-                  "step": 1,
-                  "unit": "%"
-                }
-              ],
-              "results": [
-                {
-                  "label": "Good dies per wafer",
-                  "formula": "dies*yld/100",
-                  "format": "num",
-                  "digits": 0,
-                  "unit": "dies"
-                },
-                {
-                  "label": "Cost per good die",
-                  "formula": "wafer/(dies*yld/100)",
-                  "format": "num",
-                  "digits": 2,
-                  "unit": "USD",
-                  "better": "lower"
-                }
-              ],
-              "trace": "Cost = {wafer} ÷ ({dies} × {yld}%) = {r1}"
-            }
-          ],
-          "why": "Architects must know that a bigger, more complex design directly raises the cost of every chip.",
-          "notes": {
-            "explain": "Move the yield slider down and ask what happens to cost. Then move dies per wafer down to simulate a larger chip."
-          }
-        },
-        {
-          "type": "predict",
-          "concept": "cost",
-          "skill": "Apply",
-          "question": "A wafer costs $8,000 and holds 200 dies. 80% of the dies work. What does one good die cost?",
-          "options": [
-            "$40",
-            "$50",
-            "$62.50",
-            "$80"
-          ],
-          "answer": 1,
-          "reveal": [
-            {
-              "type": "transform",
-              "before": {
-                "title": "Start",
-                "text": "200 dies at 80% yield"
-              },
-              "process": "200 × 0.8 = 160 good dies; $8,000 ÷ 160",
-              "after": {
-                "title": "Result",
-                "text": "$50 per good die"
-              }
-            }
-          ],
-          "result": "Only 160 dies are good, so each good die carries $50 of the wafer's cost, not $40."
-        },
-        {
-          "type": "concept",
-          "concept": "cost",
-          "title": "Cost trends",
-          "blocks": [
-            {
-              "type": "bullets",
-              "items": [
-                {
-                  "text": "**Learning curve**",
-                  "sub": "As a process matures, yield improves and cost falls."
-                },
-                {
-                  "text": "**Volume**",
-                  "sub": "More units spread the fixed costs, so each chip costs less."
-                },
-                {
-                  "text": "**Commodity**",
-                  "sub": "Many makers selling similar parts push prices down."
-                }
-              ]
-            }
-          ],
-          "why": "This is why last year's processor gets cheaper and why a design that sells in millions can be priced so low.",
-          "real": "Memory chips and phone processors are produced in enormous volumes, which is a big reason they are so inexpensive."
-        },
-        {
-          "type": "match",
-          "concept": "cost",
-          "skill": "Understand",
-          "title": "Mini challenge",
-          "prompt": "Match each cost term with its meaning.",
-          "pairs": [
-            {
-              "a": "Wafer",
-              "b": "A silicon disc that holds many chips"
-            },
-            {
-              "a": "Die",
-              "b": "One chip-sized piece cut from the wafer"
-            },
-            {
-              "a": "Yield",
-              "b": "The fraction of dies that work"
-            },
-            {
-              "a": "Volume",
-              "b": "How many units are produced"
-            }
-          ],
-          "why": "These four terms are all you need to estimate what a chip costs to make."
         }
       ]
     },
     {
       "id": "perf",
       "label": "Performance",
-      "minutes": 8,
+      "minutes": 7,
       "steps": [
         {
           "type": "concept",
@@ -423,6 +199,67 @@
           }
         },
         {
+          "type": "concept",
+          "concept": "perf",
+          "title": "Three kinds of time",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "Elapsed time",
+                  "sub": "start to finish (wall-clock)",
+                  "note": "The total time you wait, including waiting for the disk, the network and other programs."
+                },
+                {
+                  "label": "CPU time",
+                  "sub": "the processor working on your program",
+                  "note": "Only the time the CPU actually spent executing your program."
+                },
+                {
+                  "label": "Waiting",
+                  "sub": "I/O and other programs",
+                  "note": "Elapsed time minus CPU time: the processor was idle or busy with something else."
+                }
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                {
+                  "text": "**User CPU time**",
+                  "sub": "running your own code"
+                },
+                {
+                  "text": "**System CPU time**",
+                  "sub": "the operating system working on your program's behalf"
+                }
+              ]
+            }
+          ],
+          "why": "The right measure depends on the question: how long do I wait (elapsed), or how hard did the CPU work (CPU time)?",
+          "real": "On Linux and macOS the `time` command prints three numbers: real (elapsed), user and sys. Task managers show how much of the elapsed time your CPU was actually busy.",
+          "mistake": {
+            "wrong": "Elapsed time and CPU time are the same thing.",
+            "right": "Elapsed time also includes waiting for the disk, the network and other programs."
+          },
+          "explainAgain": {
+            "beginner": "If you cook for 60 minutes but spend 15 of them waiting for the oven, your hands-on time is 45 minutes but the dinner took 60.",
+            "technical": "Elapsed (wall-clock) time = CPU time + I/O wait + time the process spent descheduled. CPU time splits into user time and system (kernel) time."
+          },
+          "notes": {
+            "explain": "Click each node. Point out that elapsed time is what the user feels.",
+            "terms": [
+              "**Execution time** — time to run a program",
+              "**Wall-clock time** — elapsed time on a wall clock"
+            ],
+            "misconceptions": [
+              "Students treat CPU time and elapsed time as the same."
+            ]
+          }
+        },
+        {
           "type": "mcq",
           "concept": "perf",
           "skill": "Apply",
@@ -449,34 +286,13 @@
           "statement": "Adding more cores always reduces the response time of a single-threaded program.",
           "answer": false,
           "why": "A single-threaded program uses one core at a time, so extra cores raise throughput but do not shorten that program's time."
-        },
-        {
-          "type": "checkpoint",
-          "title": "Checkpoint",
-          "questions": [
-            {
-              "q": "What is the difference between response time and throughput?",
-              "a": "Response time is how long one task takes (lower is better). Throughput is how many tasks finish per unit of time (higher is better).",
-              "concept": "perf"
-            },
-            {
-              "q": "How do you work out how many times faster A is than B?",
-              "a": "Divide B's execution time by A's execution time.",
-              "concept": "perf"
-            },
-            {
-              "q": "Why does a larger chip cost more than proportionally more?",
-              "a": "Fewer dies fit on a wafer and each die is more likely to contain a defect, so yield falls.",
-              "concept": "cost"
-            }
-          ]
         }
       ]
     },
     {
       "id": "equation",
       "label": "CPU Equation",
-      "minutes": 11,
+      "minutes": 10,
       "steps": [
         {
           "type": "concept",
@@ -724,7 +540,7 @@
     {
       "id": "amdahl",
       "label": "Amdahl",
-      "minutes": 10,
+      "minutes": 9,
       "steps": [
         {
           "type": "concept",
@@ -977,13 +793,321 @@
             "explain": "Let students use the calculator while they discuss.",
             "discuss": "What would B's speedup need to be to match A?"
           }
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "Write the CPU performance equation and say what each factor depends on.",
+              "a": "CPU time = instruction count × CPI × clock cycle time. Instruction count depends on the program, compiler and ISA; CPI on the ISA and organization; cycle time on technology and organization.",
+              "concept": "cpueq"
+            },
+            {
+              "q": "What does Amdahl's Law say about improving part of a program?",
+              "a": "The overall speedup is limited by the part you do not improve: speedup = 1 ÷ ((1 − F) + F ÷ S).",
+              "concept": "amdahl"
+            },
+            {
+              "q": "Name the three quantitative principles of computer design.",
+              "a": "Make the common case fast, take advantage of parallelism, and the principle of locality.",
+              "concept": "principles"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "measure",
+      "label": "Measurement",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "measure",
+          "title": "What is a benchmark?",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "A **benchmark** is a program, or a set of programs, used to measure and compare performance.",
+              "style": "lead"
+            },
+            {
+              "type": "table",
+              "head": [
+                "Type",
+                "Example",
+                "How far to trust it"
+              ],
+              "rows": [
+                [
+                  "Real applications",
+                  "Compilers, browsers, video encoding",
+                  "Best: it is what users really run"
+                ],
+                [
+                  "Kernels",
+                  "Small key loops cut from real programs",
+                  "Good for finding strengths and weaknesses"
+                ],
+                [
+                  "Toy programs",
+                  "A ten-line sorting program",
+                  "Easy to run but unrealistic"
+                ],
+                [
+                  "Synthetic benchmarks",
+                  "Whetstone, Dhrystone",
+                  "Written to imitate average behavior; easy to game"
+                ]
+              ]
+            }
+          ],
+          "why": "The benchmark you choose decides whether a result predicts what you will actually experience.",
+          "real": "Phone and laptop reviews time real apps such as browsers and video editors. The industry compares processors with SPEC CPU, a standard collection of real programs.",
+          "mistake": {
+            "wrong": "A benchmark result tells you how fast every program will run.",
+            "right": "It predicts your experience only when the benchmark resembles your own workload."
+          },
+          "notes": {
+            "explain": "Reveal the table one row at a time and ask students which type they would trust.",
+            "terms": [
+              "**Benchmark**",
+              "**SPEC** — Standard Performance Evaluation Corporation"
+            ],
+            "misconceptions": [
+              "Students think a single benchmark number is the truth about a machine."
+            ]
+          },
+          "deeper": {
+            "text": "Averaging normalized results with the geometric mean gives the same ranking whichever machine is the reference, which is why benchmark suites use it. It does not predict total running time. When you know how often each program runs, a weighted execution time is another honest summary."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "measure",
+          "title": "MIPS: millions of instructions per second",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "MIPS",
+                  "note": "Millions of instructions per second."
+                },
+                {
+                  "t": "="
+                },
+                {
+                  "t": "Instruction count",
+                  "note": "How many instructions the program ran."
+                },
+                {
+                  "t": "÷"
+                },
+                {
+                  "t": "(Execution time × 10⁶)",
+                  "note": "Time in seconds, scaled to millions."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "The same value is **Clock rate ÷ (CPI × 10⁶)**.",
+              "reveal": true
+            }
+          ],
+          "why": "It is simple to quote, which is exactly why it became popular and why it is dangerous.",
+          "real": "Early computer advertisements compared machines by MIPS. Engineers stopped trusting the number because it hides how much work each instruction does.",
+          "mistake": {
+            "wrong": "Higher MIPS always means a faster computer.",
+            "right": "MIPS depends on the instruction set and the program, so it can rank machines in the wrong order."
+          },
+          "explainAgain": {
+            "beginner": "Counting how many words a person types per minute says nothing about how good the essay is. MIPS counts instructions, not useful work.",
+            "technical": "MIPS = IC ÷ (T × 10⁶). Because instructions differ in work across ISAs and compilers, MIPS is not comparable between machines and can vary inversely with performance."
+          },
+          "notes": {
+            "explain": "Keep it short; the prediction and calculator show the problem better than words.",
+            "terms": [
+              "**MIPS** — millions of instructions per second"
+            ]
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "measure",
+          "skill": "Analyze",
+          "question": "On a 1 GHz machine, compiler A makes 10⁹ instructions at CPI 1.0. Compiler B makes only 5 × 10⁸ instructions, but at CPI 1.5. Which version has the higher MIPS, and which finishes first?",
+          "options": [
+            "A has higher MIPS and finishes first",
+            "A has higher MIPS but B finishes first",
+            "B has higher MIPS and finishes first",
+            "They tie on both"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "Version",
+                "CPU time",
+                "MIPS"
+              ],
+              "rows": [
+                [
+                  "A",
+                  "10⁹ × 1.0 ÷ 10⁹ = 1.00 s",
+                  "1,000"
+                ],
+                [
+                  "B",
+                  "5×10⁸ × 1.5 ÷ 10⁹ = 0.75 s",
+                  "667"
+                ]
+              ]
+            }
+          ],
+          "result": "B finishes sooner even though its MIPS rating is lower. MIPS can rank machines in the wrong order."
+        },
+        {
+          "type": "concept",
+          "concept": "measure",
+          "title": "Try it: MIPS versus real time",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "MIPS pitfall calculator",
+              "equation": "**MIPS = Clock rate ÷ (CPI × 10⁶)**  ·  **CPU time = Instruction count × CPI ÷ Clock rate**",
+              "inputs": [
+                {
+                  "id": "ic1",
+                  "label": "Version A instructions",
+                  "value": 1000,
+                  "min": 100,
+                  "max": 3000,
+                  "step": 100,
+                  "unit": "million"
+                },
+                {
+                  "id": "cpi1",
+                  "label": "Version A CPI",
+                  "value": 1.0,
+                  "min": 0.5,
+                  "max": 4,
+                  "step": 0.1
+                },
+                {
+                  "id": "ic2",
+                  "label": "Version B instructions",
+                  "value": 500,
+                  "min": 100,
+                  "max": 3000,
+                  "step": 100,
+                  "unit": "million"
+                },
+                {
+                  "id": "cpi2",
+                  "label": "Version B CPI",
+                  "value": 1.5,
+                  "min": 0.5,
+                  "max": 4,
+                  "step": 0.1
+                },
+                {
+                  "id": "clk",
+                  "label": "Clock rate",
+                  "value": 1,
+                  "min": 1,
+                  "max": 4,
+                  "step": 0.5,
+                  "unit": "GHz"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Version A CPU time",
+                  "formula": "ic1*1e6*cpi1/(clk*1e9)",
+                  "format": "time",
+                  "better": "lower"
+                },
+                {
+                  "label": "Version B CPU time",
+                  "formula": "ic2*1e6*cpi2/(clk*1e9)",
+                  "format": "time",
+                  "better": "lower"
+                },
+                {
+                  "label": "Version A MIPS",
+                  "formula": "clk*1e9/(cpi1*1e6)",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "MIPS"
+                },
+                {
+                  "label": "Version B MIPS",
+                  "formula": "clk*1e9/(cpi2*1e6)",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "MIPS"
+                },
+                {
+                  "label": "B is this many times faster than A",
+                  "formula": "(ic1*cpi1)/(ic2*cpi2)",
+                  "format": "x",
+                  "digits": 2
+                }
+              ],
+              "trace": "A takes {r0} at {r2}; B takes {r1} at {r3}"
+            }
+          ],
+          "why": "Moving the sliders shows that the version with the higher MIPS is not always the one that finishes first.",
+          "notes": {
+            "explain": "Ask students to find settings where the higher-MIPS version is also the faster one, and settings where it is not."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "measure",
+          "skill": "Apply",
+          "question": "A 2 GHz processor has an average CPI of 2. What is its MIPS rating?",
+          "options": [
+            "500",
+            "1,000",
+            "2,000",
+            "4,000"
+          ],
+          "answer": 1,
+          "why": "MIPS = clock rate ÷ (CPI × 10⁶) = 2 × 10⁹ ÷ (2 × 10⁶) = 1,000.",
+          "feedback": [
+            "Check the formula: divide the clock rate by the CPI, not the CPI by something else.",
+            "",
+            "That ignores the CPI. At CPI 1 you would get 2,000.",
+            "That multiplies the clock rate by the CPI instead of dividing."
+          ]
+        },
+        {
+          "type": "find",
+          "concept": "measure",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about MIPS is wrong. Click it.",
+          "lines": [
+            "1. MIPS means millions of instructions per second.",
+            "2. A machine with a higher MIPS rating always runs a given program faster.",
+            "3. MIPS = clock rate ÷ (CPI × 10⁶).",
+            "4. MIPS depends on the instruction set."
+          ],
+          "wrong": 1,
+          "explain": "Instructions differ in how much work they do, so a machine can have higher MIPS and still take longer.",
+          "fix": "A higher MIPS rating does not guarantee a faster machine."
         }
       ]
     },
     {
       "id": "practice",
       "label": "Practice",
-      "minutes": 9,
+      "minutes": 12,
       "steps": [
         {
           "type": "practice",
@@ -996,18 +1120,16 @@
           "solution": "A user waiting for a page cares about response time. A data center serving many users cares about throughput."
         },
         {
-          "type": "arrange",
-          "concept": "cost",
-          "skill": "Understand",
-          "title": "Mini challenge",
-          "prompt": "Put the steps from silicon to a chip you can buy in order.",
-          "items": [
-            "Make identical chips on a silicon wafer",
-            "Cut the wafer into individual dies",
-            "Test each die and discard the faulty ones",
-            "Package the good dies and sell them"
-          ],
-          "why": "You can only test and package chips after they have been made and cut apart."
+          "type": "practice",
+          "level": 2,
+          "concept": "measure",
+          "skill": "Apply",
+          "think": 40,
+          "question": "A 2 GHz processor has an average CPI of 2. What is its MIPS rating?",
+          "hint": "MIPS = clock rate ÷ (CPI × 10⁶).",
+          "answer": "1,000 MIPS.",
+          "solution": "MIPS = 2 × 10⁹ ÷ (2 × 10⁶) = 1,000.",
+          "mistake": "Multiplying by the CPI instead of dividing."
         },
         {
           "type": "practice",
@@ -1032,6 +1154,18 @@
           "answer": "About 1.48 times.",
           "solution": "Take the old time as 1.\nNew time = 0.25 ÷ 5 + 0.75 ÷ 1.2 = 0.05 + 0.625 = 0.675.\nSpeedup = 1 ÷ 0.675 ≈ 1.48.",
           "mistake": "Averaging the two speedups instead of adding the new times."
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "perf",
+          "skill": "Analyze",
+          "think": 60,
+          "question": "A program takes 60 s on machine A and 45 s on machine B. How many times faster is B, and by what percentage does the running time fall?",
+          "hint": "Speedup is a ratio; percentage reduction is a difference divided by the old time.",
+          "answer": "B is 1.33 times faster, and the time falls by 25%.",
+          "solution": "Speedup = 60 ÷ 45 ≈ 1.33.\nTime saved = (60 − 45) ÷ 60 = 15 ÷ 60 = 25%.",
+          "mistake": "Saying the time falls by 33% because the speedup is 1.33."
         },
         {
           "type": "practice",
@@ -1064,35 +1198,56 @@
           "type": "practice",
           "level": 4,
           "exam": true,
-          "concept": "cost",
+          "concept": "perf",
           "skill": "Apply",
-          "title": "Exam practice: cost",
-          "think": 60,
-          "question": "A wafer costs $6,000 and holds 300 dies. The yield is 70%. What is the cost of one good die?",
-          "answer": "About $28.57.",
-          "solution": "Good dies = 300 × 0.7 = 210.\nCost = $6,000 ÷ 210 ≈ $28.57.",
-          "mistake": "Dividing by 300 instead of by the number of good dies."
+          "title": "Exam practice: elapsed versus CPU time",
+          "think": 75,
+          "question": "A program runs for 12 s elapsed. Its CPU time is 9 s. What fraction of the elapsed time was the CPU busy with the program, and what could explain the rest?",
+          "answer": "75%. The other 3 s was probably waiting for I/O (disk or network) or time when other programs used the CPU.",
+          "solution": "9 ÷ 12 = 0.75, so 75%.\nElapsed time minus CPU time (3 s) is time the program was not running on the CPU.",
+          "mistake": "Treating the 3 s as extra CPU work."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "measure",
+          "skill": "Evaluate",
+          "title": "Exam practice: the MIPS trap",
+          "think": 120,
+          "question": "On a 2 GHz machine, compiler A produces 2 × 10⁹ instructions at CPI 1.0 and compiler B produces 1.2 × 10⁹ instructions at CPI 1.5. Which has the higher MIPS, and which program runs faster?",
+          "hint": "Compute CPU time and MIPS for each.",
+          "answer": "A has the higher MIPS (2,000 versus 1,333), but B runs faster (0.9 s versus 1.0 s).",
+          "solution": "A: time = 2×10⁹ × 1.0 ÷ 2×10⁹ = 1.0 s; MIPS = 2,000 ÷ 1.0 = 2,000.\nB: time = 1.2×10⁹ × 1.5 ÷ 2×10⁹ = 0.9 s; MIPS = 2,000 ÷ 1.5 ≈ 1,333.\nHigher MIPS, yet slower: MIPS can mislead.",
+          "mistake": "Choosing the machine with the higher MIPS as the faster one."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "measure",
+          "skill": "Evaluate",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "question": "Give two reasons MIPS is a poor way to compare computers.",
+          "answer": "MIPS depends on the instruction set, because different instructions do different amounts of work. It varies between programs on the same machine. It can rank machines in the wrong order, as a machine with a higher MIPS rating can take longer.",
+          "solution": "A good answer names at least two of: instruction set dependence, variation between programs, and the possibility of ranking machines in the wrong order. Measured execution time on real programs is the reliable alternative."
         }
       ]
     },
     {
       "id": "review",
       "label": "Review",
-      "minutes": 5,
+      "minutes": 4,
       "steps": [
         {
           "type": "conceptmap",
           "title": "How it all connects",
-          "root": "Cost and performance",
+          "root": "Quantitative design",
           "branches": [
             {
-              "label": "Cost",
-              "example": "Wafer · Yield · Volume",
-              "section": "cost"
-            },
-            {
               "label": "Performance",
-              "example": "Response time · Throughput",
+              "example": "Response time · Throughput · Speedup",
               "section": "perf"
             },
             {
@@ -1104,6 +1259,11 @@
               "label": "Amdahl's Law",
               "example": "Diminishing returns",
               "section": "amdahl"
+            },
+            {
+              "label": "Measurement",
+              "example": "Benchmarks · MIPS pitfall",
+              "section": "measure"
             }
           ]
         },
@@ -1111,26 +1271,13 @@
           "type": "review",
           "title": "What you should remember",
           "remember": [
-            "Chip cost depends on wafer cost, dies per wafer, yield and volume.",
             "Response time is how long one task takes; throughput is tasks per unit of time.",
             "A is n times faster than B when Time of B ÷ Time of A = n.",
-            "CPU time = instruction count × CPI × clock cycle time.",
+            "CPU time = instruction count × CPI × clock cycle time (= instruction count × CPI ÷ clock rate).",
             "Clock rate alone does not decide performance.",
             "Amdahl's Law: speedup = 1 ÷ ((1 − F) + F ÷ S), with diminishing returns.",
-            "Make the common case fast."
-          ]
-        },
-        {
-          "type": "review",
-          "title": "Understand and apply",
-          "understand": [
-            "Larger chips cost more than proportionally more.",
-            "The three factors of CPU time can trade against each other.",
-            "The part you do not improve limits the overall speedup."
-          ],
-          "apply": [
-            "Compute CPU time from instruction count, CPI and clock rate.",
-            "Estimate the overall speedup with Amdahl's Law."
+            "Make the common case fast; use parallelism and locality.",
+            "MIPS and peak rates can mislead; use measured execution time on real programs."
           ]
         },
         {
@@ -1142,30 +1289,30 @@
               "right": "CPU time also depends on instruction count and CPI."
             },
             {
-              "wrong": "A chip twice as big costs twice as much.",
-              "right": "It costs more than twice as much."
-            },
-            {
               "wrong": "Improving 50% of a program 10 times makes it 10 times faster.",
               "right": "The overall speedup is only about 1.8 times."
             },
             {
               "wrong": "Faster by 5 seconds means 5 times faster.",
               "right": "Speedup is a ratio of times."
+            },
+            {
+              "wrong": "Higher MIPS means a faster machine.",
+              "right": "MIPS can rank machines in the wrong order."
             }
           ]
         },
         {
           "type": "review",
           "title": "One-minute summary",
-          "summary": "A chip's cost depends on how many good dies come from a wafer, so yield and die size matter. Response time measures one task and throughput measures many. CPU time equals instruction count times CPI times clock cycle time, so clock speed alone says little. Amdahl's Law says the unimproved part limits the gain, so architects make the common case fast."
+          "summary": "Response time measures one task and throughput measures many. CPU time equals instruction count times CPI times clock cycle time, so clock speed alone says little. Amdahl's Law says the unimproved part limits the gain, so architects make the common case fast. MIPS and peak rates are easy to quote but mislead; honest measurement uses execution time on real programs."
         }
       ]
     },
     {
       "id": "quiz",
       "label": "Quiz",
-      "minutes": 6,
+      "minutes": 8,
       "steps": [
         {
           "type": "quiz",
@@ -1196,17 +1343,17 @@
             },
             {
               "level": "easy",
-              "concept": "cost",
-              "question": "What does yield mean?",
+              "concept": "measure",
+              "question": "What does MIPS stand for?",
               "options": [
-                "The fraction of dies on a wafer that work",
-                "The price of a wafer",
-                "The number of dies per wafer",
-                "The clock rate of a chip"
+                "Millions of instructions per second",
+                "Memory instructions per second",
+                "Machine input per second",
+                "Minimum instructions per system"
               ],
               "answer": 0,
-              "why": "Yield is the fraction of dies that work.",
-              "misconception": "Price and count are different quantities; yield is a fraction between 0 and 1."
+              "why": "MIPS means millions of instructions per second.",
+              "misconception": "MIPS counts instructions, not useful work."
             },
             {
               "level": "medium",
@@ -1238,17 +1385,17 @@
             },
             {
               "level": "medium",
-              "concept": "cost",
-              "question": "A wafer costs $9,000 and holds 300 dies at 60% yield. What does one good die cost?",
+              "concept": "perf",
+              "question": "A program has 20 s of elapsed time and 15 s of CPU time. What was the CPU utilization?",
               "options": [
-                "$30",
-                "$50",
-                "$60",
-                "$90"
+                "25%",
+                "60%",
+                "75%",
+                "133%"
               ],
-              "answer": 1,
-              "why": "Good dies = 300 × 0.6 = 180, and $9,000 ÷ 180 = $50.",
-              "misconception": "Divide by the number of good dies (180), not by the 300 dies on the wafer."
+              "answer": 2,
+              "why": "15 ÷ 20 = 0.75, or 75%.",
+              "misconception": "Divide CPU time by elapsed time. 25% is the share spent waiting."
             },
             {
               "level": "hard",
@@ -1266,17 +1413,17 @@
             },
             {
               "level": "hard",
-              "concept": "cpueq",
-              "question": "Which change lowers CPU time without changing the clock rate or the instruction count?",
+              "concept": "measure",
+              "question": "Version X: 10⁹ instructions at CPI 1.0. Version Y: 6 × 10⁸ instructions at CPI 1.4. Both run at 1 GHz. Which statement is true?",
               "options": [
-                "Lowering the CPI",
-                "Raising the CPI",
-                "Adding more instructions",
-                "Lengthening the clock cycle"
+                "X has higher MIPS and is faster",
+                "X has higher MIPS, but Y is faster",
+                "Y has higher MIPS and is faster",
+                "They tie on both"
               ],
-              "answer": 0,
-              "why": "CPU time is proportional to CPI, so a lower CPI means less time.",
-              "misconception": "The other options raise the time or change a factor the question holds fixed."
+              "answer": 1,
+              "why": "X: 1.0 s at 1,000 MIPS. Y: 0.84 s at about 714 MIPS. Y finishes first despite lower MIPS.",
+              "misconception": "MIPS ignores how much work each instruction does, so it can disagree with execution time."
             },
             {
               "level": "challenge",
@@ -1299,9 +1446,9 @@
           "title": "Can you remember?",
           "items": [
             {
-              "q": "What does yield mean and why does it matter for cost?",
-              "a": "Yield is the fraction of dies that work. Cost per good die rises when yield falls.",
-              "concept": "cost"
+              "q": "What is the difference between response time and throughput?",
+              "a": "Response time is how long one task takes; throughput is how many tasks finish per unit of time.",
+              "concept": "perf"
             },
             {
               "q": "State the CPU performance equation.",
@@ -1317,6 +1464,11 @@
               "q": "Name the three quantitative principles.",
               "a": "Make the common case fast, take advantage of parallelism, and the principle of locality.",
               "concept": "principles"
+            },
+            {
+              "q": "Why is MIPS a poor way to compare computers?",
+              "a": "It depends on the instruction set and the program, and a machine with higher MIPS can take longer.",
+              "concept": "measure"
             }
           ]
         },

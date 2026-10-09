@@ -1,14 +1,57 @@
 // Validates *.lesson.json files. Errors fail the build; warnings flag lessons that drift from docs/lesson-spec.md.
 // CLI: `npm run check` (no password needed). Also used by build.js.
 const fs = require('fs');
+const SIM = require('./assets/sim.js');
 const path = require('path');
 
-const BLOCK_TYPES = ['text', 'bullets', 'flow', 'compare', 'transform', 'table', 'code', 'analogy', 'timeline', 'callout', 'example', 'formula', 'calculator', 'mistake'];
+const BLOCK_TYPES = ['text', 'bullets', 'flow', 'compare', 'transform', 'table', 'code', 'analogy', 'timeline', 'callout', 'example', 'formula', 'calculator', 'mistake', 'walkthrough', 'bits', 'encoder', 'mips', 'diagram', 'pipeline', 'scheduler', 'predictor', 'cache', 'hierarchy', 'vm', 'raid', 'coherence', 'race', 'simd'];
 const REQUIRED_STEPS = ['hook', 'objectives', 'concept', 'mcq', 'predict', 'tps', 'practice', 'discussion', 'checkpoint', 'conceptmap', 'review', 'quiz', 'recall', 'report'];
 const RESERVED = new Set('break case catch class const continue debugger default delete do else enum export extends false finally for function if implements import in instanceof interface let new null package private protected public return static super switch this throw true try typeof var void while with yield await'.split(' '));
 const QUIZ_MIX = { easy: 3, medium: 3, hard: 2, challenge: 1 };
 
-function validateLesson(L, name = 'lesson') {
+const pow2 = (n) => Number.isInteger(n) && n > 0 && (n & (n - 1)) === 0;
+// Extra checks for the interactive demo blocks. Uses the real simulators, so authoring mistakes show up here.
+function demoCheck(b, w, err, warn) {
+  const t = b.type;
+  if (t === 'walkthrough') {
+    const modes = b.modes || [b]; if (!modes.length) return err(w, 'needs "modes" or "stages"');
+    modes.forEach((m, i) => { if (!Array.isArray(m.stages) || !m.stages.length) err(w, `mode ${i + 1} needs "stages"`); else m.stages.forEach((s, k) => { if (!s.label || !s.text) err(w, `mode ${i + 1} stage ${k + 1} needs label and text`); }); (m.inputs || []).forEach((x) => { if (!x.id || typeof x.value !== 'number') err(w, `mode ${i + 1} inputs need id and a numeric value`); }); });
+  } else if (t === 'bits') {
+    (b.modes || []).forEach((m) => { if (!['twos', 'add', 'ieee', 'endian', 'mul', 'div'].includes(m)) err(w, `unknown bits mode "${m}"`); });
+  } else if (t === 'mips') {
+    if (typeof b.program !== 'string' || !b.program.trim()) return err(w, 'needs a "program" string');
+    const p = SIM.assemble(b.program); if (p.errors.length) return err(w, `program line ${p.errors[0].line}: ${p.errors[0].message}`);
+    const st = SIM.run(SIM.newState(p, { registers: b.registers, memory: b.memory, endian: b.endian }), 20000); if (st.error && !b.expectError) warn(w, `the program stops with an error when run: ${st.error} (set "expectError": true if that is the point of the demo)`);
+    (b.watch || []).forEach((r) => { if (SIM.regNum(r) < 0) err(w, `unknown register "${r}" in watch`); });
+  } else if (t === 'encoder') {
+    (b.presets || []).forEach((x) => { const p = SIM.assemble(x); if (p.errors.length) err(w, `preset "${x}": ${p.errors[0].message}`); });
+  } else if (t === 'diagram') {
+    const ids = new Set(); (b.nodes || []).forEach((n) => { if (!n.id || ![n.x, n.y, n.w, n.h].every((q) => typeof q === 'number')) err(w, `node "${n.id}" needs id, x, y, w, h`); ids.add(n.id); });
+    (b.edges || []).forEach((e) => { if (!e.id) err(w, 'every edge needs an id'); ids.add(e.id); if (!e.points && !(e.from && e.to)) err(w, `edge "${e.id}" needs points or from/to`); if (!e.points) [e.from, e.to].forEach((q) => { if (!(b.nodes || []).some((n) => n.id === q)) err(w, `edge "${e.id}" refers to unknown node "${q}"`); }); });
+    (b.steps || []).forEach((s, i) => (s.show || []).forEach((q) => { if (!ids.has(q)) err(w, `build step ${i + 1} shows unknown id "${q}"`); }));
+    (b.scenarios || []).forEach((sc) => (sc.steps || []).forEach((s, i) => (s.highlight || []).concat(Object.keys(s.values || {})).forEach((q) => { if (!ids.has(q)) err(w, `scenario "${sc.name}" step ${i + 1} refers to unknown id "${q}"`); })));
+    if (!(b.nodes || []).length) err(w, 'needs "nodes"');
+  } else if (t === 'pipeline') {
+    const scs = b.scenarios || (b.instructions ? [{ name: 'x', instructions: b.instructions }] : []); if (!scs.length) return err(w, 'needs "scenarios" (each with "instructions") or "instructions"');
+    scs.forEach((sc) => (sc.instructions || []).forEach((it) => { try { SIM.depsOf(typeof it === 'string' ? it : it.t); } catch (e) { err(w, `instruction "${typeof it === 'string' ? it : it.t}": ${e.message}`); } }));
+  } else if (t === 'scheduler') {
+    if (!Array.isArray(b.instructions) || !b.instructions.length) return err(w, 'needs "instructions"'); b.instructions.forEach((x, i) => { if (typeof x !== 'object' || !x.t || typeof x.lat !== 'number') err(w, `instruction ${i + 1} needs t (text), lat, and dest/srcs`); });
+  } else if (t === 'predictor') {
+    (b.presets || []).forEach((p) => { if (!p.name || !/^[\sTtNn,A-Za-z0-9:]+$/.test(p.seq || '')) err(w, `preset "${p.name}" needs a name and a seq like "T T N T"`); });
+  } else if (t === 'cache') {
+    const c = Object.assign({ blockBytes: 4, lines: 8, assoc: 1 }, b.config); if (!pow2(c.blockBytes) || !pow2(c.lines)) err(w, 'blockBytes and lines must be powers of two');
+    if (c.assoc !== 'full' && (!pow2(c.assoc) || c.assoc > c.lines)) err(w, 'assoc must be a power of two no larger than lines, or "full"');
+    const seqs = b.sequences || (b.accesses ? [{ accesses: b.accesses }] : []); if (!seqs.length) err(w, 'needs "sequences" (each with "accesses") or "accesses"');
+  } else if (t === 'hierarchy') {
+    if (!Array.isArray(b.levels) || b.levels.length < 2) err(w, 'needs "levels" (at least two)');
+    if (b.locality && (!Array.isArray(b.locality.patterns) || !Array.isArray(b.locality.levels))) err(w, 'locality needs "levels" and "patterns"');
+  } else if (t === 'vm') {
+    const c = b.config || {}; if (!pow2(c.pageBytes || 4096)) err(w, 'pageBytes must be a power of two');
+  } else if (t === 'raid') {
+    (b.levels || []).forEach((l) => { if (!['0', '1', '5', '6', '10'].includes(String(l))) err(w, `unknown RAID level "${l}"`); });
+  }
+}
+function validateLesson(L, name = 'lesson', opts = {}) {
   const errors = [], warnings = [];
   const err = (where, msg) => errors.push(`${name} ${where}: ${msg}`);
   const warn = (where, msg) => warnings.push(`${name} ${where}: ${msg}`);
@@ -18,6 +61,10 @@ function validateLesson(L, name = 'lesson') {
   need('(lesson)', L, 'id', 'title', 'level', 'duration', 'objectives', 'sections');
   if (!Array.isArray(L.sections) || !L.sections.length) return { errors, warnings };
   if (Array.isArray(L.objectives) && (L.objectives.length < 3 || L.objectives.length > 5)) warn('(lesson)', 'use 3-5 learning objectives');
+  if (L.references != null) {
+    if (!Array.isArray(L.references)) err('(references)', 'must be an array');
+    else L.references.forEach((r, i) => { if (!['CAQA', 'COD'].includes(r.book) || !isStr(String(r.chapter || '')) ) err('(references)', `entry ${i + 1} needs book (CAQA or COD) and chapter`); });
+  } else if (opts.course === 'Computer Architecture') warn('(lesson)', 'no "references": cite the textbook chapters this lesson follows (docs/computer-architecture-references.md)');
   const concepts = L.concepts || [];
   const conceptIds = new Set(concepts.map((c) => c.id));
   const sectionIds = new Set(L.sections.map((s) => s.id));
@@ -30,7 +77,7 @@ function validateLesson(L, name = 'lesson') {
     blocks.forEach((b, i) => {
       const w = `${where} block ${i + 1} (${b.type})`;
       if (!BLOCK_TYPES.includes(b.type)) return err(w, `unknown block type; use one of ${BLOCK_TYPES.join(', ')}`);
-      const req = { text: ['text'], bullets: ['items'], flow: ['nodes'], compare: ['left', 'right'], transform: ['before', 'process', 'after'], table: ['head', 'rows'], code: ['code'], analogy: ['pairs'], timeline: ['items'], callout: ['text'], example: [], formula: ['terms'], calculator: ['inputs', 'results'], mistake: ['wrong', 'right'] }[b.type];
+      const req = { text: ['text'], bullets: ['items'], flow: ['nodes'], compare: ['left', 'right'], transform: ['before', 'process', 'after'], table: ['head', 'rows'], code: ['code'], analogy: ['pairs'], timeline: ['items'], callout: ['text'], example: [], formula: ['terms'], calculator: ['inputs', 'results'], mistake: ['wrong', 'right'], walkthrough: [], bits: [], encoder: [], mips: [], diagram: [], pipeline: [], scheduler: [], predictor: [], cache: [], hierarchy: [], vm: [], raid: [], coherence: [], race: [], simd: [] }[b.type];
       need(w, b, ...req);
       if (b.type === 'text' && isStr(b.text) && b.text.length > 280) warn(w, 'long paragraph; prefer visuals and short lines');
       if (b.type === 'bullets' && Array.isArray(b.items) && b.items.length > 6) warn(w, 'more than 6 bullets on one screen');
@@ -45,6 +92,7 @@ function validateLesson(L, name = 'lesson') {
           words.filter((x) => !ids.includes(x) && !['min', 'max', 'sqrt', 'log2', 'pow'].includes(x)).forEach((x) => err(w, `result "${r.label}" uses unknown name "${x}"`));
         });
       }
+      demoCheck(b, w, err, warn);
       if (b.type === 'formula' && Array.isArray(b.terms) && !b.terms.some((t) => t && t.note)) warn(w, 'give at least one term a "note" so it can be explained step by step');
       if (b.type === 'analogy' && Array.isArray(b.pairs)) b.pairs.forEach((p, k) => { if (!isStr(p.real) || !isStr(p.tech)) err(w, `pair ${k + 1} needs real and tech`); });
     });
@@ -126,7 +174,7 @@ if (require.main === module) {
     const name = `${course.id}/${topic.id}`;
     let data;
     try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { console.error(`${name}: cannot read ${path.relative(__dirname, file)} (${e.message})`); bad++; continue; }
-    const { errors, warnings } = validateLesson(data, name);
+    const { errors, warnings } = validateLesson(data, name, { course: course.title });
     warnings.forEach((w) => console.warn('warning ' + w)); errors.forEach((e) => console.error('ERROR   ' + e));
     console.log(`${name}: ${errors.length} error(s), ${warnings.length} warning(s)`); bad += errors.length;
   }

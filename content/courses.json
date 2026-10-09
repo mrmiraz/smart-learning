@@ -21,22 +21,122 @@
     "topics": [
       {
         "id": "01-introduction-to-computer-architecture",
-        "title": "Introduction to Computer Architecture",
+        "title": "Introduction to Computer Architecture and Computer Design",
         "type": "lesson"
       },
       {
-        "id": "02-architect-tasks-and-technology-trends",
-        "title": "Tasks of a Computer Architect and Technology Trends",
+        "id": "02-technology-trends-moores-law-performance",
+        "title": "Technology Trends, Moore's Law and Computer Performance",
         "type": "lesson"
       },
       {
-        "id": "03-cost-performance-quantitative-principles",
-        "title": "Cost, Performance and Quantitative Principles",
+        "id": "03-quantitative-principles-performance-measurement",
+        "title": "Quantitative Principles and Performance Measurement",
         "type": "lesson"
       },
       {
-        "id": "04-measuring-computer-performance",
-        "title": "Measuring Computer Performance",
+        "id": "04-isa-fundamentals-risc-vs-cisc",
+        "title": "ISA Fundamentals, RISC vs CISC",
+        "type": "lesson"
+      },
+      {
+        "id": "05-mips-instructions-registers-operands",
+        "title": "MIPS Instructions, Registers and Operands",
+        "type": "lesson"
+      },
+      {
+        "id": "06-addressing-modes-memory-access",
+        "title": "Addressing Modes and Memory Access",
+        "type": "lesson"
+      },
+      {
+        "id": "07-instruction-encoding-assembly",
+        "title": "Instruction Encoding and Assembly Programming",
+        "type": "lesson"
+      },
+      {
+        "id": "08-branches-procedures-high-level-code",
+        "title": "Branches, Procedures and Translating High-Level Code",
+        "type": "lesson"
+      },
+      {
+        "id": "09-computer-arithmetic-floating-point",
+        "title": "Computer Arithmetic and Floating Point",
+        "type": "lesson"
+      },
+      {
+        "id": "10-datapath-single-cycle-cpu",
+        "title": "CPU Datapath and the Single-Cycle Processor",
+        "type": "lesson"
+      },
+      {
+        "id": "11-multi-cycle-datapath-control",
+        "title": "Multi-Cycle Datapath and Control",
+        "type": "lesson"
+      },
+      {
+        "id": "12-pipelining-fundamentals",
+        "title": "Pipelining Fundamentals",
+        "type": "lesson"
+      },
+      {
+        "id": "13-pipeline-hazards",
+        "title": "Pipeline Hazards and Hazard Resolution",
+        "type": "lesson"
+      },
+      {
+        "id": "14-ilp-advanced-pipelining",
+        "title": "Instruction-Level Parallelism and Advanced Pipelining",
+        "type": "lesson"
+      },
+      {
+        "id": "15-dynamic-scheduling-out-of-order",
+        "title": "Dynamic Scheduling and Out-of-Order Execution",
+        "type": "lesson"
+      },
+      {
+        "id": "16-branch-prediction-speculation",
+        "title": "Branch Prediction and Speculative Execution",
+        "type": "lesson"
+      },
+      {
+        "id": "17-memory-hierarchy-locality",
+        "title": "Memory Hierarchy and Locality",
+        "type": "lesson"
+      },
+      {
+        "id": "18-cache-organization-mapping",
+        "title": "Cache Organization and Mapping",
+        "type": "lesson"
+      },
+      {
+        "id": "19-cache-performance",
+        "title": "Cache Misses, Hit Time and Miss Penalty",
+        "type": "lesson"
+      },
+      {
+        "id": "20-main-memory-virtual-memory",
+        "title": "Main Memory, Virtual Memory and TLB",
+        "type": "lesson"
+      },
+      {
+        "id": "21-storage-systems-io",
+        "title": "Storage Systems and I/O",
+        "type": "lesson"
+      },
+      {
+        "id": "22-buses-reliability-raid",
+        "title": "Buses, Reliability, Availability and RAID",
+        "type": "lesson"
+      },
+      {
+        "id": "23-multiprocessors-shared-memory",
+        "title": "Multicore and Shared-Memory Multiprocessors",
+        "type": "lesson"
+      },
+      {
+        "id": "24-vector-risc-x86-review",
+        "title": "Vector Processing, RISC/x86 and Course Review",
         "type": "lesson"
       }
     ]

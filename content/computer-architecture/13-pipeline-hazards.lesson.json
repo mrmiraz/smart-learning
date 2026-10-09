@@ -1,0 +1,1248 @@
+{
+  "id": "ca-13-pipeline-hazards",
+  "title": "Pipeline Hazards and Hazard Resolution",
+  "subtitle": "When the next instruction cannot go ahead, and what the hardware does about it.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "4",
+      "title": "The Processor",
+      "topics": "Pipelined datapath and control; data hazards: forwarding versus stalling; control hazards; branch prediction"
+    },
+    {
+      "book": "CAQA",
+      "chapter": "3",
+      "title": "Pipelining",
+      "topics": "Pipeline hazards: structural, data, control; the major hurdle of pipelining"
+    }
+  ],
+  "objectives": [
+    "Name the three kinds of pipeline hazard and give an example of each",
+    "Distinguish RAW, WAR and WAW dependences and explain why only RAW matters in the simple pipeline",
+    "Explain stalls, bubbles and forwarding and count their effect on cycles",
+    "Explain the load-use stall",
+    "Explain control hazards, wrong-path instructions, flush and predict-not-taken"
+  ],
+  "concepts": [
+    {
+      "id": "three",
+      "label": "Three hazards",
+      "section": "three"
+    },
+    {
+      "id": "data",
+      "label": "Data hazards",
+      "section": "data"
+    },
+    {
+      "id": "forward",
+      "label": "Forwarding and stalls",
+      "section": "forward"
+    },
+    {
+      "id": "control",
+      "label": "Control hazards",
+      "section": "control"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "A pipeline overlaps instructions, but what if the second instruction needs a number the first has not produced yet?",
+          "clues": [
+            "The ideal pipeline finishes **one instruction every cycle**.",
+            "A **hazard** stops the next instruction from going ahead in its next cycle.",
+            "The processor must **wait**, **take a shortcut**, or **guess**."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "three",
+      "label": "Three hazards",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "three",
+          "title": "What is a hazard?",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Hazard",
+                "The problem",
+                "Example"
+              ],
+              "rows": [
+                [
+                  "Structural",
+                  "Two instructions need the same hardware in the same cycle",
+                  "One memory for instructions and data"
+                ],
+                [
+                  "Data",
+                  "An instruction needs a result that is not ready yet",
+                  "add, then sub using the add's result"
+                ],
+                [
+                  "Control",
+                  "The next instruction to fetch depends on a branch not yet decided",
+                  "beq: which instruction comes next?"
+                ]
+              ]
+            }
+          ],
+          "why": "Each hazard breaks the \"one instruction per cycle\" promise of Class 12.",
+          "real": "Every pipelined processor has hardware to detect and resolve these three situations.",
+          "explainAgain": {
+            "beginner": "A kitchen assembly line: two cooks need the same oven (structural), one needs the sauce the other is still making (data), or the next dish depends on an order not yet confirmed (control)."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "three",
+          "title": "Structural hazard: one memory",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "If instructions and data share **one memory**, an lw reading data in the MEM stage collides with a later instruction being fetched in the IF stage."
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "Cycle 4 in the example: lw is in MEM, the fourth instruction wants IF",
+                "Only one can use the memory: the fetch **stalls** one cycle",
+                "Fix: separate instruction and data memories (or caches, Class 17)"
+              ]
+            }
+          ],
+          "why": "This is why the single-cycle and pipelined designs both use two memories.",
+          "real": "Real CPUs have separate instruction and data caches for exactly this reason."
+        },
+        {
+          "type": "concept",
+          "concept": "three",
+          "title": "Try it: one memory or two",
+          "blocks": [
+            {
+              "type": "pipeline",
+              "title": "Structural hazard",
+              "controls": [
+                "memory"
+              ],
+              "scenarios": [
+                {
+                  "name": "lw followed by four ALU instructions",
+                  "instructions": [
+                    "lw $t0,0($s1)",
+                    "add $t1,$s2,$s3",
+                    "sub $t2,$s4,$s5",
+                    "and $t3,$s6,$s7",
+                    "or $t4,$s2,$s3"
+                  ],
+                  "note": "With two memories: 9 cycles. With one shared memory: the fourth instruction cannot be fetched in cycle 4, so the run takes 10 cycles."
+                }
+              ],
+              "options": {
+                "forwarding": true
+              },
+              "hint": "Switch **One memory for instructions and data** to YES and watch the fourth instruction."
+            }
+          ],
+          "why": "Toggle the memory setting and compare 9 and 10 cycles."
+        },
+        {
+          "type": "predict",
+          "concept": "three",
+          "skill": "Apply",
+          "question": "With one shared memory, how many cycles does the five-instruction sequence need?",
+          "options": [
+            "10",
+            "9",
+            "8",
+            "14"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "With separate memories it takes 4 + 5 = 9 cycles. The shared memory forces the fourth instruction's fetch to wait one cycle: **10 cycles**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Only the instruction that fetches during the lw's MEM cycle has to wait."
+        },
+        {
+          "type": "match",
+          "concept": "three",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each hazard with its cause.",
+          "pairs": [
+            {
+              "a": "Structural",
+              "b": "Two instructions want the same hardware"
+            },
+            {
+              "a": "Data",
+              "b": "An operand is not ready yet"
+            },
+            {
+              "a": "Control",
+              "b": "The next instruction depends on an undecided branch"
+            },
+            {
+              "a": "Bubble",
+              "b": "An empty slot inserted into the pipeline"
+            }
+          ],
+          "why": "The first three are the types; the bubble is how the hardware waits."
+        },
+        {
+          "type": "mcq",
+          "concept": "three",
+          "question": "Which hazard arises when two instructions need the same memory in the same cycle?",
+          "options": [
+            "Structural",
+            "Data",
+            "Control",
+            "Name"
+          ],
+          "answer": 0,
+          "why": "Competing for the same hardware is a structural hazard.",
+          "feedback": [
+            "",
+            "A data hazard is about missing results.",
+            "A control hazard is about branches.",
+            "There is no such pipeline hazard."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "data",
+      "label": "Data hazards",
+      "minutes": 12,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "data",
+          "title": "RAW, WAR and WAW",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Name",
+                "Meaning",
+                "Example"
+              ],
+              "rows": [
+                [
+                  "RAW (read after write)",
+                  "A later instruction reads what an earlier one writes (true dependence)",
+                  "add $t1,... then sub $t4,$t1,..."
+                ],
+                [
+                  "WAR (write after read)",
+                  "A later instruction writes what an earlier one reads (anti-dependence)",
+                  "sub $t4,$t1,... then add $t1,..."
+                ],
+                [
+                  "WAW (write after write)",
+                  "Two instructions write the same register (output dependence)",
+                  "add $t1,... then sub $t1,..."
+                ]
+              ]
+            }
+          ],
+          "why": "Only a RAW dependence passes a **value** from one instruction to another. WAR and WAW are about reusing a register name.",
+          "real": "Compilers rename registers to remove WAR and WAW; hardware can rename them too (Class 15).",
+          "mistake": {
+            "wrong": "All three dependences cause stalls in the five-stage pipeline.",
+            "right": "In the simple in-order pipeline only RAW does: reads happen early (ID), writes late (WB), and instructions finish in order."
+          },
+          "deeper": {
+            "text": "WAR and WAW become problems when instructions can finish out of order, which is why they return in Class 15."
+          },
+          "notes": {
+            "explain": "Run the WAR and WAW scenarios in the simulator: no stalls.",
+            "terms": [
+              "**RAW**",
+              "**WAR**",
+              "**WAW**"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "data",
+          "title": "The syllabus example",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Assembly",
+                "items": [
+                  "`add $t1, $t2, $t3`",
+                  "`sub $t4, $t1, $t5`"
+                ]
+              },
+              "right": {
+                "title": "What happens",
+                "items": [
+                  "add produces $t1 in EX",
+                  "sub needs $t1 in ID/EX",
+                  "The value is not yet in the register file",
+                  "This is a RAW hazard on $t1"
+                ]
+              }
+            }
+          ],
+          "why": "This tiny pair is the basis of every data hazard discussion.",
+          "real": "Compilers produce pairs like this constantly: nearly every result is used soon after."
+        },
+        {
+          "type": "concept",
+          "concept": "data",
+          "title": "Try it: dependences in the pipeline",
+          "blocks": [
+            {
+              "type": "pipeline",
+              "title": "Data dependences",
+              "controls": [
+                "forwarding"
+              ],
+              "scenarios": [
+                {
+                  "name": "add then dependent sub",
+                  "instructions": [
+                    "add $t1,$t2,$t3",
+                    "sub $t4,$t1,$t5"
+                  ],
+                  "note": "RAW on $t1. Without forwarding sub waits in ID for two cycles (8 cycles in total). With forwarding it needs no stall (6 cycles)."
+                },
+                {
+                  "name": "Three dependent adds",
+                  "instructions": [
+                    "add $t0,$s1,$s2",
+                    "add $t1,$t0,$s3",
+                    "add $t2,$t1,$s4"
+                  ],
+                  "note": "A chain of RAW dependences: 11 cycles without forwarding, 7 with it."
+                },
+                {
+                  "name": "WAR: no problem",
+                  "instructions": [
+                    "sub $t4,$t1,$t5",
+                    "add $t1,$t2,$t3"
+                  ],
+                  "note": "sub reads $t1 early and add writes it much later, so nothing is lost: 6 cycles, no stall."
+                },
+                {
+                  "name": "WAW: no problem",
+                  "instructions": [
+                    "add $t1,$s1,$s2",
+                    "sub $t1,$s3,$s4"
+                  ],
+                  "note": "Both write $t1 but they finish in order, so the second write wins: 6 cycles."
+                },
+                {
+                  "name": "Dependence two instructions apart",
+                  "instructions": [
+                    "add $t0,$s1,$s2",
+                    "sub $t1,$s3,$s4",
+                    "and $t2,$t0,$s6"
+                  ],
+                  "note": "The register file is written in the first half of a cycle and read in the second half, so the gap needs only one stall without forwarding."
+                }
+              ],
+              "options": {
+                "forwarding": false
+              },
+              "hint": "Start with **Forwarding OFF**, step through each scenario, then switch it ON."
+            }
+          ],
+          "why": "Find the stalls (marked cells) and compare the totals."
+        },
+        {
+          "type": "concept",
+          "concept": "data",
+          "title": "Stall and bubble",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "A **stall** holds an instruction in its stage until its operand is ready",
+                "The stages after it get an empty slot: a **bubble** (a nop travelling down the pipeline)",
+                "Without forwarding, `sub` waits in ID until `add` has written $t1: **2 stalls**",
+                "The cost: every stall adds one cycle to the total"
+              ]
+            }
+          ],
+          "why": "Stalls are the safe fix: always correct, but they cost performance.",
+          "real": "In the timeline you can see the bubbles as gaps in the diagonal.",
+          "explainAgain": {
+            "beginner": "A conveyor belt: if one worker is missing a part, the slot on the belt behind them stays empty."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "data",
+          "skill": "Apply",
+          "question": "Without forwarding, how many cycles does `add $t1,$t2,$t3` followed by `sub $t4,$t1,$t5` take?",
+          "options": [
+            "8",
+            "6",
+            "7",
+            "10"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Two instructions in an ideal pipeline take 4 + 2 = 6 cycles. The dependent sub stalls twice, so **8 cycles**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The stall count comes from waiting for the write back of $t1."
+        },
+        {
+          "type": "find",
+          "concept": "data",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about data hazards is wrong. Click it.",
+          "lines": [
+            "1. RAW means a read after a write to the same register.",
+            "2. A stall inserts a bubble into the pipeline.",
+            "3. WAR and WAW are the main causes of stalls in the five-stage pipeline.",
+            "4. A dependent instruction three or more places behind needs no stall."
+          ],
+          "wrong": 2,
+          "explain": "In the simple in-order five-stage pipeline only RAW dependences stall.",
+          "fix": "RAW is the only one that stalls here."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What is a RAW hazard?",
+              "a": "A later instruction reads a register before an earlier one has written it.",
+              "concept": "data"
+            },
+            {
+              "q": "Why do WAR and WAW not stall the simple pipeline?",
+              "a": "Reads happen early, writes late and instructions finish in order.",
+              "concept": "data"
+            },
+            {
+              "q": "What is a bubble?",
+              "a": "An empty slot (nop) that travels down the pipeline during a stall.",
+              "concept": "data"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "forward",
+      "label": "Forwarding and stalls",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "forward",
+          "title": "Forwarding (bypassing)",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "The result of `add` exists at the **end of its EX stage**, long before write back",
+                "Forwarding paths send it straight from the pipeline registers to the ALU input of the next instruction",
+                "No waiting for the register file: `add` then dependent `sub` needs **0 stalls**",
+                "Extra hardware: multiplexers on the ALU inputs and logic to detect when to forward"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Sequence",
+                "No forwarding",
+                "Forwarding"
+              ],
+              "rows": [
+                [
+                  "add, dependent sub",
+                  "8 cycles",
+                  "6 cycles"
+                ],
+                [
+                  "three dependent adds",
+                  "11 cycles",
+                  "7 cycles"
+                ]
+              ]
+            }
+          ],
+          "why": "Forwarding removes most RAW stalls for the cost of a few multiplexers.",
+          "real": "Every modern in-order pipeline has forwarding paths.",
+          "explainAgain": {
+            "beginner": "Instead of waiting for the finished dish to go to the pantry and back, the cook hands it straight to the next cook."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "forward",
+          "title": "The load-use stall",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "A **load** produces its value only at the **end of MEM**, one stage later than an ALU result. The next instruction needs it at the **start of EX**, so even forwarding cannot avoid one stall.",
+              "style": "lead"
+            },
+            {
+              "type": "table",
+              "head": [
+                "Sequence",
+                "No forwarding",
+                "Forwarding"
+              ],
+              "rows": [
+                [
+                  "lw, dependent add",
+                  "8 cycles",
+                  "7 cycles (1 stall)"
+                ],
+                [
+                  "lw, add, sub, sw chain",
+                  "14 cycles",
+                  "9 cycles"
+                ]
+              ]
+            }
+          ],
+          "why": "This is the one data hazard that forwarding cannot remove completely.",
+          "real": "Compilers try to put an independent instruction between a load and its use.",
+          "mistake": {
+            "wrong": "Forwarding removes every data stall.",
+            "right": "A load followed immediately by its use still needs one stall."
+          },
+          "deeper": {
+            "text": "The load delay slot of early MIPS exposed this stall to the programmer; modern designs detect it in hardware."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "forward",
+          "title": "Try it: forwarding and the load-use stall",
+          "blocks": [
+            {
+              "type": "pipeline",
+              "title": "Forwarding",
+              "controls": [
+                "forwarding"
+              ],
+              "scenarios": [
+                {
+                  "name": "add then dependent sub",
+                  "instructions": [
+                    "add $t1,$t2,$t3",
+                    "sub $t4,$t1,$t5"
+                  ],
+                  "note": "6 cycles with forwarding, 8 without."
+                },
+                {
+                  "name": "Load then use",
+                  "instructions": [
+                    "lw $t0,0($s1)",
+                    "add $t3,$t0,$s5"
+                  ],
+                  "note": "Even with forwarding the add must wait one cycle for the loaded value: 7 cycles."
+                },
+                {
+                  "name": "lw, add, sub, sw chain",
+                  "instructions": [
+                    "lw $t0,0($s1)",
+                    "add $t1,$t0,$s2",
+                    "sub $t3,$t1,$s4",
+                    "sw $t3,0($s5)"
+                  ],
+                  "note": "Only the load-use pair stalls with forwarding: 9 cycles in total (14 without)."
+                }
+              ],
+              "options": {
+                "forwarding": true
+              },
+              "hint": "Switch forwarding OFF and ON for each scenario."
+            }
+          ],
+          "why": "Count the stall cells in each scenario with forwarding ON."
+        },
+        {
+          "type": "concept",
+          "concept": "forward",
+          "title": "Software can help: reorder the code",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Original (2 stalls with forwarding)",
+                "items": [
+                  "`lw $t0,0($s1)`",
+                  "`add $t1,$t0,$s2`",
+                  "`lw $t3,4($s1)`",
+                  "`sub $t4,$t3,$s2`"
+                ]
+              },
+              "right": {
+                "title": "Reordered (no stall)",
+                "items": [
+                  "`lw $t0,0($s1)`",
+                  "`lw $t3,4($s1)`",
+                  "`add $t1,$t0,$s2`",
+                  "`sub $t4,$t3,$s2`"
+                ]
+              }
+            }
+          ],
+          "why": "Moving the second load between the first load and its use fills the gap: 10 cycles become 8.",
+          "real": "This is called instruction scheduling and is a standard compiler optimization."
+        },
+        {
+          "type": "concept",
+          "concept": "forward",
+          "title": "Run the reordering",
+          "blocks": [
+            {
+              "type": "pipeline",
+              "title": "Reordering removes stalls",
+              "controls": [
+                "forwarding"
+              ],
+              "scenarios": [
+                {
+                  "name": "Original",
+                  "instructions": [
+                    "lw $t0,0($s1)",
+                    "add $t1,$t0,$s2",
+                    "lw $t3,4($s1)",
+                    "sub $t4,$t3,$s2"
+                  ],
+                  "note": "Two load-use stalls with forwarding: 10 cycles."
+                },
+                {
+                  "name": "Reordered",
+                  "instructions": [
+                    "lw $t0,0($s1)",
+                    "lw $t3,4($s1)",
+                    "add $t1,$t0,$s2",
+                    "sub $t4,$t3,$s2"
+                  ],
+                  "note": "Same four instructions, same results, 0 stalls: 8 cycles."
+                }
+              ],
+              "options": {
+                "forwarding": true
+              },
+              "hint": "Compare the two scenarios."
+            }
+          ],
+          "why": "The result is identical, but the schedule is two cycles shorter."
+        },
+        {
+          "type": "predict",
+          "concept": "forward",
+          "skill": "Apply",
+          "question": "`lw $t0,0($s1)` is followed immediately by `add $t3,$t0,$s5`. With forwarding, how many cycles do the two instructions need?",
+          "options": [
+            "7",
+            "6",
+            "8",
+            "5"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Ideal 6 cycles plus 1 load-use stall = **7**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Without forwarding it would be 8."
+        },
+        {
+          "type": "tf",
+          "concept": "forward",
+          "statement": "Forwarding lets the ALU use a result before it is written to the register file.",
+          "answer": true,
+          "why": "It takes the value straight from a pipeline register."
+        }
+      ]
+    },
+    {
+      "id": "control",
+      "label": "Control hazards",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "control",
+          "title": "The branch problem",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Fetch beq",
+                  "sub": "cycle 1",
+                  "note": "The next instruction is not known yet."
+                },
+                {
+                  "label": "Keep fetching",
+                  "sub": "predict not taken",
+                  "note": "Fetch the instructions that follow in memory (a guess)."
+                },
+                {
+                  "label": "Branch resolved",
+                  "sub": "in ID, EX or MEM",
+                  "note": "The processor learns whether the branch is taken."
+                },
+                {
+                  "label": "Right or wrong?",
+                  "note": "If not taken: nothing lost. If taken: the wrong-path instructions are flushed."
+                }
+              ],
+              "zoom": true
+            }
+          ],
+          "why": "A branch changes the PC, but the pipeline has already fetched the following instructions.",
+          "real": "Roughly one instruction in five is a branch, so this matters a lot.",
+          "explainAgain": {
+            "beginner": "You take a turn at a crossroads before you know the road; if you guessed wrong you have to come back."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "control",
+          "title": "Predict not taken, flush when wrong",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**Predict not taken**: keep fetching the next sequential instructions",
+                "If the branch is **not taken**: no penalty",
+                "If the branch is **taken**: the wrong-path instructions are **flushed** (turned into bubbles)",
+                "Penalty = the number of stages before the branch is resolved: **ID 1, EX 2, MEM 3** cycles"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Branch resolved in",
+                "Wrong-path instructions flushed",
+                "Total cycles (add, taken beq, sub, and, or)"
+              ],
+              "rows": [
+                [
+                  "ID",
+                  "1",
+                  "10"
+                ],
+                [
+                  "EX",
+                  "2",
+                  "11"
+                ],
+                [
+                  "MEM",
+                  "3",
+                  "12"
+                ]
+              ]
+            }
+          ],
+          "why": "The earlier the branch is resolved, the smaller the penalty.",
+          "real": "This is why CPUs try to resolve branches early and predict them well (Class 16).",
+          "mistake": {
+            "wrong": "A flushed instruction is simply delayed.",
+            "right": "A flushed instruction is wrong-path work that is discarded entirely."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "control",
+          "title": "Try it: taken and not-taken branches",
+          "blocks": [
+            {
+              "type": "pipeline",
+              "title": "Branch hazards",
+              "controls": [
+                "branch",
+                "forwarding"
+              ],
+              "scenarios": [
+                {
+                  "name": "beq taken",
+                  "instructions": [
+                    "add $t0,$s1,$s2",
+                    {
+                      "t": "beq $t1,$t2,L",
+                      "taken": true
+                    },
+                    "sub $t3,$s4,$s5",
+                    "and $t6,$s6,$s7",
+                    "or $t7,$s2,$s3"
+                  ],
+                  "note": "The instructions fetched after the beq are on the wrong path and are flushed: 1 when the branch is resolved in ID, 2 in EX, 3 in MEM. Total 10, 11 or 12 cycles."
+                },
+                {
+                  "name": "beq not taken",
+                  "instructions": [
+                    "add $t0,$s1,$s2",
+                    {
+                      "t": "beq $t1,$t2,L",
+                      "taken": false
+                    },
+                    "sub $t3,$s4,$s5",
+                    "and $t6,$s6,$s7"
+                  ],
+                  "note": "Predict not taken guesses right: 8 cycles in every case."
+                },
+                {
+                  "name": "add feeding a beq",
+                  "instructions": [
+                    "add $t1,$s1,$s2",
+                    {
+                      "t": "beq $t1,$t2,L",
+                      "taken": false
+                    },
+                    "sub $t3,$s4,$s5"
+                  ],
+                  "note": "With the branch resolved in ID the add result is needed too early even with forwarding: 1 stall (8 cycles). Resolved in EX: no stall (7 cycles)."
+                }
+              ],
+              "options": {
+                "forwarding": true,
+                "branchStage": "ID",
+                "predict": "not-taken"
+              },
+              "hint": "Change **Branch resolved in** and **Fetch policy** and compare the totals."
+            }
+          ],
+          "why": "Try both fetch policies: Predict not taken costs nothing when right; Stall until resolved always costs the full penalty."
+        },
+        {
+          "type": "predict",
+          "concept": "control",
+          "skill": "Apply",
+          "question": "A taken `beq` is resolved in the EX stage and the processor predicts not taken. How many wrong-path instructions are flushed?",
+          "options": [
+            "2",
+            "1",
+            "3",
+            "0"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The branch reaches EX two cycles after its own fetch, so the two instructions fetched behind it are wrong: **2 flushed**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "ID would flush 1, MEM would flush 3."
+        },
+        {
+          "type": "mcq",
+          "concept": "control",
+          "question": "A not-taken branch with predict-not-taken costs:",
+          "options": [
+            "0 extra cycles",
+            "1 extra cycle",
+            "2 extra cycles",
+            "The same as a taken branch"
+          ],
+          "answer": 0,
+          "why": "The guess was right, so nothing is flushed.",
+          "feedback": [
+            "",
+            "Only a wrong guess has a penalty.",
+            "That is the penalty if resolved in EX and taken.",
+            "A taken branch costs the flush penalty."
+          ]
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Why would a designer move branch resolution from the MEM stage to the ID stage?",
+          "think": 20,
+          "pair": 40,
+          "answer": "The branch penalty equals the number of stages before the branch is resolved: 3 cycles in MEM versus 1 in ID, so every taken branch loses fewer cycles. The price is extra hardware in ID (a comparator and an adder) and more forwarding into ID, which can cause the add-then-branch stall."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "control",
+          "question": "Three ways to handle control hazards: always stall, predict not taken, or predict using history. What does each cost?",
+          "seconds": 60,
+          "ideas": [
+            "Always stall: simple, but pays the full penalty on every branch.",
+            "Predict not taken: free when right, but taken branches (about half of all branches in loops) pay the penalty.",
+            "History-based prediction: far better accuracy, but needs extra hardware (Class 16).",
+            "The cost of a wrong guess grows with pipeline depth."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "three",
+          "question": "Name the three kinds of pipeline hazard.",
+          "answer": "Structural, data and control.",
+          "solution": "Hardware conflict, missing operand, undecided branch.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "data",
+          "question": "`add $t1,$s1,$s2` is followed by `sub $t3,$t1,$s3`. Name the hazard and the register.",
+          "answer": "A RAW data hazard on $t1.",
+          "solution": "sub reads $t1, which add writes.",
+          "hint": "Which instruction writes which register?",
+          "think": 40
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "forward",
+          "question": "How many cycles do `lw $t0,0($s1)` and a dependent `add $t3,$t0,$s5` take (a) without forwarding and (b) with forwarding?",
+          "answer": "(a) 8 cycles; (b) 7 cycles.",
+          "solution": "Ideal 6. Without forwarding the add stalls twice; with forwarding the load-use stall is one cycle.",
+          "hint": "Ideal cycles for 2 instructions: 4 + 2.",
+          "mistake": "Saying forwarding removes the stall completely.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "forward",
+          "question": "Sequence: lw $t0,0($s1); add $t1,$t0,$s2; sub $t3,$t1,$s4; sw $t3,0($s5). Give the cycles and the stalls without and with forwarding.",
+          "answer": "Without forwarding: 14 cycles (6 stall cycles). With forwarding: 9 cycles (1 stall, the load-use).",
+          "solution": "Ideal: 4 + 4 = 8 cycles. Without forwarding each of the three RAW dependences stalls for 2 cycles: 8 + 6 = 14. With forwarding only lw to add stalls: 8 + 1 = 9.",
+          "mistake": "Counting a stall for the add to sub pair when forwarding is on.",
+          "title": "Exam practice: cycle counting",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "control",
+          "question": "A taken beq is resolved in the EX stage; the processor predicts not taken. The program is add, beq (taken), sub, and, or. How many cycles does it need?",
+          "answer": "11 cycles.",
+          "solution": "Ideal for 5 instructions: 4 + 5 = 9. The branch costs 2 flushed fetches (EX): 9 + 2 = 11.",
+          "mistake": "Using the ID penalty (1) or forgetting the ideal 4-cycle fill.",
+          "title": "Exam practice: control hazards",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "forward",
+          "question": "Reorder lw $t0,0($s1); add $t1,$t0,$s2; lw $t3,4($s1); sub $t4,$t3,$s2 to remove all stalls (forwarding on). How many cycles before and after?",
+          "answer": "Reordered: lw $t0, lw $t3, add $t1, sub $t4. Before 10 cycles, after 8 cycles.",
+          "solution": "The second load fills the delay between the first load and its use. Ideal is 4 + 4 = 8; the original has 2 load-use stalls (10).",
+          "mistake": "Moving an instruction past one that it depends on.",
+          "title": "Exam practice: reordering",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "data",
+          "question": "Why do WAR and WAW dependences not cause stalls in the simple five-stage in-order MIPS pipeline, and when do they become a problem?",
+          "answer": "Register reads happen early (ID) and writes late (WB), and instructions complete in program order, so an earlier instruction always reads before and writes before a later one. They become a problem when instructions can execute or finish out of order, as in dynamically scheduled processors.",
+          "solution": "A strong answer mentions in-order completion and early reads.",
+          "mistake": "Saying they never matter.",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Pipeline hazards",
+          "branches": [
+            {
+              "label": "Three hazards",
+              "example": "structural, data, control",
+              "section": "three"
+            },
+            {
+              "label": "Data hazards",
+              "example": "RAW, WAR, WAW; stall, bubble",
+              "section": "data"
+            },
+            {
+              "label": "Forwarding",
+              "example": "shortcuts, load-use",
+              "section": "forward"
+            },
+            {
+              "label": "Control hazards",
+              "example": "predict not taken, flush",
+              "section": "control"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Three hazards: structural (same hardware), data (operand not ready), control (branch undecided).",
+            "RAW is a true dependence; WAR and WAW are name dependences that matter only with out-of-order execution.",
+            "A stall holds the dependent instruction and inserts a bubble; each stall costs one cycle.",
+            "Forwarding removes most RAW stalls; a load followed by its use still stalls one cycle.",
+            "Branch penalty = stages before resolution (ID 1, EX 2, MEM 3) when a taken branch is mispredicted.",
+            "Reordering instructions can hide a load-use stall."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "WAR and WAW cause stalls in the simple pipeline.",
+              "right": "Only RAW does."
+            },
+            {
+              "wrong": "Forwarding removes all data stalls.",
+              "right": "A load-use pair still stalls one cycle."
+            },
+            {
+              "wrong": "A flushed instruction is just delayed.",
+              "right": "It is wrong-path work and is discarded."
+            },
+            {
+              "wrong": "Predict not taken always costs a penalty.",
+              "right": "It costs nothing when the branch is not taken."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Hazards keep a pipeline from finishing one instruction per cycle. Structural hazards come from shared hardware, data hazards (RAW) from missing operands, and control hazards from undecided branches. Stalls insert bubbles, forwarding passes results straight to the ALU (a load-use pair still stalls once), and predict not taken wastes cycles only when a taken branch is flushed."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "three",
+              "question": "Which are the three kinds of pipeline hazard?",
+              "options": [
+                "Structural, data, control",
+                "Fast, slow, medium",
+                "Read, write, execute",
+                "Cache, branch, memory"
+              ],
+              "answer": 0,
+              "why": "Structural, data and control.",
+              "misconception": "They are the three reasons the pipeline cannot start the next instruction."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "data",
+              "statement": "RAW stands for read after write.",
+              "answer": true,
+              "why": "A later instruction reads what an earlier one writes.",
+              "misconception": "It is the true data dependence."
+            },
+            {
+              "level": "easy",
+              "concept": "forward",
+              "question": "What does forwarding do?",
+              "options": [
+                "Sends a result straight to the ALU input of a later instruction",
+                "Skips the register file permanently",
+                "Doubles the clock",
+                "Flushes the pipeline"
+              ],
+              "answer": 0,
+              "why": "It forwards the value from a pipeline register.",
+              "misconception": "The value is also still written to the register file later."
+            },
+            {
+              "level": "medium",
+              "concept": "data",
+              "question": "add $t1,$t2,$t3 then sub $t4,$t1,$t5: cycles without forwarding?",
+              "options": [
+                "8",
+                "6",
+                "7",
+                "10"
+              ],
+              "answer": 0,
+              "why": "Ideal 6 plus 2 stalls.",
+              "misconception": "With forwarding it would be 6."
+            },
+            {
+              "level": "medium",
+              "concept": "forward",
+              "question": "lw then an immediately dependent add: stalls with forwarding?",
+              "options": [
+                "1",
+                "0",
+                "2",
+                "3"
+              ],
+              "answer": 0,
+              "why": "The load value is ready only after MEM, so one stall remains.",
+              "misconception": "ALU results need 0 stalls; load results need 1."
+            },
+            {
+              "level": "medium",
+              "concept": "control",
+              "question": "A taken branch resolved in EX with predict-not-taken flushes how many instructions?",
+              "options": [
+                "2",
+                "1",
+                "3",
+                "0"
+              ],
+              "answer": 0,
+              "why": "Two wrong-path instructions were fetched.",
+              "misconception": "Resolved in ID: 1; in MEM: 3."
+            },
+            {
+              "level": "hard",
+              "concept": "forward",
+              "question": "lw $t0; add $t1,$t0; sub $t3,$t1; sw $t3 with forwarding: how many cycles?",
+              "options": [
+                "9",
+                "8",
+                "14",
+                "10"
+              ],
+              "answer": 0,
+              "why": "8 ideal cycles plus 1 load-use stall.",
+              "misconception": "Only the load-use pair stalls."
+            },
+            {
+              "level": "hard",
+              "concept": "control",
+              "question": "add $t1,... then beq $t1,... with the branch resolved in ID and forwarding on:",
+              "options": [
+                "1 stall",
+                "0 stalls",
+                "2 stalls",
+                "3 stalls"
+              ],
+              "answer": 0,
+              "why": "The branch needs $t1 in ID, one cycle earlier than the ALU can forward it.",
+              "misconception": "Resolving in EX would need no stall."
+            },
+            {
+              "level": "challenge",
+              "concept": "forward",
+              "question": "lw $t0; add $t1,$t0; lw $t3; sub $t4,$t3 takes 10 cycles with forwarding. After reordering the lw to come before the add, how many cycles?",
+              "options": [
+                "8",
+                "9",
+                "10",
+                "6"
+              ],
+              "answer": 0,
+              "why": "The reordering removes both stalls: 4 + 4 = 8.",
+              "misconception": "Ideal for 4 instructions is 8 cycles."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "Name the three hazards.",
+              "a": "Structural, data, control.",
+              "concept": "three"
+            },
+            {
+              "q": "Which dependence stalls the simple pipeline?",
+              "a": "RAW.",
+              "concept": "data"
+            },
+            {
+              "q": "What does forwarding avoid?",
+              "a": "Waiting for the register file write back (not the load-use stall).",
+              "concept": "forward"
+            },
+            {
+              "q": "What is the branch penalty with branch resolved in EX?",
+              "a": "2 cycles (two flushed instructions).",
+              "concept": "control"
+            },
+            {
+              "q": "How can software reduce a load-use stall?",
+              "a": "Reorder independent instructions between the load and its use.",
+              "concept": "forward"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

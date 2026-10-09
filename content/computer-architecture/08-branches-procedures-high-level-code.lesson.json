@@ -1,0 +1,1387 @@
+{
+  "id": "ca-08-branches-procedures",
+  "title": "Branches, Procedures and Translating High-Level Code",
+  "subtitle": "How if, loops, arrays and function calls become assembly.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "2",
+      "title": "Instructions: Language of the Computer",
+      "topics": "Instructions for making decisions; supporting procedures in computer hardware (the stack, $ra, spilling); translating loops and arrays"
+    }
+  ],
+  "objectives": [
+    "Translate if and if-else statements into MIPS using branch instructions",
+    "Translate while and for loops and an array traversal",
+    "Use jump instructions: j, jal and jr",
+    "Explain how a procedure call and return use $ra",
+    "Use the stack to save registers and explain register spilling"
+  ],
+  "concepts": [
+    {
+      "id": "branch",
+      "label": "Decisions",
+      "section": "branch"
+    },
+    {
+      "id": "loops",
+      "label": "Loops and arrays",
+      "section": "loops"
+    },
+    {
+      "id": "procedures",
+      "label": "Procedure calls",
+      "section": "procedures"
+    },
+    {
+      "id": "stack",
+      "label": "The stack and spilling",
+      "section": "stack"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "A processor can only add, load, store and compare. So how does it run `if`, `while` and function calls?",
+          "clues": [
+            "An `if` becomes a **branch** that skips instructions.",
+            "A loop is a branch that jumps **backwards**.",
+            "A function call is a **jump that remembers where to come back**."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "branch",
+      "label": "Decisions",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "branch",
+          "title": "Branch and jump instructions",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "What it does",
+                "Type"
+              ],
+              "rows": [
+                [
+                  "`beq rs, rt, label`",
+                  "Go to label if rs equals rt",
+                  "Conditional branch"
+                ],
+                [
+                  "`bne rs, rt, label`",
+                  "Go to label if rs differs from rt",
+                  "Conditional branch"
+                ],
+                [
+                  "`slt rd, rs, rt`",
+                  "rd = 1 if rs < rt, else 0",
+                  "Comparison (no jump)"
+                ],
+                [
+                  "`j label`",
+                  "Always go to label",
+                  "Jump"
+                ],
+                [
+                  "`jal label`",
+                  "Go to label and save the return address in $ra",
+                  "Jump"
+                ],
+                [
+                  "`jr rs`",
+                  "Go to the address held in rs",
+                  "Jump (register)"
+                ]
+              ]
+            }
+          ],
+          "why": "Conditional branches only test equality. Anything else (less than, greater than) is built from `slt` plus a branch.",
+          "real": "Every `if`, loop condition and function call in a program becomes one of these six instructions.",
+          "mistake": {
+            "wrong": "MIPS has a single instruction that branches when a < b.",
+            "right": "Compare with slt first, then branch on the 0 or 1 result with beq or bne."
+          },
+          "explainAgain": {
+            "beginner": "Equality is cheap to test in hardware; less-than needs a subtraction. MIPS keeps the branch simple and uses slt for the comparison."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "branch",
+          "title": "Translating if-else",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Java / C",
+                "items": [
+                  "`if (a < b)`",
+                  "`    x = y;`",
+                  "`else`",
+                  "`    x = z;`"
+                ]
+              },
+              "right": {
+                "title": "MIPS",
+                "items": [
+                  "a=$s0 b=$s1 x=$s2 y=$s3 z=$s4",
+                  "`slt $t0, $s0, $s1`",
+                  "`beq $t0, $zero, else`",
+                  "`add $s2, $zero, $s3`",
+                  "`j done`",
+                  "`else: add $s2, $zero, $s4`",
+                  "`done:`"
+                ]
+              }
+            }
+          ],
+          "why": "The branch tests the opposite of the condition: when a < b is false, skip over the then-part.",
+          "deeper": {
+            "text": "The `j done` after the then-part is essential. Without it the else-part runs too."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "branch",
+          "title": "Predict, then run",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "if (a < b) x = y; else x = z;",
+              "program": "slt $t0, $s0, $s1\nbeq $t0, $zero, else\nadd $s2, $zero, $s3\nj done\nelse: add $s2, $zero, $s4\ndone:",
+              "registers": {
+                "$s0": 3,
+                "$s1": 7,
+                "$s3": 111,
+                "$s4": 222
+              },
+              "watch": [
+                "$s0",
+                "$s1",
+                "$t0",
+                "$s2"
+              ],
+              "hint": "a = 3 and b = 7. Change $s0 to 9 and $s1 to 2 and run again.",
+              "editable": true
+            }
+          ],
+          "why": "The same program takes a different path for different data."
+        },
+        {
+          "type": "predict",
+          "concept": "branch",
+          "skill": "Apply",
+          "question": "With a = 3 and b = 7, what is `$s2` when the program finishes?",
+          "options": [
+            "111 (x = y)",
+            "222 (x = z)",
+            "0",
+            "7"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "3 < 7, so `slt` sets $t0 = 1, the `beq` is not taken and `add $s2, $zero, $s3` runs, giving **111**. Then `j done` skips the else-part.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Check what happens with a = 9 and b = 2: $t0 = 0, the branch is taken and x = 222."
+        },
+        {
+          "type": "concept",
+          "concept": "branch",
+          "title": "If without else",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Java / C",
+                "items": [
+                  "`if (a == b)`",
+                  "`    c = c + 1;`"
+                ]
+              },
+              "right": {
+                "title": "MIPS",
+                "items": [
+                  "`bne $s0, $s1, skip`",
+                  "`addi $s2, $s2, 1`",
+                  "`skip:`"
+                ]
+              }
+            }
+          ],
+          "why": "Again the branch tests the opposite condition: not equal means skip the increment.",
+          "real": "Checking an error code or a missing value before acting on it uses this exact shape."
+        },
+        {
+          "type": "concept",
+          "concept": "branch",
+          "title": "Run the if without else",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "if (a == b) c = c + 1;",
+              "program": "bne $s0, $s1, skip\naddi $s2, $s2, 1\nskip:",
+              "registers": {
+                "$s0": 4,
+                "$s1": 4,
+                "$s2": 10
+              },
+              "watch": [
+                "$s0",
+                "$s1",
+                "$s2"
+              ],
+              "hint": "Equal values give $s2 = 11. Change $s1 to 5 and $s2 stays 10.",
+              "editable": true
+            }
+          ],
+          "why": "Try both outcomes before moving on."
+        },
+        {
+          "type": "mcq",
+          "concept": "branch",
+          "question": "Which instruction pair tests `a < b` and jumps to `L` when it is true?",
+          "options": [
+            "slt $t0,$s0,$s1 then bne $t0,$zero,L",
+            "beq $s0,$s1,L",
+            "slt $t0,$s0,$s1 then beq $t0,$s0,L",
+            "j L"
+          ],
+          "answer": 0,
+          "why": "slt makes $t0 = 1 exactly when a < b, and bne to $zero branches when $t0 is not 0.",
+          "feedback": [
+            "",
+            "beq tests equality only.",
+            "The comparison must be against $zero, because $t0 is a 0 or 1 flag.",
+            "j always jumps, with no test."
+          ]
+        },
+        {
+          "type": "find",
+          "concept": "branch",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "This if-else translation has a bug. Click the faulty line.",
+          "lines": [
+            "1. slt $t0, $s0, $s1",
+            "2. beq $t0, $zero, else",
+            "3. add $s2, $zero, $s3",
+            "4. else: add $s2, $zero, $s4",
+            "5. done:"
+          ],
+          "wrong": 3,
+          "explain": "The then-part needs a `j done` before `else`, otherwise the else-part also runs and overwrites x.",
+          "fix": "Insert `j done` after line 3.",
+          "lang": "asm"
+        }
+      ]
+    },
+    {
+      "id": "loops",
+      "label": "Loops and arrays",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "loops",
+          "title": "A loop is a backward branch",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Java / C",
+                "MIPS idea"
+              ],
+              "rows": [
+                [
+                  "`while (i < 5)`",
+                  "Test at the top; exit when the test fails"
+                ],
+                [
+                  "`i = i + 1`",
+                  "Update the counter"
+                ],
+                [
+                  "end of body",
+                  "`j loop` jumps back to the test"
+                ]
+              ]
+            },
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Test",
+                  "sub": "slt + beq",
+                  "note": "Leave the loop when the condition is false."
+                },
+                {
+                  "label": "Body",
+                  "sub": "the loop work",
+                  "note": "Instructions that run each time."
+                },
+                {
+                  "label": "Update",
+                  "sub": "change the counter",
+                  "note": "Usually addi."
+                },
+                {
+                  "label": "Jump back",
+                  "sub": "j loop",
+                  "note": "Returns to the test."
+                }
+              ],
+              "zoom": true
+            }
+          ],
+          "why": "All loops (while, for, do-while) are conditional branches plus a backward jump.",
+          "real": "A for loop over millions of items is the same few instructions repeated.",
+          "explainAgain": {
+            "beginner": "Picture a race track: the jump at the end sends you back to the start line, and the test is the gate that lets you off the track."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "loops",
+          "title": "while: doubling five times",
+          "blocks": [
+            {
+              "type": "code",
+              "lang": "java",
+              "code": "int t = 1; int i = 0;\nwhile (i < 5) {\n    t = t * 2;\n    i = i + 1;\n}",
+              "steps": [
+                {
+                  "lines": [
+                    1
+                  ],
+                  "note": "Initialize: $t1 = 1 and $t0 = 0."
+                },
+                {
+                  "lines": [
+                    2
+                  ],
+                  "note": "The test: slt/slti plus beq to leave the loop."
+                },
+                {
+                  "lines": [
+                    3,
+                    4
+                  ],
+                  "note": "The body: sll by 1 doubles $t1; addi adds 1 to $t0."
+                },
+                {
+                  "lines": [
+                    5
+                  ],
+                  "note": "j loop: jump back to the test."
+                }
+              ]
+            },
+            {
+              "type": "mips",
+              "title": "while (i < 5) { t = t * 2; i++; }",
+              "program": "addi $t0, $zero, 0\naddi $t1, $zero, 1\nloop: slti $t2, $t0, 5\nbeq $t2, $zero, end\nsll $t1, $t1, 1\naddi $t0, $t0, 1\nj loop\nend:",
+              "watch": [
+                "$t0",
+                "$t1",
+                "$t2"
+              ],
+              "hint": "Step through and watch $t1 double each time. Predict the final $t1.",
+              "editable": true
+            }
+          ],
+          "why": "Shifting left by 1 multiplies by 2, so five iterations give 2^5 = 32."
+        },
+        {
+          "type": "predict",
+          "concept": "loops",
+          "skill": "Apply",
+          "question": "What are `$t0` and `$t1` when the while loop ends?",
+          "options": [
+            "$t0 = 5, $t1 = 32",
+            "$t0 = 6, $t1 = 64",
+            "$t0 = 5, $t1 = 16",
+            "$t0 = 4, $t1 = 32"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The loop runs for i = 0, 1, 2, 3, 4: five iterations. $t0 = 5, and $t1 = 1 × 2⁵ = **32**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The test fails when i reaches 5, so the body never runs a sixth time."
+        },
+        {
+          "type": "concept",
+          "concept": "loops",
+          "title": "for: summing 0 to 5",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Java / C",
+                "items": [
+                  "`for (i = 0; i < 6; i++)`",
+                  "`    sum = sum + i;`"
+                ]
+              },
+              "right": {
+                "title": "MIPS",
+                "items": [
+                  "`addi $t0, $zero, 0`",
+                  "`for: slti $t2, $t0, 6`",
+                  "`beq $t2, $zero, end`",
+                  "`add $t1, $t1, $t0`",
+                  "`addi $t0, $t0, 1`",
+                  "`j for`"
+                ]
+              }
+            }
+          ],
+          "why": "A for loop is a while loop with the initialization and update written in one place."
+        },
+        {
+          "type": "concept",
+          "concept": "loops",
+          "title": "Run the for loop",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "for (i = 0; i < 6; i++) sum += i;",
+              "program": "addi $t0, $zero, 0\naddi $t1, $zero, 0\nfor: slti $t2, $t0, 6\nbeq $t2, $zero, end\nadd $t1, $t1, $t0\naddi $t0, $t0, 1\nj for\nend:",
+              "watch": [
+                "$t0",
+                "$t1"
+              ],
+              "hint": "$t1 collects 0 + 1 + 2 + 3 + 4 + 5.",
+              "editable": true
+            }
+          ],
+          "why": "Check that the sum is 15 and that i ends at 6, not 5."
+        },
+        {
+          "type": "concept",
+          "concept": "loops",
+          "title": "Arrays: index to address",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "address = base + index × 4",
+                  "note": "Each int occupies 4 bytes (word)"
+                },
+                {
+                  "t": "sll $t2, $t0, 2",
+                  "note": "index × 4 by shifting left 2"
+                },
+                {
+                  "t": "add $t2, $t2, $s0",
+                  "note": "add the array base address"
+                },
+                {
+                  "t": "lw $t4, 0($t2)",
+                  "note": "read the element"
+                }
+              ]
+            }
+          ],
+          "why": "Memory is addressed in bytes, so element i of an int array lives 4 × i bytes after the start.",
+          "real": "Every a[i] in Java, C or Python is compiled to this multiply-and-add.",
+          "mistake": {
+            "wrong": "Element i is at base + i.",
+            "right": "Elements are 4 bytes wide, so the offset is 4 × i."
+          },
+          "explainAgain": {
+            "beginner": "A row of mailboxes numbered 0, 4, 8, 12... Mailbox i has number 4i."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "loops",
+          "title": "Array traversal",
+          "blocks": [
+            {
+              "type": "code",
+              "lang": "java",
+              "code": "int[] a = {4, 8, 15, 16, 23};\nint sum = 0;\nfor (int i = 0; i < 5; i++)\n    sum += a[i];"
+            },
+            {
+              "type": "mips",
+              "title": "Sum the array a[0..4]",
+              "program": "addi $t0, $zero, 0\nlui $s0, 0x1001\nadd $t3, $zero, $zero\nloop: slti $t1, $t0, 5\nbeq $t1, $zero, end\nsll $t2, $t0, 2\nadd $t2, $t2, $s0\nlw $t4, 0($t2)\nadd $t3, $t3, $t4\naddi $t0, $t0, 1\nj loop\nend:",
+              "memory": {
+                "0x10010000": 4,
+                "0x10010004": 8,
+                "0x10010008": 15,
+                "0x1001000C": 16,
+                "0x10010010": 23
+              },
+              "watch": [
+                "$t0",
+                "$t2",
+                "$t4",
+                "$t3"
+              ],
+              "hint": "The array starts at 0x10010000. $t3 collects the sum.",
+              "editable": true
+            }
+          ],
+          "why": "$s0 holds the base address; each pass computes the element address, loads it and adds it."
+        },
+        {
+          "type": "predict",
+          "concept": "loops",
+          "skill": "Apply",
+          "question": "What is `$t3` after the array traversal?",
+          "options": [
+            "66",
+            "45",
+            "23",
+            "15"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "4 + 8 + 15 + 16 + 23 = **66**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Add the five elements. 45 would be the sum of the first four only."
+        },
+        {
+          "type": "arrange",
+          "concept": "loops",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the body of the array-sum loop in order.",
+          "items": [
+            "Test i < 5 and leave if false",
+            "Compute i × 4 with sll",
+            "Add the base address",
+            "Load the element with lw",
+            "Add it to the sum, then i = i + 1 and jump back"
+          ],
+          "why": "The address must be built before it can be used to load."
+        },
+        {
+          "type": "tf",
+          "concept": "loops",
+          "statement": "A `for` loop needs a different set of hardware instructions than a `while` loop.",
+          "answer": false,
+          "why": "Both are built from the same compare, branch and jump instructions."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "Why does a loop end with a backward jump?",
+              "a": "So that execution returns to the test and repeats.",
+              "concept": "loops"
+            },
+            {
+              "q": "How do you compute the address of a[i] for an int array?",
+              "a": "base + 4 × i (sll by 2, then add).",
+              "concept": "loops"
+            },
+            {
+              "q": "How do you branch when a < b?",
+              "a": "slt to make a 0/1 flag, then bne or beq against $zero.",
+              "concept": "branch"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "procedures",
+      "label": "Procedure calls",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "procedures",
+          "title": "Calling and returning",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Caller sets arguments",
+                  "sub": "$a0 to $a3",
+                  "note": "Put values in the argument registers."
+                },
+                {
+                  "label": "jal",
+                  "sub": "jump and link",
+                  "note": "Saves PC + 4 in $ra, then jumps to the procedure."
+                },
+                {
+                  "label": "Procedure runs",
+                  "sub": "uses $a, returns in $v0",
+                  "note": "Does the work and puts the result in $v0 and $v1."
+                },
+                {
+                  "label": "jr $ra",
+                  "sub": "return",
+                  "note": "Jumps back to the instruction after the jal."
+                }
+              ],
+              "zoom": true
+            },
+            {
+              "type": "table",
+              "head": [
+                "Register",
+                "Role"
+              ],
+              "rows": [
+                [
+                  "$a0 - $a3",
+                  "arguments (inputs)"
+                ],
+                [
+                  "$v0 - $v1",
+                  "results (outputs)"
+                ],
+                [
+                  "$ra",
+                  "return address"
+                ],
+                [
+                  "$s0 - $s7",
+                  "must be preserved by the callee"
+                ],
+                [
+                  "$t0 - $t9",
+                  "temporaries; may be overwritten"
+                ]
+              ]
+            }
+          ],
+          "why": "`jal` and `jr $ra` let any code call a procedure from anywhere and come back to the right place.",
+          "real": "This is every function and method call in Java, C or Python.",
+          "mistake": {
+            "wrong": "jr $ra is a special return instruction.",
+            "right": "It is a normal jump to a register; $ra just happens to hold the return address."
+          },
+          "explainAgain": {
+            "beginner": "Like a bookmark: jal puts a bookmark in $ra, and jr $ra goes back to it."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "procedures",
+          "title": "A leaf procedure",
+          "blocks": [
+            {
+              "type": "code",
+              "lang": "java",
+              "code": "int addtwice(int a, int b) {\n    return (a + b) * 2;\n}\n// caller:  s = addtwice(6, 7);"
+            },
+            {
+              "type": "mips",
+              "title": "jal and jr $ra",
+              "program": "addi $a0, $zero, 6\naddi $a1, $zero, 7\njal addtwice\naddi $s0, $v0, 0\nj end\naddtwice: add $t0, $a0, $a1\nsll $v0, $t0, 1\njr $ra\nend:",
+              "watch": [
+                "$a0",
+                "$a1",
+                "$v0",
+                "$ra",
+                "$s0"
+              ],
+              "hint": "Watch $ra after jal. It holds the address of the instruction after the call.",
+              "editable": true
+            }
+          ],
+          "why": "A procedure that calls no other procedure needs no stack: this is a leaf."
+        },
+        {
+          "type": "predict",
+          "concept": "procedures",
+          "skill": "Apply",
+          "question": "After `jal addtwice` at address 0x00400008, what is `$ra`?",
+          "options": [
+            "0x0040000C",
+            "0x00400008",
+            "0x00400004",
+            "0x00400020"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "jal saves **PC + 4**, the address of the next instruction: 0x00400008 + 4 = **0x0040000C**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The return address is the instruction after the call, not the call itself."
+        },
+        {
+          "type": "mcq",
+          "concept": "procedures",
+          "question": "What does `jr $ra` do?",
+          "options": [
+            "Jumps to the address stored in $ra",
+            "Saves the return address",
+            "Jumps to the label named ra",
+            "Calls a procedure"
+          ],
+          "answer": 0,
+          "why": "It loads the PC from $ra, returning to the caller.",
+          "feedback": [
+            "",
+            "jal does the saving.",
+            "$ra is a register; jr uses its contents, not a label.",
+            "jal calls; jr returns."
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "procedures",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each item with its role.",
+          "pairs": [
+            {
+              "a": "jal",
+              "b": "Jump and save PC + 4 in $ra"
+            },
+            {
+              "a": "jr $ra",
+              "b": "Return to the caller"
+            },
+            {
+              "a": "$a0 - $a3",
+              "b": "Arguments"
+            },
+            {
+              "a": "$v0",
+              "b": "Result"
+            }
+          ],
+          "why": "These four items cover a complete call."
+        }
+      ]
+    },
+    {
+      "id": "stack",
+      "label": "The stack and spilling",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "The stack",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "The stack is a region of memory addressed by **$sp** (stack pointer)",
+                "It **grows downward**: to push, subtract from $sp, then store",
+                "To pop, load, then add back to $sp",
+                "$sp starts at 0x7FFF0000 in this simulator",
+                "Registers must be restored so the caller never notices"
+              ]
+            },
+            {
+              "type": "code",
+              "lang": "asm",
+              "code": "addi $sp, $sp, -4   # make room\nsw   $s0, 0($sp)    # save $s0\n...                 # procedure uses $s0\nlw   $s0, 0($sp)    # restore $s0\naddi $sp, $sp, 4    # free the room\njr   $ra"
+            }
+          ],
+          "why": "A procedure may use $s registers only if it puts the caller’s values back before returning.",
+          "real": "Every function call in a running program pushes a stack frame like this.",
+          "mistake": {
+            "wrong": "The stack grows upward in memory.",
+            "right": "In MIPS it grows downward, toward lower addresses."
+          },
+          "explainAgain": {
+            "beginner": "A stack of plates: you add and remove at the top, and each caller’s plates stay underneath."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "Save and restore $s0",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Preserving $s0 on the stack",
+              "program": "addi $s0, $zero, 99\naddi $a0, $zero, 5\njal usess\nj end\nusess: addi $sp, $sp, -4\nsw $s0, 0($sp)\nadd $s0, $a0, $a0\nadd $v0, $s0, $zero\nlw $s0, 0($sp)\naddi $sp, $sp, 4\njr $ra\nend:",
+              "watch": [
+                "$s0",
+                "$a0",
+                "$v0",
+                "$sp"
+              ],
+              "hint": "$s0 starts as 99, is reused inside the procedure, and is 99 again at the end.",
+              "editable": true
+            }
+          ],
+          "why": "The value 99 is stored at 0x7FFEFFFC while the procedure uses $s0 for something else."
+        },
+        {
+          "type": "predict",
+          "concept": "stack",
+          "skill": "Apply",
+          "question": "What does `$s0` hold after the procedure returns?",
+          "options": [
+            "99",
+            "10",
+            "5",
+            "0"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The procedure saved 99, used $s0 as a scratch register (10), then restored it. The caller sees **99** again.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The result 10 is returned in $v0, not in $s0."
+        },
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "Nested calls: save $ra",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Without saving $ra",
+                "items": [
+                  "`outer` calls `inner` with jal",
+                  "jal overwrites $ra",
+                  "`outer` can no longer return",
+                  "The program loops forever"
+                ]
+              },
+              "right": {
+                "title": "With saving $ra",
+                "items": [
+                  "`sw $ra, 0($sp)` before the jal",
+                  "`lw $ra, 0($sp)` after it",
+                  "`jr $ra` returns correctly",
+                  "The stack keeps each return address"
+                ]
+              }
+            }
+          ],
+          "why": "A procedure that calls another one must save $ra, because the inner jal overwrites it.",
+          "deeper": {
+            "text": "Recursion works the same way: each active call has its own return address and arguments on the stack."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "A bug: forgetting to save $ra",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Nested call without saving $ra",
+              "program": "addi $a0, $zero, 3\njal outer\nj end\nouter: addi $sp, $sp, -4\naddi $a0, $a0, 1\njal inner\naddi $sp, $sp, 4\njr $ra\ninner: sll $v0, $a0, 2\njr $ra\nend:",
+              "expectError": true,
+              "watch": [
+                "$ra",
+                "$sp",
+                "$v0"
+              ],
+              "hint": "The program never finishes; the simulator stops it after 10,000 steps.",
+              "editable": true
+            }
+          ],
+          "why": "Compare it with the version that saves $ra; the outer return goes to the wrong place."
+        },
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "The correct nested call",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Nested calls with $ra saved",
+              "program": "addi $a0, $zero, 3\njal outer\nj end\nouter: addi $sp, $sp, -4\nsw $ra, 0($sp)\naddi $a0, $a0, 1\njal inner\nlw $ra, 0($sp)\naddi $sp, $sp, 4\njr $ra\ninner: sll $v0, $a0, 2\njr $ra\nend:",
+              "watch": [
+                "$ra",
+                "$sp",
+                "$a0",
+                "$v0"
+              ],
+              "hint": "The return address of outer is stored on the stack at 0x7FFEFFFC.",
+              "editable": true
+            }
+          ],
+          "why": "The stack holds the return address while the inner call overwrites $ra."
+        },
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "Register spilling",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "A program can have more live values than the 32 registers. The compiler **spills** some values to the stack, loading them back when needed."
+            },
+            {
+              "type": "compare",
+              "left": {
+                "title": "In registers",
+                "items": [
+                  "Fast",
+                  "Limited number"
+                ]
+              },
+              "right": {
+                "title": "Spilled to memory",
+                "items": [
+                  "Slower (a load and a store)",
+                  "Almost unlimited"
+                ]
+              }
+            }
+          ],
+          "why": "Spilling is the cost of running out of registers, which is why register allocation matters to compiler writers.",
+          "real": "Optimizing compilers try hard to keep hot loop values in registers."
+        },
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "Spill and reload",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Spill $t2, reuse it, then reload",
+              "program": "addi $t0, $zero, 5\naddi $t1, $zero, 7\nadd $t2, $t0, $t1\naddi $sp, $sp, -4\nsw $t2, 0($sp)\naddi $t0, $zero, 2\naddi $t1, $zero, 3\nadd $t2, $t0, $t1\nlw $t3, 0($sp)\naddi $sp, $sp, 4\nsub $t4, $t3, $t2",
+              "watch": [
+                "$t2",
+                "$t3",
+                "$t4",
+                "$sp"
+              ],
+              "hint": "(5 + 7) is spilled, (2 + 3) is computed in the same register, then subtracted.",
+              "editable": true
+            }
+          ],
+          "why": "12 is saved on the stack, $t2 is reused for 5, and the reload gives 12 − 5 = 7."
+        },
+        {
+          "type": "mcq",
+          "concept": "stack",
+          "question": "Which sequence pushes `$t2` onto the stack?",
+          "options": [
+            "addi $sp,$sp,-4 then sw $t2,0($sp)",
+            "sw $t2,0($sp) then addi $sp,$sp,-4",
+            "addi $sp,$sp,4 then sw $t2,0($sp)",
+            "lw $t2,0($sp) then addi $sp,$sp,4"
+          ],
+          "answer": 0,
+          "why": "Make room first (stack grows down), then store.",
+          "feedback": [
+            "",
+            "Storing before moving $sp writes into the previous frame.",
+            "Adding 4 moves $sp up, which pops instead of pushing.",
+            "That is a pop."
+          ]
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Why is the return address saved on the stack instead of in a fixed memory location?",
+          "think": 20,
+          "pair": 40,
+          "answer": "A fixed location would be overwritten by the next call, so recursion and nested calls would lose their return addresses. The stack gives each active call its own space, and it is freed automatically when the call returns."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "procedures",
+          "question": "Where do the arguments, local variables and return address of a call live: registers or memory?",
+          "seconds": 60,
+          "ideas": [
+            "Registers are fastest, but there are few of them.",
+            "Memory (the stack) is unlimited but slower.",
+            "Calling conventions split the work: a few arguments in registers, the rest on the stack.",
+            "A convention lets code from different programmers work together."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "procedures",
+          "question": "Which register holds the return address after `jal`?",
+          "answer": "$ra (register 31).",
+          "solution": "jal stores PC + 4 in $ra.",
+          "think": 15
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "branch",
+          "question": "Translate `if (i == j) f = g + h;` with f,g,h,i,j in $s0 to $s4.",
+          "answer": "bne $s3, $s4, skip\nadd $s0, $s1, $s2\nskip:",
+          "solution": "Test the opposite (not equal) and skip the add. Registers: f=$s0, g=$s1, h=$s2, i=$s3, j=$s4.",
+          "hint": "Which branch instruction tests not equal?",
+          "mistake": "Using beq and skipping when the values are equal.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "loops",
+          "question": "In the array-sum program, how many times does `lw` execute and what is `$t3`?",
+          "answer": "5 times; $t3 = 66.",
+          "solution": "The loop body runs for i = 0 to 4, loading 4, 8, 15, 16 and 23; their sum is 66.",
+          "hint": "The test fails when i reaches 5.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "stack",
+          "question": "In the nested call with $ra saved, where is the return address of `outer` stored and what value is it?",
+          "answer": "At 0x7FFEFFFC; the value is 0x00400008.",
+          "solution": "$sp starts at 0x7FFF0000. addi $sp,$sp,-4 gives 0x7FFEFFFC. The jal outer was at 0x00400004, so $ra = 0x00400008.",
+          "hint": "Subtract 4 from $sp, then use the address of the jal.",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "loops",
+          "question": "Trace the for loop `for (i = 0; i < 6; i++) sum += i;` and give the final $t0 (i) and $t1 (sum).",
+          "answer": "$t0 = 6 and $t1 = 15.",
+          "solution": "The body runs for i = 0 to 5: 0+1+2+3+4+5 = 15. The test fails when i = 6, so i ends at 6.",
+          "mistake": "Saying i ends at 5.",
+          "title": "Exam practice: code tracing",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "branch",
+          "question": "Translate `if (a < b) x = y; else x = z;` using a=$s0, b=$s1, x=$s2, y=$s3, z=$s4.",
+          "answer": "slt $t0,$s0,$s1; beq $t0,$zero,else; add $s2,$zero,$s3; j done; else: add $s2,$zero,$s4; done:",
+          "solution": "Set the flag with slt, skip to else when it is 0, run the then-part, jump over the else-part.",
+          "mistake": "Forgetting the j done.",
+          "title": "Exam practice: translation",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "stack",
+          "question": "A procedure pushes two words onto the stack. $sp was 0x7FFF0000. What is $sp after the pushes, and after the matching pops?",
+          "answer": "After the pushes 0x7FFEFFF8; after the pops 0x7FFF0000.",
+          "solution": "Two words = 8 bytes. 0x7FFF0000 − 8 = 0x7FFEFFF8. The pops add 8 back.",
+          "mistake": "Adding 8 instead of subtracting.",
+          "title": "Exam practice: numerical",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "procedures",
+          "question": "Explain why a procedure that calls another procedure must save $ra, and a procedure that does not call others (a leaf) need not.",
+          "answer": "jal overwrites $ra with the new return address, so a nested call would lose the way back to its own caller unless $ra is saved on the stack and restored before jr $ra. A leaf makes no jal, so $ra is never changed and jr $ra works directly.",
+          "solution": "A strong answer names the overwrite by jal and the stack as the safe place.",
+          "mistake": "Saying $ra is saved because it is a saved register ($s).",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Branches and procedures",
+          "branches": [
+            {
+              "label": "Decisions",
+              "example": "slt, beq, bne",
+              "section": "branch"
+            },
+            {
+              "label": "Loops",
+              "example": "backward branches",
+              "section": "loops"
+            },
+            {
+              "label": "Procedures",
+              "example": "jal and jr",
+              "section": "procedures"
+            },
+            {
+              "label": "Stack",
+              "example": "save and spill",
+              "section": "stack"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "if and if-else: slt and beq/bne skip the code that should not run.",
+            "A loop is a test at the top and a backward jump at the bottom.",
+            "a[i] is at base + 4 × i (sll by 2, then add).",
+            "jal saves PC + 4 in $ra; jr $ra returns.",
+            "Arguments go in $a0-$a3 and results in $v0-$v1.",
+            "The stack grows downward: subtract from $sp to push.",
+            "Nested procedures must save $ra; extra values are spilled to the stack."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "MIPS has a branch-if-less-than instruction.",
+              "right": "Use slt then bne or beq."
+            },
+            {
+              "wrong": "Element i of an int array is at base + i.",
+              "right": "It is at base + 4 × i."
+            },
+            {
+              "wrong": "The stack grows upward.",
+              "right": "It grows downward."
+            },
+            {
+              "wrong": "jr $ra is a special return instruction.",
+              "right": "It is an ordinary jump to a register."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Decisions become slt plus beq or bne, loops are tests with backward jumps, and arrays use base + 4i addressing. Procedures use jal to save PC + 4 in $ra and jr to return. Nested calls and extra values use the stack, which grows downward from $sp."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "branch",
+              "question": "Which instruction jumps to a label and saves the return address?",
+              "options": [
+                "jal",
+                "j",
+                "jr",
+                "beq"
+              ],
+              "answer": 0,
+              "why": "jal stores PC + 4 in $ra and jumps.",
+              "misconception": "j does not save a return address."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "stack",
+              "statement": "The MIPS stack grows toward lower addresses.",
+              "answer": true,
+              "why": "To push you subtract from $sp.",
+              "misconception": "Subtracting 4 makes room for one word."
+            },
+            {
+              "level": "easy",
+              "concept": "loops",
+              "question": "What ends a while loop?",
+              "options": [
+                "A conditional branch whose test fails",
+                "The j instruction",
+                "jr $ra",
+                "lw"
+              ],
+              "answer": 0,
+              "why": "The test branches out when the condition is false.",
+              "misconception": "The backward jump alone would repeat forever."
+            },
+            {
+              "level": "medium",
+              "concept": "loops",
+              "question": "Where is a[3] if the int array starts at 0x10010000?",
+              "options": [
+                "0x1001000C",
+                "0x10010003",
+                "0x10010004",
+                "0x10010030"
+              ],
+              "answer": 0,
+              "why": "Offset = 3 × 4 = 12 = 0xC.",
+              "misconception": "Each int is 4 bytes."
+            },
+            {
+              "level": "medium",
+              "concept": "branch",
+              "question": "In `if (a == b) c++;` which branch skips the increment?",
+              "options": [
+                "bne a, b, skip",
+                "beq a, b, skip",
+                "slt then beq",
+                "j skip"
+              ],
+              "answer": 0,
+              "why": "Skip when the values are not equal.",
+              "misconception": "The branch tests the opposite condition."
+            },
+            {
+              "level": "medium",
+              "concept": "procedures",
+              "question": "jal is at 0x00400010. What is $ra afterwards?",
+              "options": [
+                "0x00400014",
+                "0x00400010",
+                "0x0040000C",
+                "0x00400018"
+              ],
+              "answer": 0,
+              "why": "PC + 4 = 0x00400014.",
+              "misconception": "$ra points to the next instruction."
+            },
+            {
+              "level": "hard",
+              "concept": "stack",
+              "question": "$sp is 0x7FFF0000. What is it after pushing three words?",
+              "options": [
+                "0x7FFEFFF4",
+                "0x7FFEFFFC",
+                "0x7FFF000C",
+                "0x7FFEFFF0"
+              ],
+              "answer": 0,
+              "why": "Three words is 12 bytes: 0x7FFF0000 − 12 = 0x7FFEFFF4.",
+              "misconception": "The stack grows down."
+            },
+            {
+              "level": "hard",
+              "concept": "stack",
+              "question": "Why does a nested procedure save $ra?",
+              "options": [
+                "The inner jal overwrites it",
+                "$ra is a saved register",
+                "jr needs the stack",
+                "$ra changes on every instruction"
+              ],
+              "answer": 0,
+              "why": "jal replaces $ra, which would lose the outer return address.",
+              "misconception": "Only a procedure that calls others must save $ra."
+            },
+            {
+              "level": "challenge",
+              "concept": "loops",
+              "question": "How many times does the body of `for (i = 0; i < 6; i++)` run, and what is i afterwards?",
+              "options": [
+                "6 times; i = 6",
+                "5 times; i = 5",
+                "6 times; i = 5",
+                "7 times; i = 6"
+              ],
+              "answer": 0,
+              "why": "i takes the values 0 to 5 (6 iterations); the test fails at i = 6.",
+              "misconception": "The final value is the one that failed the test."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "How is `if (a < b)` tested in MIPS?",
+              "a": "slt to make a 0/1 flag, then beq or bne.",
+              "concept": "branch"
+            },
+            {
+              "q": "What does jal do?",
+              "a": "Saves PC + 4 in $ra and jumps to the label.",
+              "concept": "procedures"
+            },
+            {
+              "q": "Which direction does the stack grow?",
+              "a": "Downward, toward lower addresses.",
+              "concept": "stack"
+            },
+            {
+              "q": "How do you address a[i]?",
+              "a": "base + 4 × i.",
+              "concept": "loops"
+            },
+            {
+              "q": "What is register spilling?",
+              "a": "Storing live values on the stack because registers ran out.",
+              "concept": "stack"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

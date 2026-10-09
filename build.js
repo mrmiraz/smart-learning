@@ -58,7 +58,7 @@ for (const c of courses) {
   for (const t of c.topics.filter((x) => x.type === 'lesson')) {
     const name = `${c.id}/${t.id}`;
     const data = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', c.id, `${t.id}.lesson.json`), 'utf8'));
-    const { errors, warnings } = validateLesson(data, name);
+    const { errors, warnings } = validateLesson(data, name, { course: c.title });
     warnings.forEach((w) => console.warn('warning ' + w));
     errors.forEach((e) => console.error('ERROR   ' + e));
     lessonErrors += errors.length;
@@ -108,7 +108,7 @@ for (const c of courses) {
 <script>${THEME_SNIPPET}</script>${pageGlobals(`slides/${c.id}/${t.id}.html`)}${LOADER_HEAD}
 <link rel="stylesheet" href="../../assets/lesson.css">${QR_ASSETS('../../')}</head><body>
 ${LOADER_HTML}<div id="app"></div>
-<script>window.__LESSON__=${json};</script>${QR_SCRIPTS('../../')}<script src="../../assets/lesson.js"></script>
+<script>window.__LESSON__=${json};</script>${QR_SCRIPTS('../../')}<script src="../../assets/sim.js"></script><script src="../../assets/demos-core.js"></script><script src="../../assets/demos-arch.js"></script><script src="../../assets/demos-mem.js"></script><script src="../../assets/lesson.js"></script>
 </body></html>`
       );
       continue;

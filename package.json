@@ -6,7 +6,9 @@
   "scripts": {
     "start": "python3 -m http.server 8080 -d dist",
     "build": "node --env-file=.env build.js",
-    "check": "node lesson-validate.js"
+    "check": "node lesson-validate.js",
+    "smoke": "node scripts/smoke.js",
+    "test": "node --test"
   },
   "dependencies": {
     "qrcode-generator": "^2.0.4",

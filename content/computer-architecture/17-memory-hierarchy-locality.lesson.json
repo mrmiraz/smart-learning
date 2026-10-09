@@ -1,0 +1,1131 @@
+{
+  "id": "ca-17-memory-hierarchy-locality",
+  "title": "Memory Hierarchy and Locality",
+  "subtitle": "Why computers use a ladder of memories and why it works.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "5",
+      "title": "Large and Fast: Exploiting Memory Hierarchy",
+      "topics": "Introduction; memory technologies; the basics of caches (principle of locality, hits and misses)"
+    }
+  ],
+  "objectives": [
+    "Explain why one huge, fast memory cannot be built",
+    "Describe the levels from registers to disk: speed, capacity and cost",
+    "Define temporal and spatial locality and recognise them in code",
+    "Explain hits, misses, hit rate and the idea of a block",
+    "Show how locality makes a hierarchy look like one big, fast memory"
+  ],
+  "concepts": [
+    {
+      "id": "why",
+      "label": "Why a hierarchy",
+      "section": "why"
+    },
+    {
+      "id": "levels",
+      "label": "The levels",
+      "section": "levels"
+    },
+    {
+      "id": "locality",
+      "label": "Locality",
+      "section": "locality"
+    },
+    {
+      "id": "hits",
+      "label": "Hits and misses",
+      "section": "hits"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "Why can't we simply buy one huge memory that is as fast as the processor?",
+          "clues": [
+            "Bigger memories are **slower**.",
+            "Faster memories **cost far more per bit**.",
+            "The trick is to keep **what you will need soon** in a small, fast memory."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "why",
+      "label": "Why a hierarchy",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "why",
+          "title": "Fast, large and cheap: pick two",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Technology",
+                "Speed (about)",
+                "Cost per bit",
+                "Size"
+              ],
+              "rows": [
+                [
+                  "SRAM (registers, caches)",
+                  "under 1 to a few ns",
+                  "highest",
+                  "small (KB to MB)"
+                ],
+                [
+                  "DRAM (main memory)",
+                  "tens of ns",
+                  "medium",
+                  "large (GB)"
+                ],
+                [
+                  "Flash (SSD)",
+                  "tens of microseconds",
+                  "low",
+                  "very large (hundreds of GB)"
+                ],
+                [
+                  "Magnetic disk (HDD)",
+                  "milliseconds",
+                  "lowest",
+                  "largest (TB)"
+                ]
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "A bigger memory has longer wires and more to search, so it is **slower**",
+                "Faster technology needs more transistors per bit, so it **costs more** and uses more power",
+                "No single technology is fast, large and cheap at the same time"
+              ]
+            }
+          ],
+          "why": "The hierarchy combines technologies: a little very fast memory near the CPU and a lot of slower memory further away.",
+          "real": "All the figures are order-of-magnitude values; they change with every generation.",
+          "mistake": {
+            "wrong": "We could make main memory as fast as registers if we paid enough.",
+            "right": "Size and distance alone make a huge memory slower, and the cost would be enormous."
+          },
+          "explainAgain": {
+            "beginner": "Your desk holds a few papers you can reach instantly; the bookshelf holds more but takes longer; the library holds everything but takes a trip."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "why",
+          "skill": "Apply",
+          "question": "A processor reads a register in under 1 ns and DRAM in about 50 ns. If every instruction had to wait for DRAM, what would happen?",
+          "options": [
+            "The processor would spend most of its time waiting",
+            "Nothing: the clock would adapt",
+            "The processor would run faster",
+            "DRAM would become smaller"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The CPU could do tens of operations in the time one DRAM access takes, so it would mostly sit idle. That gap is what the hierarchy hides.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Next: how a small fast memory can hide a slow big one."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "why",
+          "question": "If money were no object, could we build a 16 GB memory that responds in 1 ns?",
+          "seconds": 60,
+          "ideas": [
+            "A larger memory means longer wires and more decoding, so even SRAM would slow down.",
+            "16 GB of SRAM would need enormous area and power.",
+            "Signals take real time to travel across a chip.",
+            "So the answer is no: physics, not only cost, limits it."
+          ]
+        },
+        {
+          "type": "mcq",
+          "concept": "why",
+          "question": "Which is true about memory technologies?",
+          "options": [
+            "Faster memory is usually smaller and costs more per bit",
+            "Larger memory is always faster",
+            "Disks are faster than DRAM",
+            "Registers are cheaper than disks per bit"
+          ],
+          "answer": 0,
+          "why": "Speed, size and cost trade off against each other.",
+          "feedback": [
+            "",
+            "Larger memories are slower.",
+            "DRAM is far faster than disks.",
+            "Registers are the most expensive per bit."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "levels",
+      "label": "The levels",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "levels",
+          "title": "The memory hierarchy",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Closer to the CPU: **faster, smaller, more expensive per bit**. Further away: **slower, larger, cheaper per bit**. Click each level to see its role."
+            }
+          ],
+          "why": "Each level holds a copy of the most useful part of the level below it.",
+          "real": "Your laptop has all of these: registers, several cache levels, DRAM and an SSD.",
+          "explainAgain": {
+            "beginner": "A ladder: the top rung is the quickest to reach but holds the least."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "levels",
+          "title": "Explore the levels",
+          "blocks": [
+            {
+              "type": "hierarchy",
+              "title": "The memory hierarchy",
+              "levels": [
+                {
+                  "name": "Registers",
+                  "speed": "under 1 ns",
+                  "capacity": "hundreds of bytes (32 × 4 = 128 B in MIPS)",
+                  "cost": "highest per bit",
+                  "purpose": "Values the CPU is using right now",
+                  "example": "The 32 MIPS registers"
+                },
+                {
+                  "name": "L1 cache",
+                  "speed": "about 1 ns",
+                  "capacity": "tens of KB",
+                  "cost": "very high",
+                  "purpose": "The most recently used instructions and data",
+                  "example": "A core's private instruction and data caches"
+                },
+                {
+                  "name": "L2 cache",
+                  "speed": "a few ns",
+                  "capacity": "hundreds of KB to a few MB",
+                  "cost": "high",
+                  "purpose": "A larger backup for L1",
+                  "example": "Per-core or shared cache"
+                },
+                {
+                  "name": "L3 cache",
+                  "speed": "about 10 to 20 ns",
+                  "capacity": "several MB to tens of MB",
+                  "cost": "high",
+                  "purpose": "Shared by several cores",
+                  "example": "The last on-chip cache"
+                },
+                {
+                  "name": "Main memory (DRAM)",
+                  "speed": "tens of ns",
+                  "capacity": "GBs",
+                  "cost": "medium",
+                  "purpose": "All running programs and their data",
+                  "example": "The RAM modules"
+                },
+                {
+                  "name": "SSD / HDD",
+                  "speed": "tens of microseconds (SSD) to milliseconds (HDD)",
+                  "capacity": "hundreds of GB to TBs",
+                  "cost": "lowest per bit",
+                  "purpose": "Files and programs that persist",
+                  "example": "Your laptop's drive"
+                }
+              ]
+            }
+          ],
+          "why": "Notice the pattern as you click down: speed falls, capacity rises, cost per bit falls."
+        },
+        {
+          "type": "concept",
+          "concept": "levels",
+          "title": "Hit, miss, block",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "The CPU asks the top level first",
+                "**Hit**: the data is in that level; **miss**: it is not and the next level is asked",
+                "Data moves between levels in **blocks** (several neighbouring words), not one word at a time",
+                "**Hit rate** = hits ÷ accesses; **miss rate** = 1 − hit rate"
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "hit rate + miss rate = 1",
+                  "note": "every access is one or the other"
+                },
+                {
+                  "t": "block",
+                  "note": "the unit copied between two levels"
+                }
+              ]
+            }
+          ],
+          "why": "Almost all accesses should be satisfied by the top few levels, so the slow levels are rarely used.",
+          "real": "A typical program hits L1 more than 95% of the time."
+        },
+        {
+          "type": "concept",
+          "concept": "levels",
+          "title": "Preview: the average access time",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Average memory access time (preview of Class 19)",
+              "equation": "Average time = hit time + miss rate × miss penalty",
+              "inputs": [
+                {
+                  "id": "h",
+                  "label": "L1 hit rate",
+                  "value": 95,
+                  "min": 50,
+                  "max": 100,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "t1",
+                  "label": "L1 time",
+                  "value": 1,
+                  "min": 1,
+                  "max": 5,
+                  "step": 1,
+                  "unit": "ns"
+                },
+                {
+                  "id": "tm",
+                  "label": "Main memory time",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ns"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Average access time",
+                  "formula": "t1 + (1 - h/100) * tm",
+                  "format": "num",
+                  "digits": 1,
+                  "unit": "ns"
+                },
+                {
+                  "label": "Compared with going to memory every time",
+                  "formula": "tm / (t1 + (1 - h/100) * tm)",
+                  "format": "x",
+                  "digits": 1
+                }
+              ]
+            }
+          ],
+          "why": "With a 95% hit rate the average is 6 ns, about 17 times faster than using main memory for every access. At 90% it is 11 ns; at 99% only 2 ns."
+        },
+        {
+          "type": "predict",
+          "concept": "levels",
+          "skill": "Apply",
+          "question": "L1 takes 1 ns, main memory 100 ns, and 95% of accesses hit in L1. What is the average access time?",
+          "options": [
+            "6 ns",
+            "1 ns",
+            "5 ns",
+            "100 ns"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Average = 1 + 0.05 × 100 = **6 ns**: the few misses cost a lot but are rare.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "We study this formula in Class 19."
+        },
+        {
+          "type": "match",
+          "concept": "levels",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each level with its typical role.",
+          "pairs": [
+            {
+              "a": "Registers",
+              "b": "Values the CPU is using right now"
+            },
+            {
+              "a": "L1 cache",
+              "b": "Recently used instructions and data"
+            },
+            {
+              "a": "DRAM",
+              "b": "All running programs"
+            },
+            {
+              "a": "SSD / HDD",
+              "b": "Persistent files"
+            }
+          ],
+          "why": "Each level is bigger and slower than the one above."
+        },
+        {
+          "type": "arrange",
+          "concept": "levels",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the levels in order from fastest to slowest.",
+          "items": [
+            "Registers",
+            "L1 cache",
+            "L2 and L3 cache",
+            "Main memory (DRAM)",
+            "SSD / HDD"
+          ],
+          "why": "Fastest and smallest at the top, slowest and largest at the bottom."
+        }
+      ]
+    },
+    {
+      "id": "locality",
+      "label": "Locality",
+      "minutes": 14,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "locality",
+          "title": "The principle of locality",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Type",
+                "Meaning",
+                "Example"
+              ],
+              "rows": [
+                [
+                  "Temporal locality",
+                  "A location used now is likely to be used again soon",
+                  "A loop counter or a sum variable used every iteration"
+                ],
+                [
+                  "Spatial locality",
+                  "Locations near a used one are likely to be used soon",
+                  "Walking through an array element by element"
+                ]
+              ]
+            },
+            {
+              "type": "code",
+              "lang": "java",
+              "code": "int sum = 0;\nfor (int i = 0; i < 1000; i++)\n    sum += array[i];"
+            }
+          ],
+          "why": "Programs are not random: they loop and walk through data. Locality is what makes a small cache so effective.",
+          "real": "Instructions have locality too: the loop body is fetched thousands of times.",
+          "mistake": {
+            "wrong": "Locality is a property of the hardware.",
+            "right": "It is a property of programs; the hardware exploits it."
+          },
+          "explainAgain": {
+            "beginner": "If you read a page of a book you will probably read the next page too (spatial) and probably reread this page (temporal)."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "locality",
+          "skill": "Apply",
+          "question": "In the loop above, which variables show temporal locality and which data shows spatial locality?",
+          "options": [
+            "sum and i: temporal; array[i]: spatial",
+            "array[i]: temporal; sum: spatial",
+            "Only spatial",
+            "Neither"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "**sum** and **i** are touched on every iteration (temporal). **array[0], array[1], array[2]...** are neighbours in memory and are read one after another (spatial).",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The same loop shows both kinds at once."
+        },
+        {
+          "type": "concept",
+          "concept": "locality",
+          "title": "How the hierarchy exploits locality",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**Temporal**: keep recently used data in the fast levels",
+                "**Spatial**: when one word is fetched, copy its whole **block** (neighbours) up as well",
+                "After one miss, the next few accesses in the same block are hits",
+                "Data that is never reused or scattered gets little benefit"
+              ]
+            }
+          ],
+          "why": "Blocks turn spatial locality into hits; keeping data turns temporal locality into hits.",
+          "real": "This is why walking an array row by row is much faster than jumping around."
+        },
+        {
+          "type": "concept",
+          "concept": "locality",
+          "title": "Try it: three access patterns",
+          "blocks": [
+            {
+              "type": "hierarchy",
+              "title": "Which pattern is it?",
+              "levels": [
+                {
+                  "name": "L1 cache",
+                  "speed": "about 1 ns",
+                  "capacity": "small",
+                  "cost": "high",
+                  "purpose": "Fast copy of recent blocks",
+                  "example": "L1"
+                },
+                {
+                  "name": "L2 cache",
+                  "speed": "a few ns",
+                  "capacity": "larger",
+                  "cost": "medium",
+                  "purpose": "Backup for L1",
+                  "example": "L2"
+                }
+              ],
+              "locality": {
+                "title": "Where is each word found?",
+                "hint": "Choose a pattern and press Step: **Found at** says which level supplied the word. Blocks hold 4 words; L1 holds 2 blocks and L2 holds 8.",
+                "blockWords": 4,
+                "levels": [
+                  {
+                    "name": "L1 cache",
+                    "blocks": 2
+                  },
+                  {
+                    "name": "L2 cache",
+                    "blocks": 8
+                  }
+                ],
+                "patterns": [
+                  {
+                    "name": "Nearby (array walk)",
+                    "seq": [
+                      0,
+                      1,
+                      2,
+                      3,
+                      4,
+                      5,
+                      6,
+                      7,
+                      8,
+                      9,
+                      10,
+                      11
+                    ]
+                  },
+                  {
+                    "name": "Repeated (one variable)",
+                    "seq": [
+                      5,
+                      5,
+                      5,
+                      5,
+                      5,
+                      5,
+                      5,
+                      5
+                    ]
+                  },
+                  {
+                    "name": "Scattered",
+                    "seq": [
+                      3,
+                      90,
+                      41,
+                      17,
+                      64,
+                      2,
+                      77,
+                      30
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "why": "Nearby: 3 misses to memory, 9 L1 hits (one miss, then 3 hits per block). Repeated: 1 miss, 7 hits. Scattered: no L1 hits at all."
+        },
+        {
+          "type": "predict",
+          "concept": "locality",
+          "skill": "Apply",
+          "question": "Walking through words 0 to 11 with 4-word blocks: how many of the 12 accesses must go all the way to main memory?",
+          "options": [
+            "3",
+            "12",
+            "1",
+            "0"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The first word of each block (0, 4 and 8) misses and brings its whole block; the other three words of each block are then found in L1: **3 misses, 9 hits**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The block size turns one miss into several hits."
+        },
+        {
+          "type": "find",
+          "concept": "locality",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about locality is wrong. Click it.",
+          "lines": [
+            "1. Temporal locality means reusing a recently used location.",
+            "2. Spatial locality means using locations near a recently used one.",
+            "3. Random scattered accesses have a lot of spatial locality.",
+            "4. A loop counter shows temporal locality."
+          ],
+          "wrong": 2,
+          "explain": "Scattered accesses are far apart, so they show little spatial locality.",
+          "fix": "Scattered accesses have little locality."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Which has better locality: summing a 2D array row by row or column by column (the array is stored row by row)?",
+          "think": 20,
+          "pair": 40,
+          "answer": "Row by row has good spatial locality: consecutive accesses are neighbours in memory, so each block fetched serves several accesses. Column by column jumps by a whole row each time, so each access may need a new block: many more misses."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What is temporal locality?",
+              "a": "A location used recently is likely to be used again soon.",
+              "concept": "locality"
+            },
+            {
+              "q": "What is spatial locality?",
+              "a": "Locations near a used one are likely to be used soon.",
+              "concept": "locality"
+            },
+            {
+              "q": "How do blocks help?",
+              "a": "They bring neighbouring words up together, so later accesses hit.",
+              "concept": "locality"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hits",
+      "label": "Hits and misses",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "hits",
+          "title": "A first look at a cache",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "A **cache** is a small, fast memory holding copies of recently used blocks. Class 18 explains exactly how it finds them. For now, watch hits and misses under different access patterns and block sizes."
+            }
+          ],
+          "why": "A larger block exploits spatial locality; reuse exploits temporal locality; scattered accesses defeat both.",
+          "real": "This is the same machinery in L1, L2 and L3."
+        },
+        {
+          "type": "concept",
+          "concept": "hits",
+          "title": "Try it: a small cache",
+          "blocks": [
+            {
+              "type": "cache",
+              "title": "Cache first look",
+              "config": {
+                "blockBytes": 16,
+                "lines": 4,
+                "assoc": 1,
+                "addrBits": 8
+              },
+              "controls": [
+                "block"
+              ],
+              "sequences": [
+                {
+                  "name": "Sequential words",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    16,
+                    20,
+                    24,
+                    28
+                  ]
+                },
+                {
+                  "name": "Same word repeated",
+                  "accesses": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "name": "Scattered",
+                  "accesses": [
+                    0,
+                    64,
+                    32,
+                    128,
+                    96,
+                    16,
+                    200,
+                    48
+                  ]
+                }
+              ],
+              "hint": "Switch the **block size** between 4 and 16 bytes and compare the sequential pattern."
+            }
+          ],
+          "why": "Sequential with 16-byte blocks: 6 hits of 8 (75%). With 4-byte blocks: 0 hits. Repeating one word: 7 of 8. Scattered: 0 of 8."
+        },
+        {
+          "type": "predict",
+          "concept": "hits",
+          "skill": "Apply",
+          "question": "The same eight sequential word addresses with 16-byte blocks give 6 hits. How many hits with 4-byte blocks?",
+          "options": [
+            "0",
+            "4",
+            "6",
+            "8"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "With 4-byte blocks each word is its own block, so every access is a first touch: **0 hits**. The bigger block brought the neighbours along.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Block size is how spatial locality becomes hits."
+        },
+        {
+          "type": "mcq",
+          "concept": "hits",
+          "question": "Which access pattern benefits from a cache the least?",
+          "options": [
+            "Scattered, never-repeated addresses",
+            "A loop over a small array",
+            "Repeatedly reading one variable",
+            "Walking through consecutive words"
+          ],
+          "answer": 0,
+          "why": "There is neither reuse nor neighbours to exploit.",
+          "feedback": [
+            "",
+            "A small loop reuses the array.",
+            "That is temporal locality.",
+            "That is spatial locality."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "hits",
+          "statement": "A miss means the data was not in the level that was asked.",
+          "answer": true,
+          "why": "The request goes to the next level down."
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "levels",
+          "question": "List the memory hierarchy from fastest to slowest.",
+          "answer": "Registers, L1 cache, L2 and L3 caches, main memory (DRAM), SSD / HDD.",
+          "solution": "Speed falls and capacity rises as you go down.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "locality",
+          "question": "In `for (i = 0; i < n; i++) total += data[i];` name the locality shown by `total` and by `data[i]`.",
+          "answer": "`total` shows temporal locality; `data[i]` shows spatial locality.",
+          "solution": "total is reused every iteration; data[i] is read in order.",
+          "hint": "Is the location reused, or are neighbours used?",
+          "think": 40
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "hits",
+          "question": "Words 0 to 11 are read with 4-word blocks. How many accesses miss to main memory, and what is the L1 hit rate?",
+          "answer": "3 misses; hit rate 9/12 = 75%.",
+          "solution": "Words 0, 4 and 8 start new blocks. The other nine words are in blocks already copied.",
+          "hint": "Count how many words each block serves.",
+          "mistake": "Counting every access as a miss.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "levels",
+          "question": "L1 takes 1 ns, main memory 100 ns. Find the average access time when the L1 hit rate is (a) 90%, (b) 95%, (c) 99%.",
+          "answer": "(a) 11 ns; (b) 6 ns; (c) 2 ns.",
+          "solution": "Average = 1 + miss rate × 100: 1 + 0.10×100 = 11; 1 + 0.05×100 = 6; 1 + 0.01×100 = 2.",
+          "mistake": "Using the hit rate instead of the miss rate.",
+          "title": "Exam practice: calculation",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "locality",
+          "question": "With 4-word blocks, L1 of 2 blocks and L2 of 8 blocks, the pattern 3, 90, 41, 17, 64, 2, 77, 30 is read. How many words are found in L1, in L2 and in main memory?",
+          "answer": "0 in L1, 1 in L2 (word 2, in block 0 already copied by word 3) and 7 in main memory.",
+          "solution": "All eight words are in different blocks except 3 and 2 (both block 0). L1 holds only 2 blocks, so block 0 has been evicted by the time word 2 is read, but L2 still has it.",
+          "mistake": "Expecting L1 hits for a scattered pattern.",
+          "title": "Exam practice: pattern analysis",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "locality",
+          "question": "Compare the hit rates of reading 8 consecutive words, one word repeated 8 times, and 8 scattered words, with a cache of 16-byte blocks (4 lines).",
+          "answer": "Consecutive: 6 of 8 (75%); repeated: 7 of 8 (87.5%); scattered: 0 of 8.",
+          "solution": "Consecutive words share 16-byte blocks (one miss per block); the repeated word misses once; the scattered words are all in different blocks.",
+          "mistake": "Thinking scattered accesses can hit by luck.",
+          "title": "Exam practice: comparison",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "why",
+          "question": "Explain why computers use a memory hierarchy instead of one large fast memory, and why the hierarchy works.",
+          "answer": "A memory that is large and fast does not exist: larger memories are slower, and fast technologies cost more per bit and use more power. A hierarchy keeps a small, fast memory next to the CPU and larger, slower memories behind it. It works because programs show locality: they reuse recent data (temporal) and use nearby data (spatial), so most accesses are satisfied by the fast levels.",
+          "solution": "A strong answer mentions size, speed and cost, and both kinds of locality.",
+          "mistake": "Saying the hierarchy works because the slow memory is made faster.",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "The memory hierarchy",
+          "branches": [
+            {
+              "label": "Why a hierarchy",
+              "example": "speed, size, cost",
+              "section": "why"
+            },
+            {
+              "label": "Levels",
+              "example": "registers to disk",
+              "section": "levels"
+            },
+            {
+              "label": "Locality",
+              "example": "temporal and spatial",
+              "section": "locality"
+            },
+            {
+              "label": "Hits and misses",
+              "example": "blocks, hit rate",
+              "section": "hits"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Fast memory is small and costly; large memory is slow and cheap: no single memory is all three.",
+            "The hierarchy: registers, L1, L2, L3, DRAM, SSD/HDD; closer to the CPU is faster and smaller.",
+            "Temporal locality: reuse of recent data. Spatial locality: use of nearby data.",
+            "Data moves in blocks; a hit is found in a level, a miss goes to the next level.",
+            "Average access time = hit time + miss rate × miss penalty.",
+            "Locality is a property of programs that the hierarchy exploits."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "One big fast memory is just expensive.",
+              "right": "Size and distance also make it slower."
+            },
+            {
+              "wrong": "Locality is a hardware feature.",
+              "right": "It is a property of programs."
+            },
+            {
+              "wrong": "Scattered accesses benefit from caches.",
+              "right": "They have little locality, so they mostly miss."
+            },
+            {
+              "wrong": "Bigger blocks never help.",
+              "right": "They exploit spatial locality."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "No single memory is fast, large and cheap, so computers use a hierarchy: a small fast memory near the CPU and larger slower ones behind it. Because programs show temporal and spatial locality, most accesses hit in the fast levels, and blocks bring neighbouring words up together. The average access time stays close to the fast level's time."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "levels",
+              "question": "Which memory is the fastest?",
+              "options": [
+                "Registers",
+                "DRAM",
+                "SSD",
+                "HDD"
+              ],
+              "answer": 0,
+              "why": "Registers are inside the CPU.",
+              "misconception": "Speed falls as you go down the hierarchy."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "locality",
+              "statement": "Temporal locality means recently used data is likely to be used again soon.",
+              "answer": true,
+              "why": "That is its definition.",
+              "misconception": "Spatial locality is about nearby locations."
+            },
+            {
+              "level": "easy",
+              "concept": "levels",
+              "question": "Which level has the largest capacity?",
+              "options": [
+                "SSD / HDD",
+                "L1 cache",
+                "Registers",
+                "L2 cache"
+              ],
+              "answer": 0,
+              "why": "Storage is the largest and cheapest per bit.",
+              "misconception": "Capacity rises toward the bottom."
+            },
+            {
+              "level": "medium",
+              "concept": "locality",
+              "question": "`sum += array[i]` in a loop shows spatial locality in:",
+              "options": [
+                "array[i]",
+                "sum",
+                "i",
+                "the loop keyword"
+              ],
+              "answer": 0,
+              "why": "Consecutive array elements are neighbours.",
+              "misconception": "sum and i show temporal locality."
+            },
+            {
+              "level": "medium",
+              "concept": "levels",
+              "question": "L1 1 ns, memory 100 ns, 95% hit rate: average access time?",
+              "options": [
+                "6 ns",
+                "5 ns",
+                "1 ns",
+                "100 ns"
+              ],
+              "answer": 0,
+              "why": "1 + 0.05 × 100 = 6 ns.",
+              "misconception": "Use the miss rate (5%)."
+            },
+            {
+              "level": "medium",
+              "concept": "hits",
+              "question": "Reading words 0 to 11 with 4-word blocks: how many L1 hits?",
+              "options": [
+                "9",
+                "3",
+                "12",
+                "0"
+              ],
+              "answer": 0,
+              "why": "3 misses (one per block) and 9 hits.",
+              "misconception": "Each block serves four words."
+            },
+            {
+              "level": "hard",
+              "concept": "locality",
+              "question": "Scattered accesses in different blocks, a small L1: what do you expect?",
+              "options": [
+                "Almost no L1 hits",
+                "Mostly L1 hits",
+                "All hits after the first",
+                "Only temporal hits"
+              ],
+              "answer": 0,
+              "why": "There is neither reuse nor neighbours.",
+              "misconception": "The hierarchy depends on locality."
+            },
+            {
+              "level": "hard",
+              "concept": "levels",
+              "question": "95% hit rate becomes 99%. L1 1 ns, memory 100 ns. New average access time?",
+              "options": [
+                "2 ns",
+                "6 ns",
+                "1 ns",
+                "5 ns"
+              ],
+              "answer": 0,
+              "why": "1 + 0.01 × 100 = 2 ns.",
+              "misconception": "Small hit-rate gains matter a lot because the miss penalty is large."
+            },
+            {
+              "level": "challenge",
+              "concept": "hits",
+              "question": "Eight sequential word addresses with 16-byte blocks give 6 hits. With 4-byte blocks the number of hits is:",
+              "options": [
+                "0",
+                "3",
+                "6",
+                "8"
+              ],
+              "answer": 0,
+              "why": "Each word is its own block, so every access is a first touch.",
+              "misconception": "Larger blocks capture spatial locality."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "Why not one big fast memory?",
+              "a": "Bigger is slower and fast memory costs more per bit.",
+              "concept": "why"
+            },
+            {
+              "q": "Name the levels.",
+              "a": "Registers, L1, L2, L3, DRAM, SSD/HDD.",
+              "concept": "levels"
+            },
+            {
+              "q": "Define temporal and spatial locality.",
+              "a": "Reuse of recent data; use of nearby data.",
+              "concept": "locality"
+            },
+            {
+              "q": "What is a hit?",
+              "a": "The data is found in the level asked.",
+              "concept": "hits"
+            },
+            {
+              "q": "Average access time formula?",
+              "a": "Hit time + miss rate × miss penalty.",
+              "concept": "levels"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

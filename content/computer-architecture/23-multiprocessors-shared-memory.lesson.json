@@ -1,0 +1,2264 @@
+{
+  "id": "ca-23-multiprocessors-shared-memory",
+  "title": "Multicore and Shared-Memory Multiprocessors",
+  "subtitle": "Many cores, one memory, and the problems that creates.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "CAQA",
+      "chapter": "8",
+      "title": "Multiprocessors",
+      "topics": "Centralized and distributed shared memory; cache coherence; synchronization"
+    },
+    {
+      "book": "COD",
+      "chapter": "6",
+      "title": "Parallel Processors from Client to Cloud",
+      "topics": "Multicore and shared-memory multiprocessors; synchronization; Amdahl's Law and scaling"
+    }
+  ],
+  "objectives": [
+    "Explain why processors moved to multiple cores",
+    "Compare centralized (UMA) and distributed (NUMA) shared memory",
+    "Explain the cache coherence problem and trace the MSI protocol",
+    "Explain a race condition and fix it with a lock",
+    "Describe atomic operations and apply Amdahl's Law to parallel speed-up"
+  ],
+  "concepts": [
+    {
+      "id": "why",
+      "label": "Why multiple processors",
+      "section": "why"
+    },
+    {
+      "id": "arch",
+      "label": "Shared-memory architectures",
+      "section": "arch"
+    },
+    {
+      "id": "coh",
+      "label": "Cache coherence",
+      "section": "coh"
+    },
+    {
+      "id": "sync",
+      "label": "Synchronization",
+      "section": "sync"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "Your laptop has 8 cores. Will a program run 8 times faster on it? And what happens when two cores change the same variable?",
+          "clues": [
+            "More cores give more **peak** performance, but only if the **program is parallel**.",
+            "Cores share memory, so their **caches can disagree**.",
+            "Without care, two threads updating one variable **lose updates**."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "why",
+      "label": "Why multiple processors",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "why",
+          "title": "From faster cores to more cores",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Clock speeds stopped rising about 2005 because of the **power wall** (Class 2)",
+                "ILP is limited by dependences and branches (Class 14)",
+                "So designers put **several cores** on one chip instead: a **multicore** processor",
+                "Programs must be written (or compiled) to use **many threads** to benefit"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "",
+                "Uniprocessor",
+                "Multicore"
+              ],
+              "rows": [
+                [
+                  "Faster by",
+                  "Higher clock and more ILP",
+                  "More cores working at once"
+                ],
+                [
+                  "Limit",
+                  "Power and ILP",
+                  "Parallelism in the program, memory and power"
+                ],
+                [
+                  "Programmer",
+                  "Usually nothing to do",
+                  "Must expose parallelism and synchronize"
+                ]
+              ]
+            }
+          ],
+          "why": "Parallel hardware is the way performance is still growing, but it shifts the burden to software.",
+          "real": "Phones have 6 to 8 cores; servers have dozens to hundreds.",
+          "explainAgain": {
+            "beginner": "One very fast cook cannot get much faster, so you hire more cooks; but they need separate tasks and must not fight over the same pan."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "why",
+          "title": "Amdahl's Law for parallel programs",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "speed-up = 1 ÷ ((1 − p) + p ÷ n)",
+                  "note": "p = fraction that can run in parallel; n = number of cores"
+                },
+                {
+                  "t": "limit = 1 ÷ (1 − p)",
+                  "note": "even with infinitely many cores"
+                }
+              ]
+            }
+          ],
+          "why": "The serial part of a program limits what any number of cores can achieve.",
+          "real": "A program that is 90% parallel can never go more than 10 times faster, however many cores it has.",
+          "mistake": {
+            "wrong": "Eight cores give eight times the speed.",
+            "right": "Only if 100% of the work is parallel and there are no overheads."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "why",
+          "title": "Calculate: parallel speed-up",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Amdahl's Law",
+              "equation": "speedup = 1 ÷ ((1 − p) + p ÷ n)",
+              "inputs": [
+                {
+                  "id": "p",
+                  "label": "Parallel fraction",
+                  "value": 90,
+                  "min": 0,
+                  "max": 100,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "n",
+                  "label": "Cores",
+                  "value": 8,
+                  "min": 1,
+                  "max": 128,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "Speed-up",
+                  "formula": "1 / ((1 - p/100) + (p/100) / n)",
+                  "format": "x",
+                  "digits": 2
+                },
+                {
+                  "label": "Efficiency (speed-up per core)",
+                  "formula": "100 * (1 / ((1 - p/100) + (p/100) / n)) / n",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "%"
+                },
+                {
+                  "label": "Limit with unlimited cores",
+                  "formula": "1 / (1 - p/100)",
+                  "format": "x",
+                  "digits": 1
+                }
+              ]
+            }
+          ],
+          "why": "90% parallel on 8 cores: 4.71 times, an efficiency of 59%, with a limit of 10. At 95% and 16 cores: 9.14."
+        },
+        {
+          "type": "predict",
+          "concept": "why",
+          "skill": "Apply",
+          "question": "A program is 90% parallel and runs on 8 cores. What is the speed-up?",
+          "options": [
+            "4.71",
+            "8",
+            "7.2",
+            "9"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "1 ÷ (0.1 + 0.9 ÷ 8) = 1 ÷ 0.2125 = **4.71**: well below 8.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The 10% serial part dominates as n grows."
+        },
+        {
+          "type": "tf",
+          "concept": "why",
+          "statement": "Doubling the number of cores always doubles the speed of every program.",
+          "answer": false,
+          "why": "Programs with serial parts or heavy synchronization gain much less."
+        }
+      ]
+    },
+    {
+      "id": "arch",
+      "label": "Shared-memory architectures",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "arch",
+          "title": "Shared memory",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "In a **shared-memory multiprocessor** every core can load and store the same **single address space**. Threads communicate simply by reading and writing shared variables. There are two main organisations."
+            }
+          ],
+          "why": "Programs see one memory, which makes programming easier, but the hardware organisation decides how fast each access is.",
+          "real": "Almost every laptop, phone and server processor is a shared-memory multiprocessor."
+        },
+        {
+          "type": "concept",
+          "concept": "arch",
+          "title": "Centralized shared memory (UMA)",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Centralized shared memory (UMA)",
+              "width": 960,
+              "height": 390,
+              "nodes": [
+                {
+                  "id": "c0",
+                  "label": "Core 0",
+                  "kind": "unit",
+                  "x": 60,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k0",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 60,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "c1",
+                  "label": "Core 1",
+                  "kind": "unit",
+                  "x": 280,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k1",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 280,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "c2",
+                  "label": "Core 2",
+                  "kind": "unit",
+                  "x": 500,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k2",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 500,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "c3",
+                  "label": "Core 3",
+                  "kind": "unit",
+                  "x": 720,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k3",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 720,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "bus",
+                  "label": "Shared bus / interconnect",
+                  "kind": "ctrl",
+                  "x": 60,
+                  "y": 210,
+                  "w": 790,
+                  "h": 36
+                },
+                {
+                  "id": "mem",
+                  "label": "Main memory\n(one, shared)",
+                  "kind": "mem",
+                  "x": 270,
+                  "y": 300,
+                  "w": 170,
+                  "h": 60
+                },
+                {
+                  "id": "io",
+                  "label": "I/O",
+                  "kind": "unit",
+                  "x": 560,
+                  "y": 300,
+                  "w": 130,
+                  "h": 60
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_c0",
+                  "points": [
+                    [
+                      125,
+                      65
+                    ],
+                    [
+                      125,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k0",
+                  "points": [
+                    [
+                      125,
+                      140
+                    ],
+                    [
+                      125,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_c1",
+                  "points": [
+                    [
+                      345,
+                      65
+                    ],
+                    [
+                      345,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k1",
+                  "points": [
+                    [
+                      345,
+                      140
+                    ],
+                    [
+                      345,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_c2",
+                  "points": [
+                    [
+                      565,
+                      65
+                    ],
+                    [
+                      565,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k2",
+                  "points": [
+                    [
+                      565,
+                      140
+                    ],
+                    [
+                      565,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_c3",
+                  "points": [
+                    [
+                      785,
+                      65
+                    ],
+                    [
+                      785,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k3",
+                  "points": [
+                    [
+                      785,
+                      140
+                    ],
+                    [
+                      785,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_mem",
+                  "points": [
+                    [
+                      355,
+                      246
+                    ],
+                    [
+                      355,
+                      300
+                    ]
+                  ],
+                  "label": "same distance for all",
+                  "labelAt": [
+                    440,
+                    276
+                  ]
+                },
+                {
+                  "id": "e_io",
+                  "points": [
+                    [
+                      625,
+                      246
+                    ],
+                    [
+                      625,
+                      300
+                    ]
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "c0",
+                    "k0",
+                    "c1",
+                    "k1",
+                    "c2",
+                    "k2",
+                    "c3",
+                    "k3",
+                    "e_c0",
+                    "e_c1",
+                    "e_c2",
+                    "e_c3"
+                  ],
+                  "text": "Several **cores**, each with its own **private cache**, on one chip or board."
+                },
+                {
+                  "show": [
+                    "bus",
+                    "e_k0",
+                    "e_k1",
+                    "e_k2",
+                    "e_k3"
+                  ],
+                  "text": "The caches connect to a **shared bus** (or similar interconnect)."
+                },
+                {
+                  "show": [
+                    "mem",
+                    "io",
+                    "e_mem",
+                    "e_io"
+                  ],
+                  "text": "One **main memory** serves every core, and every core is the **same distance** from it: **uniform** memory access (UMA)."
+                }
+              ]
+            }
+          ],
+          "why": "One memory, one bus: simple, but the bus limits how many cores can be added."
+        },
+        {
+          "type": "concept",
+          "concept": "arch",
+          "title": "Follow reads in the UMA design",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Centralized shared memory (UMA)",
+              "width": 960,
+              "height": 390,
+              "nodes": [
+                {
+                  "id": "c0",
+                  "label": "Core 0",
+                  "kind": "unit",
+                  "x": 60,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k0",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 60,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "c1",
+                  "label": "Core 1",
+                  "kind": "unit",
+                  "x": 280,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k1",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 280,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "c2",
+                  "label": "Core 2",
+                  "kind": "unit",
+                  "x": 500,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k2",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 500,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "c3",
+                  "label": "Core 3",
+                  "kind": "unit",
+                  "x": 720,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k3",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 720,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "bus",
+                  "label": "Shared bus / interconnect",
+                  "kind": "ctrl",
+                  "x": 60,
+                  "y": 210,
+                  "w": 790,
+                  "h": 36
+                },
+                {
+                  "id": "mem",
+                  "label": "Main memory\n(one, shared)",
+                  "kind": "mem",
+                  "x": 270,
+                  "y": 300,
+                  "w": 170,
+                  "h": 60
+                },
+                {
+                  "id": "io",
+                  "label": "I/O",
+                  "kind": "unit",
+                  "x": 560,
+                  "y": 300,
+                  "w": 130,
+                  "h": 60
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_c0",
+                  "points": [
+                    [
+                      125,
+                      65
+                    ],
+                    [
+                      125,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k0",
+                  "points": [
+                    [
+                      125,
+                      140
+                    ],
+                    [
+                      125,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_c1",
+                  "points": [
+                    [
+                      345,
+                      65
+                    ],
+                    [
+                      345,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k1",
+                  "points": [
+                    [
+                      345,
+                      140
+                    ],
+                    [
+                      345,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_c2",
+                  "points": [
+                    [
+                      565,
+                      65
+                    ],
+                    [
+                      565,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k2",
+                  "points": [
+                    [
+                      565,
+                      140
+                    ],
+                    [
+                      565,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_c3",
+                  "points": [
+                    [
+                      785,
+                      65
+                    ],
+                    [
+                      785,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k3",
+                  "points": [
+                    [
+                      785,
+                      140
+                    ],
+                    [
+                      785,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_mem",
+                  "points": [
+                    [
+                      355,
+                      246
+                    ],
+                    [
+                      355,
+                      300
+                    ]
+                  ],
+                  "label": "same distance for all",
+                  "labelAt": [
+                    440,
+                    276
+                  ]
+                },
+                {
+                  "id": "e_io",
+                  "points": [
+                    [
+                      625,
+                      246
+                    ],
+                    [
+                      625,
+                      300
+                    ]
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "c0",
+                    "k0",
+                    "c1",
+                    "k1",
+                    "c2",
+                    "k2",
+                    "c3",
+                    "k3",
+                    "bus",
+                    "mem",
+                    "io",
+                    "e_c0",
+                    "e_k0",
+                    "e_c1",
+                    "e_k1",
+                    "e_c2",
+                    "e_k2",
+                    "e_c3",
+                    "e_k3",
+                    "e_mem",
+                    "e_io"
+                  ],
+                  "text": "The complete organisation. Choose a scenario and press Play or Step."
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "Core 0 reads memory",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "c0",
+                        "e_c0",
+                        "k0"
+                      ],
+                      "text": "Core 0 looks in its private cache first."
+                    },
+                    {
+                      "highlight": [
+                        "k0",
+                        "e_k0",
+                        "bus",
+                        "e_mem",
+                        "mem"
+                      ],
+                      "text": "On a miss the request goes over the shared bus to the single main memory."
+                    }
+                  ]
+                },
+                {
+                  "name": "Core 3 reads memory",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "c3",
+                        "e_c3",
+                        "k3"
+                      ],
+                      "text": "Core 3 looks in its private cache."
+                    },
+                    {
+                      "highlight": [
+                        "k3",
+                        "e_k3",
+                        "bus",
+                        "e_mem",
+                        "mem"
+                      ],
+                      "text": "The same bus and memory serve it, with the same latency as core 0. The bus can become the bottleneck as cores are added."
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "Both cores see the same memory latency: uniform memory access."
+        },
+        {
+          "type": "concept",
+          "concept": "arch",
+          "title": "Distributed shared memory (NUMA)",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Distributed shared memory (NUMA)",
+              "width": 960,
+              "height": 310,
+              "nodes": [
+                {
+                  "id": "c0",
+                  "label": "Core 0\n+ cache",
+                  "kind": "unit",
+                  "x": 40,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m0",
+                  "label": "Local memory 0",
+                  "kind": "mem",
+                  "x": 40,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "c1",
+                  "label": "Core 1\n+ cache",
+                  "kind": "unit",
+                  "x": 260,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m1",
+                  "label": "Local memory 1",
+                  "kind": "mem",
+                  "x": 260,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "c2",
+                  "label": "Core 2\n+ cache",
+                  "kind": "unit",
+                  "x": 480,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m2",
+                  "label": "Local memory 2",
+                  "kind": "mem",
+                  "x": 480,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "c3",
+                  "label": "Core 3\n+ cache",
+                  "kind": "unit",
+                  "x": 700,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m3",
+                  "label": "Local memory 3",
+                  "kind": "mem",
+                  "x": 700,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "net",
+                  "label": "Interconnection network",
+                  "kind": "ctrl",
+                  "x": 40,
+                  "y": 240,
+                  "w": 880,
+                  "h": 38
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_l0",
+                  "points": [
+                    [
+                      115,
+                      80
+                    ],
+                    [
+                      115,
+                      130
+                    ]
+                  ],
+                  "label": "local",
+                  "labelAt": [
+                    145,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n0",
+                  "points": [
+                    [
+                      190,
+                      55
+                    ],
+                    [
+                      225,
+                      55
+                    ],
+                    [
+                      225,
+                      240
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_l1",
+                  "points": [
+                    [
+                      335,
+                      80
+                    ],
+                    [
+                      335,
+                      130
+                    ]
+                  ],
+                  "label": "local",
+                  "labelAt": [
+                    365,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n1",
+                  "points": [
+                    [
+                      410,
+                      55
+                    ],
+                    [
+                      445,
+                      55
+                    ],
+                    [
+                      445,
+                      240
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_l2",
+                  "points": [
+                    [
+                      555,
+                      80
+                    ],
+                    [
+                      555,
+                      130
+                    ]
+                  ],
+                  "label": "local",
+                  "labelAt": [
+                    585,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n2",
+                  "points": [
+                    [
+                      630,
+                      55
+                    ],
+                    [
+                      665,
+                      55
+                    ],
+                    [
+                      665,
+                      240
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_l3",
+                  "points": [
+                    [
+                      775,
+                      80
+                    ],
+                    [
+                      775,
+                      130
+                    ]
+                  ],
+                  "label": "local",
+                  "labelAt": [
+                    805,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n3",
+                  "points": [
+                    [
+                      850,
+                      55
+                    ],
+                    [
+                      885,
+                      55
+                    ],
+                    [
+                      885,
+                      240
+                    ]
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "c0",
+                    "m0",
+                    "c1",
+                    "m1",
+                    "c2",
+                    "m2",
+                    "c3",
+                    "m3",
+                    "e_l0",
+                    "e_l1",
+                    "e_l2",
+                    "e_l3"
+                  ],
+                  "text": "Each **node** has a core with its cache and its **own local memory**."
+                },
+                {
+                  "show": [
+                    "net",
+                    "e_n0",
+                    "e_n1",
+                    "e_n2",
+                    "e_n3"
+                  ],
+                  "text": "The nodes are connected by a **network**. All memories together form one **shared address space**."
+                }
+              ]
+            }
+          ],
+          "why": "Memory is spread over the nodes, so each core has a fast local memory and a slower view of the rest."
+        },
+        {
+          "type": "concept",
+          "concept": "arch",
+          "title": "Local and remote accesses",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Distributed shared memory (NUMA)",
+              "width": 960,
+              "height": 310,
+              "nodes": [
+                {
+                  "id": "c0",
+                  "label": "Core 0\n+ cache",
+                  "kind": "unit",
+                  "x": 40,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m0",
+                  "label": "Local memory 0",
+                  "kind": "mem",
+                  "x": 40,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "c1",
+                  "label": "Core 1\n+ cache",
+                  "kind": "unit",
+                  "x": 260,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m1",
+                  "label": "Local memory 1",
+                  "kind": "mem",
+                  "x": 260,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "c2",
+                  "label": "Core 2\n+ cache",
+                  "kind": "unit",
+                  "x": 480,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m2",
+                  "label": "Local memory 2",
+                  "kind": "mem",
+                  "x": 480,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "c3",
+                  "label": "Core 3\n+ cache",
+                  "kind": "unit",
+                  "x": 700,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m3",
+                  "label": "Local memory 3",
+                  "kind": "mem",
+                  "x": 700,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "net",
+                  "label": "Interconnection network",
+                  "kind": "ctrl",
+                  "x": 40,
+                  "y": 240,
+                  "w": 880,
+                  "h": 38
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_l0",
+                  "points": [
+                    [
+                      115,
+                      80
+                    ],
+                    [
+                      115,
+                      130
+                    ]
+                  ],
+                  "label": "local",
+                  "labelAt": [
+                    145,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n0",
+                  "points": [
+                    [
+                      190,
+                      55
+                    ],
+                    [
+                      225,
+                      55
+                    ],
+                    [
+                      225,
+                      240
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_l1",
+                  "points": [
+                    [
+                      335,
+                      80
+                    ],
+                    [
+                      335,
+                      130
+                    ]
+                  ],
+                  "label": "local",
+                  "labelAt": [
+                    365,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n1",
+                  "points": [
+                    [
+                      410,
+                      55
+                    ],
+                    [
+                      445,
+                      55
+                    ],
+                    [
+                      445,
+                      240
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_l2",
+                  "points": [
+                    [
+                      555,
+                      80
+                    ],
+                    [
+                      555,
+                      130
+                    ]
+                  ],
+                  "label": "local",
+                  "labelAt": [
+                    585,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n2",
+                  "points": [
+                    [
+                      630,
+                      55
+                    ],
+                    [
+                      665,
+                      55
+                    ],
+                    [
+                      665,
+                      240
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_l3",
+                  "points": [
+                    [
+                      775,
+                      80
+                    ],
+                    [
+                      775,
+                      130
+                    ]
+                  ],
+                  "label": "local",
+                  "labelAt": [
+                    805,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n3",
+                  "points": [
+                    [
+                      850,
+                      55
+                    ],
+                    [
+                      885,
+                      55
+                    ],
+                    [
+                      885,
+                      240
+                    ]
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "c0",
+                    "m0",
+                    "c1",
+                    "m1",
+                    "c2",
+                    "m2",
+                    "c3",
+                    "m3",
+                    "net",
+                    "e_l0",
+                    "e_n0",
+                    "e_l1",
+                    "e_n1",
+                    "e_l2",
+                    "e_n2",
+                    "e_l3",
+                    "e_n3"
+                  ],
+                  "text": "The complete organisation. Choose a scenario and press Play or Step."
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "Core 0 reads its local memory",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "c0",
+                        "e_l0",
+                        "m0"
+                      ],
+                      "text": "The data is in core 0's own memory: a **fast local access**."
+                    }
+                  ]
+                },
+                {
+                  "name": "Core 0 reads core 3's memory",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "c0",
+                        "e_n0",
+                        "net"
+                      ],
+                      "text": "The data lives in node 3's memory: the request leaves node 0 and crosses the network."
+                    },
+                    {
+                      "highlight": [
+                        "net",
+                        "e_n3",
+                        "c3",
+                        "e_l3",
+                        "m3"
+                      ],
+                      "text": "Node 3 returns the data. A **remote access** takes much longer: **non-uniform** memory access (NUMA)."
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "Remote accesses cross the network and take longer: non-uniform memory access."
+        },
+        {
+          "type": "concept",
+          "concept": "arch",
+          "title": "Comparing the two",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "",
+                "Centralized (UMA)",
+                "Distributed (NUMA)"
+              ],
+              "rows": [
+                [
+                  "Memory",
+                  "One shared memory",
+                  "Memory spread over nodes"
+                ],
+                [
+                  "Access time",
+                  "Same for every core",
+                  "Fast local, slower remote"
+                ],
+                [
+                  "Scalability",
+                  "Limited by the bus and memory (a few to tens of cores)",
+                  "Scales to many more cores"
+                ],
+                [
+                  "Programming",
+                  "Simple",
+                  "Software should place data near the threads that use it"
+                ],
+                [
+                  "Typical",
+                  "Laptops, small servers",
+                  "Large servers and multi-socket machines"
+                ]
+              ]
+            }
+          ],
+          "why": "UMA is simpler but does not scale; NUMA scales but exposes the memory distance to software.",
+          "real": "Dual-socket servers are NUMA machines: each CPU socket has its own DRAM.",
+          "mistake": {
+            "wrong": "NUMA means the memory is not shared.",
+            "right": "It is still one address space; only the access times differ."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "arch",
+          "question": "What does UMA stand for and mean?",
+          "options": [
+            "Uniform memory access: every core sees the same latency to memory",
+            "Unified memory architecture: no caches",
+            "Universal memory addressing: 64-bit addresses",
+            "Unordered memory access: loads may be reordered"
+          ],
+          "answer": 0,
+          "why": "In UMA all cores reach the single memory at the same cost.",
+          "feedback": [
+            "",
+            "UMA systems still have caches.",
+            "Address width is unrelated.",
+            "Reordering is a separate topic."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "coh",
+      "label": "Cache coherence",
+      "minutes": 11,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "coh",
+          "title": "The coherence problem",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Each core has a **private cache** holding copies of memory",
+                "Core 0 changes variable x in its cache; core 1 still holds the **old** x",
+                "Core 1 reads a **stale** value: the caches are **incoherent**",
+                "A coherent system makes every read return the **latest write**"
+              ]
+            }
+          ],
+          "why": "Without coherence, shared memory would give different cores different answers for the same variable.",
+          "real": "Coherence is maintained entirely by hardware, invisible to the programmer.",
+          "explainAgain": {
+            "beginner": "Two people keep the same shopping list on their own phones; if one adds milk and the other never sees it, they buy twice."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "coh",
+          "title": "The MSI protocol (simplified)",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "State",
+                "Meaning"
+              ],
+              "rows": [
+                [
+                  "M (modified)",
+                  "This is the only copy and it has been changed; memory is stale"
+                ],
+                [
+                  "S (shared)",
+                  "A clean copy; other caches may also have it"
+                ],
+                [
+                  "I (invalid)",
+                  "No valid copy in this cache"
+                ]
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "A **write** invalidates every other copy (the others go to I)",
+                "A **read miss** fetches the value; if another cache holds it in M, that cache writes it back first",
+                "Caches **snoop** the bus to see each other's requests"
+              ]
+            }
+          ],
+          "why": "These three states and the rule \"a write invalidates the other copies\" are enough to keep all caches coherent.",
+          "real": "Real processors use MESI or MOESI variants; the idea is the same.",
+          "deeper": {
+            "text": "Directory-based protocols replace snooping on large (NUMA) machines."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "coh",
+          "title": "Try it: with and without coherence",
+          "blocks": [
+            {
+              "type": "coherence",
+              "title": "Two cores sharing x",
+              "cores": 2,
+              "memory": 0,
+              "hint": "First turn the protocol **OFF**: have core 0 and core 1 read x, then let core 0 write; read on core 1 and look for the stale value. Then switch it ON and repeat."
+            }
+          ],
+          "why": "With the protocol OFF core 1 keeps reading its old copy of x. With MSI ON, core 0's write invalidates core 1's copy and the next read gets the new value."
+        },
+        {
+          "type": "concept",
+          "concept": "coh",
+          "title": "A trace",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "#",
+                "Operation",
+                "Core 0",
+                "Core 1",
+                "Memory x"
+              ],
+              "rows": [
+                [
+                  "1",
+                  "Core 0 reads x",
+                  "S: 0",
+                  "I",
+                  "0"
+                ],
+                [
+                  "2",
+                  "Core 1 reads x",
+                  "S: 0",
+                  "S: 0",
+                  "0"
+                ],
+                [
+                  "3",
+                  "Core 0 writes x = 1",
+                  "M: 1",
+                  "I",
+                  "0 (stale)"
+                ],
+                [
+                  "4",
+                  "Core 1 reads x",
+                  "S: 1",
+                  "S: 1",
+                  "1 (written back)"
+                ],
+                [
+                  "5",
+                  "Core 1 writes x = 2",
+                  "I",
+                  "M: 2",
+                  "1 (stale)"
+                ],
+                [
+                  "6",
+                  "Core 0 reads x",
+                  "S: 2",
+                  "S: 2",
+                  "2 (written back)"
+                ]
+              ]
+            }
+          ],
+          "why": "Every write invalidates the other copy, and every read after a write gets the latest value from the owner.",
+          "real": "A write to a Shared line is called an upgrade; a read of a Modified line forces a write-back."
+        },
+        {
+          "type": "predict",
+          "concept": "coh",
+          "skill": "Apply",
+          "question": "Both cores hold x in state S. Core 0 writes x. What are the states afterwards?",
+          "options": [
+            "Core 0: M; core 1: I",
+            "Core 0: S; core 1: S",
+            "Core 0: M; core 1: S",
+            "Core 0: I; core 1: M"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The write invalidates core 1's copy: **core 0 = M, core 1 = I**. Memory is now stale until core 0's block is written back.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Core 1's next read will fetch the new value from core 0."
+        },
+        {
+          "type": "find",
+          "concept": "coh",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about coherence is wrong. Click it.",
+          "lines": [
+            "1. A write invalidates other caches' copies.",
+            "2. A line in state M is the only valid copy, and memory is stale.",
+            "3. Coherence is maintained by the programmer inserting special instructions on every write.",
+            "4. Caches snoop the bus to see other cores' requests."
+          ],
+          "wrong": 2,
+          "explain": "Coherence is handled by hardware; the programmer does not add instructions for it.",
+          "fix": "Hardware maintains coherence."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Why does a write have to invalidate the other cores' copies instead of just updating them?",
+          "think": 20,
+          "pair": 40,
+          "answer": "Invalidating needs only one short bus message and then further writes by the same core are free (state M, no bus traffic). Updating every copy on every write would flood the bus. The cost is that other cores take a miss if they read the line again."
+        }
+      ]
+    },
+    {
+      "id": "sync",
+      "label": "Synchronization",
+      "minutes": 12,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "sync",
+          "title": "Race conditions",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Two threads each execute **counter = counter + 1** on a shared variable. In machine terms it is three steps: **load**, **add**, **store**."
+            },
+            {
+              "type": "table",
+              "head": [
+                "Step",
+                "Thread 0",
+                "Thread 1",
+                "counter"
+              ],
+              "rows": [
+                [
+                  "1",
+                  "load (reg = 0)",
+                  "",
+                  "0"
+                ],
+                [
+                  "2",
+                  "",
+                  "load (reg = 0)",
+                  "0"
+                ],
+                [
+                  "3",
+                  "add (reg = 1)",
+                  "",
+                  "0"
+                ],
+                [
+                  "4",
+                  "store (counter = 1)",
+                  "",
+                  "1"
+                ],
+                [
+                  "5",
+                  "",
+                  "add (reg = 1)",
+                  "1"
+                ],
+                [
+                  "6",
+                  "",
+                  "store (counter = 1)",
+                  "**1**"
+                ]
+              ]
+            }
+          ],
+          "why": "Both threads read the old value, so one increment is lost: the final value is 1, not 2. The result depends on the timing: a **race condition**.",
+          "real": "Races cause the nastiest bugs: they appear rarely and vanish when you add debugging output.",
+          "mistake": {
+            "wrong": "Incrementing one variable is a single, safe operation.",
+            "right": "It is a load, an add and a store; another thread can run between them."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "sync",
+          "title": "Try it: a lost update",
+          "blocks": [
+            {
+              "type": "race",
+              "title": "Two threads, one counter",
+              "locked": false,
+              "hint": "Press **Try the bad interleaving** to see the lost update, then switch to **Using a lock** and try again. You can also step the threads yourself."
+            }
+          ],
+          "why": "The bad schedule ends with the counter at 1. With a lock the second thread must wait, and the counter is always 2."
+        },
+        {
+          "type": "predict",
+          "concept": "sync",
+          "skill": "Apply",
+          "question": "Two threads each add 1 to a counter that starts at 0 without any lock. Which final values are possible?",
+          "options": [
+            "1 or 2, depending on the timing",
+            "Always 2",
+            "Always 1",
+            "0"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "If one thread finishes before the other starts the result is **2**; if their load, add, store steps interleave badly one update is lost and the result is **1**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "That unpredictability is the signature of a race condition."
+        },
+        {
+          "type": "concept",
+          "concept": "sync",
+          "title": "Locks",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "A **lock** lets only one thread at a time execute a **critical section** (the code that touches the shared data)",
+                "**lock**: wait until it is free, then take it; **unlock**: release it",
+                "With the lock, the load, add and store of one thread run as a unit",
+                "The price: threads **wait**, so too much locking removes the parallelism (Amdahl again)"
+              ]
+            },
+            {
+              "type": "code",
+              "lang": "java",
+              "code": "lock(counter_lock);\ncounter = counter + 1;     // critical section\nunlock(counter_lock);"
+            }
+          ],
+          "why": "Locks make a sequence of steps look like one indivisible operation.",
+          "real": "Java's synchronized blocks and C++ mutexes are locks.",
+          "mistake": {
+            "wrong": "A lock makes the program faster.",
+            "right": "It makes the program correct; it costs time because of the waiting."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "sync",
+          "title": "Atomic operations",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "How is a lock itself implemented without a race? With an **atomic** hardware operation",
+                "**Test-and-set** (or swap): read the old value and write 1 in one indivisible step; if the old value was 0 the lock was free and now belongs to you",
+                "**Load-linked / store-conditional (ll / sc)**: ll reads a value; sc stores only if nobody else wrote the location since the ll, and tells you whether it succeeded",
+                "An atomic operation cannot be interrupted by another core"
+              ]
+            },
+            {
+              "type": "code",
+              "lang": "asm",
+              "code": "try:  ll   $t0, 0($s1)     # load-linked: read the counter\n      addi $t0, $t0, 1     # add 1\n      sc   $t0, 0($s1)     # store-conditional: $t0 = 1 if it worked, 0 if not\n      beq  $t0, $zero, try # somebody interfered: try again"
+            }
+          ],
+          "why": "Atomic instructions are the hardware foundation of locks, counters and lock-free data structures.",
+          "real": "MIPS and RISC-V use ll/sc (RISC-V calls them lr/sc); x86 uses atomic read-modify-write instructions.",
+          "deeper": {
+            "text": "The ll/sc loop turns \"load, add, store\" into an atomic increment without any lock."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "sync",
+          "question": "What does a failed store-conditional (sc) mean?",
+          "options": [
+            "Another core wrote the location after the ll, so the update must be retried",
+            "The memory is full",
+            "The cache is invalid",
+            "The program has finished"
+          ],
+          "answer": 0,
+          "why": "sc succeeds only if nothing wrote the location since the ll.",
+          "feedback": [
+            "",
+            "Unrelated.",
+            "Unrelated.",
+            "Unrelated."
+          ]
+        },
+        {
+          "type": "arrange",
+          "concept": "sync",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put these steps of a correct locked increment in order.",
+          "items": [
+            "Acquire the lock (wait if it is held)",
+            "Load the counter into a register",
+            "Add 1",
+            "Store the register to the counter",
+            "Release the lock"
+          ],
+          "why": "The whole load-add-store sits between acquire and release."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "sync",
+          "question": "Is it better to lock the whole data structure or each small piece of it?",
+          "seconds": 60,
+          "ideas": [
+            "One big lock is simple but serializes all threads (poor scaling).",
+            "Many small locks allow more parallelism but are harder to get right (deadlock risk).",
+            "Atomic operations avoid locks for simple counters.",
+            "The right choice depends on how much contention there is."
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What is a race condition?",
+              "a": "A result that depends on the timing of threads accessing shared data.",
+              "concept": "sync"
+            },
+            {
+              "q": "Why does a write invalidate other caches' copies?",
+              "a": "So no core can read a stale value.",
+              "concept": "coh"
+            },
+            {
+              "q": "How is a lock built?",
+              "a": "From an atomic instruction such as test-and-set or ll/sc.",
+              "concept": "sync"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "arch",
+          "question": "Contrast UMA and NUMA in one sentence each.",
+          "answer": "UMA: all cores reach one memory with the same latency. NUMA: memory is distributed, so local accesses are fast and remote ones slow.",
+          "solution": "The difference is whether memory access time depends on where the data is.",
+          "think": 30
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "why",
+          "question": "A program is 90% parallel. What is the speed-up on 8 cores and what is the limit?",
+          "answer": "4.71; the limit is 10.",
+          "solution": "1 ÷ (0.1 + 0.9 ÷ 8) = 4.71. Limit = 1 ÷ 0.1 = 10.",
+          "hint": "Serial part 10%.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "coh",
+          "question": "Both cores hold x in state S (value 0). Core 0 writes 1. Give both states and memory; then core 1 reads x.",
+          "answer": "After the write: core 0 M(1), core 1 I, memory 0 (stale). After the read: both S(1), memory 1.",
+          "solution": "The write invalidates core 1; the read forces core 0 to write back and both become Shared.",
+          "hint": "A write invalidates others.",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "coh",
+          "question": "Trace MSI for two cores: (1) core 0 reads x, (2) core 1 reads x, (3) core 0 writes 1, (4) core 1 reads x, (5) core 1 writes 2, (6) core 0 reads x. Give the states and the value in memory after each.",
+          "answer": "1: S,I; 0. 2: S,S; 0. 3: M(1),I; 0 stale. 4: S,S (1); memory 1. 5: I,M(2); memory 1 stale. 6: S,S (2); memory 2.",
+          "solution": "Each read miss loads the latest value; each write on a Shared line invalidates the other copy; a read of a Modified line writes it back.",
+          "mistake": "Leaving the old copy valid after a write.",
+          "title": "Exam practice: trace",
+          "think": 120,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "sync",
+          "question": "Two threads each execute load, add, store on a counter that starts at 0. Thread 0 loads, thread 1 loads, thread 0 adds and stores, thread 1 adds and stores. What is the final counter and why? How does a lock fix it?",
+          "answer": "Final counter = 1 (a lost update). With a lock the second thread cannot load until the first has stored and released, so the result is always 2.",
+          "solution": "Both threads loaded 0, so both stored 1. The lock makes load-add-store a critical section executed by one thread at a time.",
+          "mistake": "Saying the result is 2 because each thread adds 1.",
+          "title": "Exam practice: race",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "why",
+          "question": "A program is 95% parallel. Find the speed-up on 16 cores, on 100 cores, and the limit.",
+          "answer": "9.14; 16.81; 20.",
+          "solution": "1 ÷ (0.05 + 0.95 ÷ 16) = 9.14; 1 ÷ (0.05 + 0.95 ÷ 100) = 16.81; the limit is 1 ÷ 0.05 = 20.",
+          "mistake": "Assuming speed-up equals the number of cores.",
+          "title": "Exam practice: Amdahl",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "arch",
+          "question": "Explain why large multiprocessors use distributed shared memory (NUMA) instead of one centralized memory.",
+          "answer": "With one memory and one bus every core competes for the same bandwidth, so the bus becomes the bottleneck as cores are added. Distributing memory among the nodes gives each core its own fast local memory and spreads the traffic, so the machine scales to many more cores, at the cost of slower remote accesses and the need to place data near the threads that use it.",
+          "solution": "A strong answer mentions bandwidth and scalability and the local/remote difference.",
+          "mistake": "Saying NUMA memory is not shared.",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Multiprocessors",
+          "branches": [
+            {
+              "label": "Why multicore",
+              "example": "power wall, Amdahl",
+              "section": "why"
+            },
+            {
+              "label": "Architectures",
+              "example": "UMA and NUMA",
+              "section": "arch"
+            },
+            {
+              "label": "Coherence",
+              "example": "MSI",
+              "section": "coh"
+            },
+            {
+              "label": "Synchronization",
+              "example": "races, locks, atomics",
+              "section": "sync"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Clock speed and ILP stalled, so processors gained cores; programs must be parallel to benefit.",
+            "Amdahl's Law: speed-up = 1 ÷ ((1 − p) + p ÷ n); the serial part sets the limit.",
+            "UMA: one memory, equal latency; NUMA: local memory per node, fast local and slow remote.",
+            "Cache coherence: a write invalidates other copies; MSI = Modified, Shared, Invalid.",
+            "A race condition is a result that depends on thread timing; a lock makes a critical section atomic.",
+            "Atomic instructions (test-and-set, ll/sc) are the hardware basis of locks."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "More cores always mean proportionally more speed.",
+              "right": "The serial part and synchronization limit the gain."
+            },
+            {
+              "wrong": "Programmers must keep caches coherent.",
+              "right": "Hardware does it."
+            },
+            {
+              "wrong": "x = x + 1 is atomic.",
+              "right": "It is load, add and store; another thread can interleave."
+            },
+            {
+              "wrong": "NUMA memory is not shared.",
+              "right": "It is one address space with non-uniform access time."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Multicore processors appeared because clock speed and ILP stopped scaling. Shared-memory machines are centralized (UMA) or distributed (NUMA). Private caches need a coherence protocol such as MSI, in which a write invalidates other copies. When threads share data, race conditions lose updates; locks and atomic instructions such as test-and-set and ll/sc protect critical sections, and Amdahl's Law limits the speed-up."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "why",
+              "question": "Why did processors move to multiple cores?",
+              "options": [
+                "Clock speed and ILP stopped scaling because of power limits",
+                "Cores are cheaper than caches",
+                "Programs became simpler",
+                "Memory got slower"
+              ],
+              "answer": 0,
+              "why": "The power wall and limited ILP pushed designers to more cores.",
+              "misconception": "Multicore adds peak performance without a higher clock."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "coh",
+              "statement": "In MSI, a write invalidates the other caches' copies.",
+              "answer": true,
+              "why": "That is how stale reads are prevented.",
+              "misconception": "The others go to state I."
+            },
+            {
+              "level": "easy",
+              "concept": "sync",
+              "question": "Which can protect a critical section?",
+              "options": [
+                "A lock",
+                "A larger cache",
+                "A faster clock",
+                "A longer pipeline"
+              ],
+              "answer": 0,
+              "why": "A lock allows one thread at a time.",
+              "misconception": "The others do not provide mutual exclusion."
+            },
+            {
+              "level": "medium",
+              "concept": "why",
+              "question": "90% parallel on 8 cores: speed-up?",
+              "options": [
+                "4.71",
+                "8",
+                "7.2",
+                "9"
+              ],
+              "answer": 0,
+              "why": "1 ÷ (0.1 + 0.9 ÷ 8) = 4.71.",
+              "misconception": "The serial 10% dominates."
+            },
+            {
+              "level": "medium",
+              "concept": "arch",
+              "question": "In NUMA, accessing the memory of another node is:",
+              "options": [
+                "Slower than local memory",
+                "Impossible",
+                "Faster than local memory",
+                "The same speed"
+              ],
+              "answer": 0,
+              "why": "It crosses the interconnection network.",
+              "misconception": "That is why the access time is non-uniform."
+            },
+            {
+              "level": "medium",
+              "concept": "coh",
+              "question": "Both cores have x in S. Core 0 writes. States?",
+              "options": [
+                "Core 0: M, core 1: I",
+                "Both S",
+                "Core 0: S, core 1: M",
+                "Both M"
+              ],
+              "answer": 0,
+              "why": "The write invalidates the other copy.",
+              "misconception": "Memory is stale until write-back."
+            },
+            {
+              "level": "hard",
+              "concept": "sync",
+              "question": "Two unsynchronized threads each add 1 to a counter starting at 0. A possible final value is:",
+              "options": [
+                "1",
+                "3",
+                "0",
+                "4"
+              ],
+              "answer": 0,
+              "why": "A lost update gives 1 (or 2 if no bad interleaving).",
+              "misconception": "Neither 0, 3 nor 4 can occur."
+            },
+            {
+              "level": "hard",
+              "concept": "why",
+              "question": "95% parallel on 16 cores: speed-up?",
+              "options": [
+                "9.14",
+                "16",
+                "15.2",
+                "8"
+              ],
+              "answer": 0,
+              "why": "1 ÷ (0.05 + 0.95 ÷ 16) = 9.14.",
+              "misconception": "The limit is 20."
+            },
+            {
+              "level": "challenge",
+              "concept": "sync",
+              "question": "What does the ll/sc pair do?",
+              "options": [
+                "Performs an atomic update: sc fails if another core wrote the location after ll",
+                "Loads two words at once",
+                "Flushes the cache",
+                "Locks the whole memory"
+              ],
+              "answer": 0,
+              "why": "The store-conditional succeeds only if the location is unchanged since the load-linked.",
+              "misconception": "On failure the loop retries."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "Give Amdahl's Law.",
+              "a": "Speed-up = 1 ÷ ((1 − p) + p ÷ n).",
+              "concept": "why"
+            },
+            {
+              "q": "What is UMA?",
+              "a": "Uniform memory access: one memory with equal latency for every core.",
+              "concept": "arch"
+            },
+            {
+              "q": "What are the MSI states?",
+              "a": "Modified, Shared, Invalid.",
+              "concept": "coh"
+            },
+            {
+              "q": "What is a race condition?",
+              "a": "A result that depends on the timing of threads.",
+              "concept": "sync"
+            },
+            {
+              "q": "What implements a lock in hardware?",
+              "a": "An atomic instruction such as test-and-set or ll/sc.",
+              "concept": "sync"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

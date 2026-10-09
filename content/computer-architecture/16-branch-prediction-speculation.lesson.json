@@ -1,0 +1,1199 @@
+{
+  "id": "ca-16-branch-prediction",
+  "title": "Branch Prediction and Speculative Execution",
+  "subtitle": "Guessing which way a branch goes, and running ahead on the guess.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "CAQA",
+      "chapter": "4",
+      "title": "Advanced Pipelining and Instruction-Level Parallelism",
+      "topics": "Reducing branch penalties with dynamic hardware prediction: branch-prediction buffers, 2-bit predictors, branch-target buffers; speculation"
+    },
+    {
+      "book": "COD",
+      "chapter": "4",
+      "title": "The Processor",
+      "topics": "Control hazards and branch prediction (static and dynamic, 1-bit and 2-bit)"
+    }
+  ],
+  "objectives": [
+    "Explain the branch penalty and its effect on CPI",
+    "Compare static prediction policies",
+    "Simulate 1-bit and 2-bit dynamic predictors on a short table",
+    "Explain what a branch target buffer does",
+    "Explain speculative execution: run ahead, then commit or squash"
+  ],
+  "concepts": [
+    {
+      "id": "penalty",
+      "label": "The branch penalty",
+      "section": "penalty"
+    },
+    {
+      "id": "dynamic",
+      "label": "Dynamic prediction",
+      "section": "dynamic"
+    },
+    {
+      "id": "btb",
+      "label": "Branch target buffer",
+      "section": "btb"
+    },
+    {
+      "id": "spec",
+      "label": "Speculative execution",
+      "section": "spec"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "About one instruction in five is a branch. How can a deep pipeline keep going when it does not yet know where the program is headed?",
+          "clues": [
+            "It **guesses** the branch direction and keeps fetching.",
+            "A right guess costs nothing; a wrong guess **throws work away**.",
+            "Good predictors are right about 90 to 99% of the time."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "penalty",
+      "label": "The branch penalty",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "penalty",
+          "title": "What a misprediction costs",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "A branch changes the PC, but the pipeline has already fetched the next instructions (Class 13)",
+                "If the guess is **wrong**, those instructions are flushed: the **branch penalty**",
+                "The penalty is about the number of stages before the branch resolves: 1 to 3 in our five-stage pipeline, 15 or more in deep modern pipelines"
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "CPI = 1 + branch frequency × misprediction rate × penalty",
+                  "note": "extra cycles per instruction caused by branches"
+                }
+              ]
+            }
+          ],
+          "why": "Deeper pipelines and wider issue make each misprediction more expensive, so accuracy matters more every generation.",
+          "real": "A mispredicted branch on a modern core can waste 15 to 20 cycles of work.",
+          "explainAgain": {
+            "beginner": "A wrong turn on a long road costs you the whole distance back to the junction."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "penalty",
+          "title": "Calculate the cost of branches",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Branch cost",
+              "equation": "CPI = 1 + f × (1 − accuracy) × penalty",
+              "inputs": [
+                {
+                  "id": "fb",
+                  "label": "Branch frequency",
+                  "value": 20,
+                  "min": 0,
+                  "max": 50,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "acc",
+                  "label": "Prediction accuracy",
+                  "value": 90,
+                  "min": 0,
+                  "max": 100,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "pen",
+                  "label": "Misprediction penalty",
+                  "value": 3,
+                  "min": 1,
+                  "max": 30,
+                  "step": 1,
+                  "unit": "cycles"
+                }
+              ],
+              "results": [
+                {
+                  "label": "CPI",
+                  "formula": "1 + (fb/100) * (1 - acc/100) * pen",
+                  "format": "num",
+                  "digits": 2
+                },
+                {
+                  "label": "Extra cycles per 100 instructions",
+                  "formula": "100 * (fb/100) * (1 - acc/100) * pen",
+                  "format": "num",
+                  "digits": 0
+                }
+              ]
+            }
+          ],
+          "why": "With 20% branches, 90% accuracy and a 3-cycle penalty the CPI is 1.06. Try a 15-cycle penalty (1.30) and then 95% accuracy (1.15)."
+        },
+        {
+          "type": "predict",
+          "concept": "penalty",
+          "skill": "Apply",
+          "question": "20% of instructions are branches, accuracy is 90% and the penalty is 3 cycles. What is the CPI?",
+          "options": [
+            "1.06",
+            "1.20",
+            "1.60",
+            "1.03"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "CPI = 1 + 0.20 × 0.10 × 3 = **1.06**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Only 10% of the 20% of branches are mispredicted, and each costs 3 cycles."
+        },
+        {
+          "type": "concept",
+          "concept": "penalty",
+          "title": "Static prediction",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Policy",
+                "Rule",
+                "On the loop T T T N repeated three times"
+              ],
+              "rows": [
+                [
+                  "Always not taken",
+                  "Keep fetching sequentially",
+                  "3 of 12 correct (25%)"
+                ],
+                [
+                  "Always taken",
+                  "Fetch from the target",
+                  "9 of 12 correct (75%)"
+                ],
+                [
+                  "Backward taken, forward not taken",
+                  "Loops jump backward (usually taken); forward branches (if) usually not",
+                  "Good for loops, as the loop branch is backward"
+                ]
+              ]
+            }
+          ],
+          "why": "Static predictions are decided before the program runs and never learn.",
+          "real": "Compilers can also give hints; the hardware default for backward branches is often \"taken\".",
+          "mistake": {
+            "wrong": "Always predicting not taken is the best static choice.",
+            "right": "Loop branches are taken most of the time, so \"taken\" is often better."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "penalty",
+          "question": "What is the branch penalty?",
+          "options": [
+            "Cycles lost when a branch is predicted wrongly",
+            "The size of a branch instruction",
+            "The delay of the ALU",
+            "The number of branches in a program"
+          ],
+          "answer": 0,
+          "why": "A misprediction flushes the wrong-path instructions.",
+          "feedback": [
+            "",
+            "Unrelated to size.",
+            "Unrelated to the ALU.",
+            "That is branch frequency."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "penalty",
+          "statement": "A correct prediction costs no extra cycles.",
+          "answer": true,
+          "why": "The right instructions were already being fetched."
+        }
+      ]
+    },
+    {
+      "id": "dynamic",
+      "label": "Dynamic prediction",
+      "minutes": 14,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "dynamic",
+          "title": "Learning from history",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "A **dynamic predictor** remembers what each branch did before",
+                "A small table, indexed by part of the branch address, holds a few bits per entry",
+                "The prediction is read at fetch; the entry is **updated** when the outcome is known",
+                "A branch that behaved a certain way recently will probably do it again"
+              ]
+            }
+          ],
+          "why": "Real branches are very regular: loops repeat, checks rarely fail.",
+          "real": "Typical predictors reach 90 to 99% accuracy."
+        },
+        {
+          "type": "concept",
+          "concept": "dynamic",
+          "title": "1-bit predictor",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "One bit per entry: **0 = predict not taken, 1 = predict taken**. After every branch the bit is set to the actual outcome."
+            },
+            {
+              "type": "text",
+              "text": "Weakness: a loop that exits once per run gets **two** mispredictions per run (the exit, and the first iteration of the next run).",
+              "style": "muted"
+            }
+          ],
+          "why": "It simply remembers the last outcome.",
+          "mistake": {
+            "wrong": "A 1-bit predictor mispredicts a loop only once per run.",
+            "right": "It mispredicts twice: at the exit and again on the next entry."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "dynamic",
+          "title": "Try it: 1-bit predictor",
+          "blocks": [
+            {
+              "type": "predictor",
+              "title": "1-bit predictor",
+              "presets": [
+                {
+                  "name": "Loop of 4 (T T T N)",
+                  "seq": "T T T N T T T N T T T N"
+                },
+                {
+                  "name": "Alternating (T N)",
+                  "seq": "T N T N T N T N"
+                }
+              ],
+              "bits": 1,
+              "init": 0,
+              "fixedStart": true,
+              "hint": "Press **Step** or **Run all**. The loop has 3 taken branches then 1 exit, repeated three times."
+            }
+          ],
+          "why": "On the loop the 1-bit predictor gets only 6 of 12 right (50%). On the alternating pattern it is always wrong: 0 of 8."
+        },
+        {
+          "type": "concept",
+          "concept": "dynamic",
+          "title": "2-bit predictor",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "State",
+                "Meaning",
+                "Predicts"
+              ],
+              "rows": [
+                [
+                  "00",
+                  "strongly not taken",
+                  "not taken"
+                ],
+                [
+                  "01",
+                  "weakly not taken",
+                  "not taken"
+                ],
+                [
+                  "10",
+                  "weakly taken",
+                  "taken"
+                ],
+                [
+                  "11",
+                  "strongly taken",
+                  "taken"
+                ]
+              ]
+            },
+            {
+              "type": "text",
+              "text": "A taken outcome moves one step toward 11, a not-taken outcome one step toward 00. **It takes two wrong outcomes in a row to change the prediction.**"
+            }
+          ],
+          "why": "The loop exit moves the counter only from 11 to 10, so the next run still starts with the right prediction.",
+          "real": "2-bit saturating counters are the building block of most real predictors."
+        },
+        {
+          "type": "concept",
+          "concept": "dynamic",
+          "title": "Try it: 2-bit predictor",
+          "blocks": [
+            {
+              "type": "predictor",
+              "title": "2-bit predictor",
+              "presets": [
+                {
+                  "name": "Loop of 4 (T T T N)",
+                  "seq": "T T T N T T T N T T T N"
+                },
+                {
+                  "name": "Alternating (T N)",
+                  "seq": "T N T N T N T N"
+                },
+                {
+                  "name": "Mostly taken",
+                  "seq": "T T T T T N T T T T T N"
+                }
+              ],
+              "bits": 2,
+              "init": 0,
+              "fixedStart": true,
+              "hint": "The predictor starts in 00. Watch the state after each branch."
+            }
+          ],
+          "why": "Starting from 00, the loop scores 7 of 12: two warm-up mistakes, then one per run (the exit). In steady state only the exit is wrong, which is 1 in 4."
+        },
+        {
+          "type": "predict",
+          "concept": "dynamic",
+          "skill": "Apply",
+          "question": "A 2-bit predictor starts in 00 and sees T T N T T. How many predictions are correct?",
+          "options": [
+            "1",
+            "2",
+            "5",
+            "0"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "#",
+                "State before",
+                "Prediction",
+                "Actual",
+                "Result",
+                "State after"
+              ],
+              "rows": [
+                [
+                  "1",
+                  "00",
+                  "N",
+                  "T",
+                  "wrong",
+                  "01"
+                ],
+                [
+                  "2",
+                  "01",
+                  "N",
+                  "T",
+                  "wrong",
+                  "10"
+                ],
+                [
+                  "3",
+                  "10",
+                  "T",
+                  "N",
+                  "wrong",
+                  "01"
+                ],
+                [
+                  "4",
+                  "01",
+                  "N",
+                  "T",
+                  "wrong",
+                  "10"
+                ],
+                [
+                  "5",
+                  "10",
+                  "T",
+                  "T",
+                  "right",
+                  "11"
+                ]
+              ]
+            }
+          ],
+          "result": "Only the last branch is predicted correctly: the counter needs to climb to the taken states before it predicts taken."
+        },
+        {
+          "type": "concept",
+          "concept": "dynamic",
+          "title": "A small prediction table",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "The table has a **limited number of entries**, so two branches whose addresses map to the same entry **alias**: they share one counter and disturb each other."
+            },
+            {
+              "type": "table",
+              "head": [
+                "Case",
+                "Branch A (always taken) and B (never taken), alternating",
+                "Correct of 8"
+              ],
+              "rows": [
+                [
+                  "1-bit, one entry",
+                  "A and B share the entry",
+                  "0"
+                ],
+                [
+                  "1-bit, two entries",
+                  "Each has its own entry",
+                  "7"
+                ],
+                [
+                  "2-bit, one entry",
+                  "Shared",
+                  "4"
+                ],
+                [
+                  "2-bit, two entries",
+                  "Separate",
+                  "6"
+                ]
+              ]
+            }
+          ],
+          "why": "Bigger tables reduce aliasing; real predictors use thousands of entries and index with history bits too.",
+          "real": "Aliasing is one reason the best predictors are large and cleverly indexed."
+        },
+        {
+          "type": "concept",
+          "concept": "dynamic",
+          "title": "Try it: aliasing",
+          "blocks": [
+            {
+              "type": "predictor",
+              "title": "One shared entry",
+              "presets": [
+                {
+                  "name": "A always T, B always N",
+                  "seq": "A:T B:N A:T B:N A:T B:N A:T B:N"
+                }
+              ],
+              "bits": 1,
+              "init": 0,
+              "fixedStart": true,
+              "hint": "The two branches use the same table entry.",
+              "tableSize": 1
+            },
+            {
+              "type": "predictor",
+              "title": "Two separate entries",
+              "presets": [
+                {
+                  "name": "A always T, B always N",
+                  "seq": "A:T B:N A:T B:N A:T B:N A:T B:N"
+                }
+              ],
+              "bits": 1,
+              "init": 0,
+              "fixedStart": true,
+              "hint": "Each branch has its own entry.",
+              "tableSize": 2
+            }
+          ],
+          "why": "One shared entry: 0 of 8. Two entries: 7 of 8."
+        },
+        {
+          "type": "match",
+          "concept": "dynamic",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each predictor with its behaviour.",
+          "pairs": [
+            {
+              "a": "1-bit",
+              "b": "Remembers only the last outcome"
+            },
+            {
+              "a": "2-bit",
+              "b": "Needs two wrong outcomes in a row to flip"
+            },
+            {
+              "a": "Static",
+              "b": "Never learns"
+            },
+            {
+              "a": "Aliasing",
+              "b": "Two branches sharing one table entry"
+            }
+          ],
+          "why": "These are the four ideas to know."
+        },
+        {
+          "type": "find",
+          "concept": "dynamic",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about predictors is wrong. Click it.",
+          "lines": [
+            "1. A 2-bit predictor changes its prediction after two wrong outcomes in a row.",
+            "2. A 1-bit predictor mispredicts a loop twice per run.",
+            "3. A larger table cannot reduce aliasing.",
+            "4. A dynamic predictor updates its table after each branch resolves."
+          ],
+          "wrong": 2,
+          "explain": "More entries mean fewer branches sharing an entry.",
+          "fix": "Larger tables reduce aliasing."
+        }
+      ]
+    },
+    {
+      "id": "btb",
+      "label": "Branch target buffer",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "btb",
+          "title": "Knowing where to go",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Predicting \"taken\" is not enough: the fetch stage also needs the **target address**",
+                "A **branch target buffer (BTB)** is a small cache indexed by the PC of branch instructions",
+                "Each entry holds the **target address** (and often the prediction bits)",
+                "On every fetch the BTB is looked up with the current PC **at the same time** as the instruction is fetched"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Branch PC",
+                "Target",
+                "Prediction"
+              ],
+              "rows": [
+                [
+                  "0x00400020",
+                  "0x00400008",
+                  "taken"
+                ],
+                [
+                  "0x00400064",
+                  "0x00400080",
+                  "not taken"
+                ]
+              ]
+            }
+          ],
+          "why": "With a BTB hit the next PC is known in the fetch stage: a correctly predicted taken branch costs **0 extra cycles**.",
+          "real": "The BTB is why a loop back-edge does not stall fetch even though the target is far away.",
+          "explainAgain": {
+            "beginner": "Like a phone book for branches: look up the address and get the number to call next."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "btb",
+          "question": "What does a BTB store?",
+          "options": [
+            "Branch addresses and their predicted targets",
+            "The contents of the cache",
+            "Register values",
+            "The program text"
+          ],
+          "answer": 0,
+          "why": "It maps branch PCs to target addresses.",
+          "feedback": [
+            "",
+            "That is a cache.",
+            "No.",
+            "No."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "btb",
+          "statement": "With a BTB hit and a correct prediction, a taken branch does not stall the fetch stage.",
+          "answer": true,
+          "why": "The target is available in the same cycle as the fetch."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Why can a BTB help even with a perfect direction predictor?",
+          "think": 20,
+          "pair": 40,
+          "answer": "Knowing the branch is taken is not enough: the fetch unit also needs the target address in the same cycle, and computing it takes stages. The BTB stores it so the next fetch can start immediately."
+        }
+      ]
+    },
+    {
+      "id": "spec",
+      "label": "Speculative execution",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "spec",
+          "title": "Run ahead on a guess",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Predict",
+                  "sub": "guess the direction",
+                  "note": "Use the predictor and the BTB."
+                },
+                {
+                  "label": "Execute ahead",
+                  "sub": "speculative work",
+                  "note": "Fetch, issue and execute instructions from the predicted path."
+                },
+                {
+                  "label": "Branch resolves",
+                  "sub": "the truth is known",
+                  "note": "Compare with the guess."
+                },
+                {
+                  "label": "Commit or squash",
+                  "sub": "right or wrong",
+                  "note": "Right: results become permanent. Wrong: discard them and restart on the correct path."
+                }
+              ],
+              "zoom": true
+            }
+          ],
+          "why": "Speculation uses time that would be spent waiting; a good predictor makes it nearly free.",
+          "real": "Modern CPUs keep over a hundred instructions in flight past unresolved branches.",
+          "explainAgain": {
+            "beginner": "You start walking down the path you think is right. If it turns out right you have saved time; if not you walk back."
+          },
+          "deeper": {
+            "text": "Speculation needs a way to undo work: results are held (for example in a reorder buffer) and only committed in program order after the branch resolves."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "spec",
+          "title": "Why accuracy matters more every year",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Penalty",
+                "Accuracy",
+                "CPI (20% branches)"
+              ],
+              "rows": [
+                [
+                  "3 cycles",
+                  "90%",
+                  "1.06"
+                ],
+                [
+                  "3 cycles",
+                  "50%",
+                  "1.30"
+                ],
+                [
+                  "15 cycles",
+                  "90%",
+                  "1.30"
+                ],
+                [
+                  "15 cycles",
+                  "95%",
+                  "1.15"
+                ]
+              ]
+            }
+          ],
+          "why": "A deep pipeline with a poor predictor wastes a large fraction of its cycles.",
+          "real": "This is why processor makers invest heavily in branch predictors.",
+          "mistake": {
+            "wrong": "A 90% accurate predictor is good enough for any pipeline.",
+            "right": "With a 15-cycle penalty even 90% accuracy adds 0.30 to the CPI."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "spec",
+          "title": "Compare the numbers",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Branch cost again",
+              "equation": "CPI = 1 + f × (1 − accuracy) × penalty",
+              "inputs": [
+                {
+                  "id": "fb",
+                  "label": "Branch frequency",
+                  "value": 20,
+                  "min": 0,
+                  "max": 50,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "acc",
+                  "label": "Prediction accuracy",
+                  "value": 95,
+                  "min": 0,
+                  "max": 100,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "pen",
+                  "label": "Misprediction penalty",
+                  "value": 15,
+                  "min": 1,
+                  "max": 30,
+                  "step": 1,
+                  "unit": "cycles"
+                }
+              ],
+              "results": [
+                {
+                  "label": "CPI",
+                  "formula": "1 + (fb/100) * (1 - acc/100) * pen",
+                  "format": "num",
+                  "digits": 2
+                }
+              ]
+            }
+          ],
+          "why": "95% accuracy with a 15-cycle penalty gives 1.15. Lower the accuracy to 90% and it is 1.30."
+        },
+        {
+          "type": "predict",
+          "concept": "spec",
+          "skill": "Apply",
+          "question": "Speculation runs the wrong path after a misprediction. What happens to its results?",
+          "options": [
+            "They are discarded (squashed)",
+            "They are committed anyway",
+            "They are saved for later",
+            "They are written to memory"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The results of wrong-path instructions must never become visible: they are **squashed** and fetching restarts on the correct path.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Committing in program order is what makes speculation safe."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "spec",
+          "question": "Speculation can leak information through side effects such as the cache. Why is that a concern?",
+          "seconds": 60,
+          "ideas": [
+            "Squashed instructions leave no register or memory results, but may leave traces in caches.",
+            "Attackers can measure these traces (Spectre-style attacks).",
+            "Designers must balance speed against such side channels.",
+            "This shows that \"invisible\" speculation is not completely invisible."
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What is a misprediction penalty?",
+              "a": "The cycles lost when wrong-path work is flushed.",
+              "concept": "penalty"
+            },
+            {
+              "q": "Why does a 2-bit predictor handle loops better than a 1-bit one?",
+              "a": "One loop exit does not flip its prediction.",
+              "concept": "dynamic"
+            },
+            {
+              "q": "What does speculative execution do on a wrong guess?",
+              "a": "Squashes the results and restarts on the correct path.",
+              "concept": "spec"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "penalty",
+          "question": "What is a branch misprediction?",
+          "answer": "The processor guessed the wrong direction, so the wrong-path instructions must be flushed.",
+          "solution": "A wrong guess costs the branch penalty.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "penalty",
+          "question": "20% branches, accuracy 90%, penalty 3 cycles. Give the CPI.",
+          "answer": "1.06.",
+          "solution": "CPI = 1 + 0.2 × 0.1 × 3 = 1.06.",
+          "hint": "Multiply frequency, error rate and penalty.",
+          "think": 40
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "dynamic",
+          "question": "Run a 1-bit predictor starting at 0 on T T T N T T T N T T T N. How many are correct?",
+          "answer": "6 of 12.",
+          "solution": "It mispredicts the first T, then the N, then the next T, and so on: two wrong per run after the first.",
+          "hint": "The bit copies the previous outcome.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "dynamic",
+          "question": "A 2-bit predictor starts in 00 and sees T T N T T. Give the state before each branch, the prediction, and the number correct.",
+          "answer": "States before: 00, 01, 10, 01, 10; predictions N, N, T, N, T; 1 correct (only the 5th).",
+          "solution": "Follow the counter: each T adds 1 (up to 11), each N subtracts 1 (down to 00).",
+          "mistake": "Predicting taken in state 01.",
+          "title": "Exam practice: table trace",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "dynamic",
+          "question": "Branch A is always taken, B is never taken, they alternate A B A B A B A B and share one 1-bit entry starting at 0. How many predictions are right? How many with separate entries?",
+          "answer": "Shared: 0 of 8. Separate: 7 of 8.",
+          "solution": "Shared, the entry always holds the other branch's last outcome, so it is always wrong. Separate entries are wrong only on A's first prediction.",
+          "mistake": "Forgetting the first misprediction of A with separate entries.",
+          "title": "Exam practice: aliasing",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "penalty",
+          "question": "Branches are 20% of instructions. Compare CPI for (a) 90% accuracy, penalty 3; (b) 90% accuracy, penalty 15; (c) 95% accuracy, penalty 15.",
+          "answer": "(a) 1.06; (b) 1.30; (c) 1.15.",
+          "solution": "CPI = 1 + 0.2 × (1 − accuracy) × penalty: 0.2×0.1×3 = 0.06; 0.2×0.1×15 = 0.30; 0.2×0.05×15 = 0.15.",
+          "mistake": "Using the accuracy instead of the error rate.",
+          "title": "Exam practice: CPI",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "spec",
+          "question": "Explain speculative execution and what makes it safe.",
+          "answer": "The processor continues fetching and executing instructions from the predicted path before the branch resolves. It is safe because the results are held and only committed in program order after the branch is resolved correctly; if the guess was wrong they are discarded and fetch restarts on the right path.",
+          "solution": "A strong answer mentions holding results and committing in order.",
+          "mistake": "Saying a wrong guess corrupts registers.",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Branch prediction",
+          "branches": [
+            {
+              "label": "Penalty",
+              "example": "CPI cost of mispredictions",
+              "section": "penalty"
+            },
+            {
+              "label": "Dynamic",
+              "example": "1-bit, 2-bit, aliasing",
+              "section": "dynamic"
+            },
+            {
+              "label": "BTB",
+              "example": "predict the target",
+              "section": "btb"
+            },
+            {
+              "label": "Speculation",
+              "example": "run ahead, commit or squash",
+              "section": "spec"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Branches are about 1 in 5 instructions; a misprediction flushes the wrong path and costs the branch penalty.",
+            "CPI = 1 + branch frequency × misprediction rate × penalty.",
+            "Static prediction never learns; dynamic prediction uses a table of history bits.",
+            "A 1-bit predictor flips on every change; a 2-bit predictor needs two wrong outcomes in a row.",
+            "Table entries can alias when branches share an index.",
+            "A BTB supplies the target address at fetch.",
+            "Speculation runs ahead and commits only if the guess was right."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "A 1-bit predictor mispredicts a loop once per run.",
+              "right": "Twice per run: the exit and the re-entry."
+            },
+            {
+              "wrong": "Predicting taken is enough.",
+              "right": "The target address is needed too (BTB)."
+            },
+            {
+              "wrong": "Speculative results are always kept.",
+              "right": "They are squashed if the guess was wrong."
+            },
+            {
+              "wrong": "Bigger tables cannot help.",
+              "right": "They reduce aliasing."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Because branches are frequent, pipelines guess their direction and keep fetching. A misprediction costs the branch penalty, so CPI = 1 + frequency × misprediction rate × penalty. Dynamic predictors use tables of 1-bit or 2-bit counters; 2-bit counters tolerate a single deviation, small tables alias, and a BTB provides targets. Speculative execution runs the predicted path and commits or squashes the results when the branch resolves."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "penalty",
+              "question": "What is the cost of a correct prediction?",
+              "options": [
+                "No extra cycles",
+                "The full penalty",
+                "One cycle",
+                "Two cycles"
+              ],
+              "answer": 0,
+              "why": "The right instructions were already fetched.",
+              "misconception": "Only mispredictions cost cycles."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "dynamic",
+              "statement": "A dynamic predictor uses history.",
+              "answer": true,
+              "why": "It learns from previous outcomes.",
+              "misconception": "Static predictors do not."
+            },
+            {
+              "level": "easy",
+              "concept": "btb",
+              "question": "What does a BTB store?",
+              "options": [
+                "Branch targets",
+                "Register values",
+                "Cache blocks",
+                "Page tables"
+              ],
+              "answer": 0,
+              "why": "Target addresses of branches.",
+              "misconception": "It is indexed by the branch PC."
+            },
+            {
+              "level": "medium",
+              "concept": "penalty",
+              "question": "20% branches, 90% accuracy, 3-cycle penalty: CPI?",
+              "options": [
+                "1.06",
+                "1.30",
+                "1.20",
+                "1.60"
+              ],
+              "answer": 0,
+              "why": "1 + 0.2 × 0.1 × 3 = 1.06.",
+              "misconception": "Use the error rate, not the accuracy."
+            },
+            {
+              "level": "medium",
+              "concept": "dynamic",
+              "question": "A 1-bit predictor starts at 0 and sees T T T N repeated three times. Correct predictions:",
+              "options": [
+                "6 of 12",
+                "9 of 12",
+                "3 of 12",
+                "12 of 12"
+              ],
+              "answer": 0,
+              "why": "6 of 12 (two wrong per run after the first).",
+              "misconception": "The 2-bit predictor gets 7."
+            },
+            {
+              "level": "medium",
+              "concept": "dynamic",
+              "question": "What makes a 2-bit predictor better on loops?",
+              "options": [
+                "One loop exit does not change its prediction",
+                "It has no table",
+                "It is static",
+                "It uses a BTB"
+              ],
+              "answer": 0,
+              "why": "Two wrong outcomes in a row are needed to flip.",
+              "misconception": "The exit only moves 11 to 10."
+            },
+            {
+              "level": "hard",
+              "concept": "dynamic",
+              "question": "A and B alternate (A always T, B always N) and share one 1-bit entry starting at 0. Correct predictions out of 8:",
+              "options": [
+                "0",
+                "4",
+                "7",
+                "8"
+              ],
+              "answer": 0,
+              "why": "The shared bit always holds the other branch's outcome: 0 of 8.",
+              "misconception": "With two separate entries it is 7 of 8."
+            },
+            {
+              "level": "hard",
+              "concept": "penalty",
+              "question": "20% branches, 95% accuracy, 15-cycle penalty: CPI?",
+              "options": [
+                "1.15",
+                "1.30",
+                "1.05",
+                "1.75"
+              ],
+              "answer": 0,
+              "why": "1 + 0.2 × 0.05 × 15 = 1.15.",
+              "misconception": "Accuracy 90% would give 1.30."
+            },
+            {
+              "level": "challenge",
+              "concept": "spec",
+              "question": "A branch is predicted taken but is actually not taken. What happens to the speculative instructions?",
+              "options": [
+                "They are squashed and fetching restarts on the correct path",
+                "They are committed",
+                "They are executed twice",
+                "They stay in the pipeline"
+              ],
+              "answer": 0,
+              "why": "Wrong-path results must never become visible.",
+              "misconception": "Commit happens in program order after the branch resolves."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "What is the branch penalty?",
+              "a": "Cycles lost when a misprediction flushes the wrong path.",
+              "concept": "penalty"
+            },
+            {
+              "q": "Name the 2-bit states.",
+              "a": "Strongly/weakly not taken, weakly/strongly taken.",
+              "concept": "dynamic"
+            },
+            {
+              "q": "What does a BTB do?",
+              "a": "Supplies the predicted target address at fetch.",
+              "concept": "btb"
+            },
+            {
+              "q": "What is aliasing?",
+              "a": "Two branches sharing one table entry.",
+              "concept": "dynamic"
+            },
+            {
+              "q": "What is speculative execution?",
+              "a": "Running the predicted path before the branch resolves.",
+              "concept": "spec"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

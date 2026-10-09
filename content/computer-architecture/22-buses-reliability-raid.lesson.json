@@ -1,0 +1,1318 @@
+{
+  "id": "ca-22-buses-reliability-raid",
+  "title": "Buses, Reliability, Availability and RAID",
+  "subtitle": "How the parts talk, how long they last, and how disks are combined to survive failures.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "CAQA",
+      "chapter": "6",
+      "title": "Storage Systems",
+      "topics": "Buses and connections; reliability, availability and dependability measures; RAID levels 0, 1, 5, 6 and 10"
+    }
+  ],
+  "objectives": [
+    "Describe the data, address and control buses and calculate bus bandwidth",
+    "Define reliability, availability, MTTF, MTBF and MTTR",
+    "Calculate availability and downtime per year",
+    "Compare RAID 0, 1, 5, 6 and 10 for capacity and fault tolerance",
+    "Choose a RAID level for a given scenario and justify it"
+  ],
+  "concepts": [
+    {
+      "id": "bus",
+      "label": "Buses",
+      "section": "bus"
+    },
+    {
+      "id": "reliab",
+      "label": "Reliability and availability",
+      "section": "reliab"
+    },
+    {
+      "id": "raid",
+      "label": "RAID",
+      "section": "raid"
+    },
+    {
+      "id": "design",
+      "label": "Designing storage",
+      "section": "design"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "A server has 100 disks and each disk fails on average once in 114 years. How often does the server lose a disk?",
+          "clues": [
+            "Many components make failures **frequent**, even if each part is reliable.",
+            "The answer is **redundancy**: store extra information so a failure loses nothing.",
+            "Parts also have to **talk** to each other: that is the job of buses."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "bus",
+      "label": "Buses",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "bus",
+          "title": "What a bus is",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Part",
+                "Carries",
+                "Determines"
+              ],
+              "rows": [
+                [
+                  "Address bus",
+                  "The address of the memory location or device wanted",
+                  "How much can be addressed: n address lines reach 2ⁿ locations (32 lines: 4 GiB of bytes)"
+                ],
+                [
+                  "Data bus",
+                  "The data being read or written",
+                  "Bytes per transfer: a 64-bit bus moves 8 bytes at a time"
+                ],
+                [
+                  "Control bus",
+                  "Read / write, clock, interrupt, bus request and grant signals",
+                  "Who talks, when, and in which direction"
+                ]
+              ]
+            }
+          ],
+          "why": "A bus is a shared set of wires connecting the CPU, memory and I/O devices; the three groups of lines each have a different job.",
+          "real": "Modern systems use fast point-to-point serial links (such as PCI Express) in place of wide shared buses, but the same ideas apply.",
+          "mistake": {
+            "wrong": "The address bus width equals the data bus width.",
+            "right": "They are independent: the address width fixes capacity, the data width fixes bytes per transfer."
+          },
+          "explainAgain": {
+            "beginner": "A road: the address lines are the street name, the data lines are the lanes, and the traffic signals are the control lines."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "bus",
+          "title": "Bus bandwidth",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "bandwidth = width in bytes × transfers per second",
+                  "note": "a 64-bit bus at 100 MHz with one transfer per cycle: 8 × 100 million = 800 MB/s"
+                },
+                {
+                  "t": "double data rate (DDR)",
+                  "note": "two transfers per clock cycle double the bandwidth: 1,600 MB/s"
+                }
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "A **synchronous** bus uses a clock; an **asynchronous** bus uses handshake signals",
+                "Several devices may want the bus: **arbitration** decides who gets it",
+                "Longer buses and more devices lower the achievable clock rate"
+              ]
+            }
+          ],
+          "why": "Bandwidth limits how fast data can reach the CPU or leave a disk array.",
+          "real": "Memory buses, graphics links and storage links are rated by their bandwidth."
+        },
+        {
+          "type": "concept",
+          "concept": "bus",
+          "title": "Calculate: bus bandwidth",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Bus bandwidth and address space",
+              "equation": "bandwidth = bytes per transfer × clock × transfers per cycle",
+              "inputs": [
+                {
+                  "id": "w",
+                  "label": "Data bus width",
+                  "value": 64,
+                  "min": 8,
+                  "max": 256,
+                  "step": 8,
+                  "unit": "bits"
+                },
+                {
+                  "id": "f",
+                  "label": "Bus clock",
+                  "value": 100,
+                  "min": 10,
+                  "max": 3200,
+                  "step": 10,
+                  "unit": "MHz"
+                },
+                {
+                  "id": "t",
+                  "label": "Transfers per cycle",
+                  "value": 1,
+                  "min": 1,
+                  "max": 4,
+                  "step": 1
+                },
+                {
+                  "id": "a",
+                  "label": "Address lines",
+                  "value": 32,
+                  "min": 16,
+                  "max": 48,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "Bandwidth",
+                  "formula": "w / 8 * f * t",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "MB/s"
+                },
+                {
+                  "label": "Addressable bytes",
+                  "formula": "pow(2, a) / 1073741824",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "GiB"
+                }
+              ]
+            }
+          ],
+          "why": "64 bits at 100 MHz with one transfer per cycle gives 800 MB/s; with DDR (2 transfers) 1,600 MB/s. 32 address lines reach 4 GiB."
+        },
+        {
+          "type": "predict",
+          "concept": "bus",
+          "skill": "Apply",
+          "question": "A 64-bit data bus runs at 100 MHz with one transfer per clock cycle. What is its bandwidth?",
+          "options": [
+            "800 MB/s",
+            "100 MB/s",
+            "6.4 Gb/s",
+            "64 MB/s"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "64 bits = 8 bytes. 8 bytes × 100 million transfers per second = **800 MB/s**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "With DDR it would be 1,600 MB/s."
+        },
+        {
+          "type": "match",
+          "concept": "bus",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each bus with its job.",
+          "pairs": [
+            {
+              "a": "Address bus",
+              "b": "Selects which location or device"
+            },
+            {
+              "a": "Data bus",
+              "b": "Carries the data being moved"
+            },
+            {
+              "a": "Control bus",
+              "b": "Read, write, clock and handshake signals"
+            },
+            {
+              "a": "Bandwidth",
+              "b": "Bytes moved per second"
+            }
+          ],
+          "why": "The three buses cooperate in every transfer."
+        },
+        {
+          "type": "mcq",
+          "concept": "bus",
+          "question": "A system has 32 address lines. How many byte locations can it address?",
+          "options": [
+            "4 GiB",
+            "32 bytes",
+            "1 GiB",
+            "64 GiB"
+          ],
+          "answer": 0,
+          "why": "2³² bytes = 4 GiB.",
+          "feedback": [
+            "",
+            "32 is the number of lines, not locations.",
+            "That would be 30 lines.",
+            "That would be 36 lines."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reliab",
+      "label": "Reliability and availability",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "reliab",
+          "title": "Fault, error, failure",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Term",
+                "Meaning",
+                "Example"
+              ],
+              "rows": [
+                [
+                  "Fault",
+                  "A defect in a component",
+                  "A flipped bit in a memory cell"
+                ],
+                [
+                  "Error",
+                  "A wrong value that results from a fault",
+                  "The wrong number is read"
+                ],
+                [
+                  "Failure",
+                  "The system no longer delivers its service",
+                  "The database stops answering"
+                ]
+              ]
+            }
+          ],
+          "why": "Faults are unavoidable. Good design stops faults from becoming failures.",
+          "real": "ECC memory corrects single-bit errors before they can cause a failure."
+        },
+        {
+          "type": "concept",
+          "concept": "reliab",
+          "title": "MTTF, MTTR and availability",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Term",
+                "Meaning"
+              ],
+              "rows": [
+                [
+                  "Reliability",
+                  "Continuity of service until a failure"
+                ],
+                [
+                  "MTTF",
+                  "Mean time to failure: average time of correct operation"
+                ],
+                [
+                  "MTTR",
+                  "Mean time to repair: average time to restore service"
+                ],
+                [
+                  "MTBF",
+                  "Mean time between failures = MTTF + MTTR"
+                ],
+                [
+                  "Availability",
+                  "The fraction of time the service is working"
+                ]
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "availability = MTTF ÷ (MTTF + MTTR)",
+                  "note": "MTTF 1000 h, MTTR 1 h: 1000 ÷ 1001 = 99.9%"
+                },
+                {
+                  "t": "downtime per year = (1 − availability) × 8,760 hours",
+                  "note": "99.9% allows about 8.76 hours per year"
+                }
+              ]
+            }
+          ],
+          "why": "Availability depends on both how seldom it fails (MTTF) and how fast it is repaired (MTTR).",
+          "real": "Service providers state availability in \"nines\": 99.99% is called four nines.",
+          "mistake": {
+            "wrong": "High reliability means high availability.",
+            "right": "A component that fails rarely but takes a week to repair can have poor availability."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "reliab",
+          "title": "Calculate: availability and downtime",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Availability",
+              "equation": "availability = MTTF ÷ (MTTF + MTTR)",
+              "inputs": [
+                {
+                  "id": "mttf",
+                  "label": "MTTF",
+                  "value": 1000,
+                  "min": 10,
+                  "max": 1000000,
+                  "step": 10,
+                  "unit": "hours"
+                },
+                {
+                  "id": "mttr",
+                  "label": "MTTR",
+                  "value": 1,
+                  "min": 0.1,
+                  "max": 100,
+                  "step": 0.1,
+                  "unit": "hours"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Availability",
+                  "formula": "100 * mttf / (mttf + mttr)",
+                  "format": "num",
+                  "digits": 3,
+                  "unit": "%"
+                },
+                {
+                  "label": "Downtime per year",
+                  "formula": "8760 * mttr / (mttf + mttr)",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "hours"
+                },
+                {
+                  "label": "Downtime per year",
+                  "formula": "60 * 8760 * mttr / (mttf + mttr)",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "minutes"
+                }
+              ]
+            }
+          ],
+          "why": "MTTF 1,000 h and MTTR 1 h give 99.9%: about 8.75 hours of downtime a year. Cut the repair time to 6 minutes (0.1 h) and downtime falls by a factor of ten."
+        },
+        {
+          "type": "predict",
+          "concept": "reliab",
+          "skill": "Apply",
+          "question": "MTTF is 1,000 hours and MTTR is 1 hour. What is the availability?",
+          "options": [
+            "99.9%",
+            "99%",
+            "90%",
+            "99.99%"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "1000 ÷ (1000 + 1) = 0.999001: **99.9%**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "That is roughly 8.75 hours of downtime a year."
+        },
+        {
+          "type": "concept",
+          "concept": "reliab",
+          "title": "The nines",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Availability",
+                "Downtime per year"
+              ],
+              "rows": [
+                [
+                  "99% (two nines)",
+                  "about 87.6 hours (3.65 days)"
+                ],
+                [
+                  "99.9% (three nines)",
+                  "about 8.76 hours"
+                ],
+                [
+                  "99.99% (four nines)",
+                  "about 52.6 minutes"
+                ],
+                [
+                  "99.999% (five nines)",
+                  "about 5.26 minutes"
+                ]
+              ]
+            }
+          ],
+          "why": "Each extra nine cuts the allowed downtime by a factor of ten and costs much more to achieve.",
+          "real": "Banks and telephone networks aim for four or five nines."
+        },
+        {
+          "type": "concept",
+          "concept": "reliab",
+          "title": "Calculate: many disks fail more often",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Failures in a large array (no redundancy)",
+              "equation": "array MTTF = disk MTTF ÷ number of disks",
+              "inputs": [
+                {
+                  "id": "m",
+                  "label": "Disk MTTF",
+                  "value": 1000000,
+                  "min": 100000,
+                  "max": 2000000,
+                  "step": 100000,
+                  "unit": "hours"
+                },
+                {
+                  "id": "n",
+                  "label": "Number of disks",
+                  "value": 100,
+                  "min": 1,
+                  "max": 1000,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "Array MTTF",
+                  "formula": "m / n",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "hours"
+                },
+                {
+                  "label": "Array MTTF",
+                  "formula": "m / n / 24",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "days"
+                }
+              ]
+            }
+          ],
+          "why": "A disk with a 1,000,000 hour MTTF (about 114 years) is very reliable, but 100 of them together fail on average every 10,000 hours: about every 417 days. The quoted MTTF is a manufacturer's figure and assumes independent failures."
+        },
+        {
+          "type": "predict",
+          "concept": "reliab",
+          "skill": "Apply",
+          "question": "100 disks each have an MTTF of 1,000,000 hours (about 114 years). About how often does some disk in the array fail?",
+          "options": [
+            "About every 417 days",
+            "About every 114 years",
+            "Every day",
+            "Every hour"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Failure rates add: MTTF of the array = 1,000,000 ÷ 100 = 10,000 hours ≈ **417 days**. More parts mean more failures.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "This is why large storage systems need redundancy."
+        },
+        {
+          "type": "tf",
+          "concept": "reliab",
+          "statement": "Availability depends on how quickly a failed component is repaired.",
+          "answer": true,
+          "why": "Availability = MTTF ÷ (MTTF + MTTR): a smaller MTTR raises it."
+        }
+      ]
+    },
+    {
+      "id": "raid",
+      "label": "RAID",
+      "minutes": 15,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "raid",
+          "title": "Redundant arrays of independent disks",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**RAID** combines several disks into one logical disk",
+                "**Striping**: consecutive blocks go to different disks, so they can be read in parallel (speed)",
+                "**Mirroring**: the same block is kept on two disks (redundancy)",
+                "**Parity**: an extra block that lets a lost block be rebuilt (cheaper redundancy)"
+              ]
+            }
+          ],
+          "why": "RAID turns many unreliable disks into one fast and (if designed so) fault-tolerant disk.",
+          "real": "Servers, NAS boxes and cloud storage use RAID or a similar idea (erasure coding)."
+        },
+        {
+          "type": "concept",
+          "concept": "raid",
+          "title": "Parity: rebuild from the rest",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Block",
+                "Value (binary)",
+                "Value"
+              ],
+              "rows": [
+                [
+                  "D0",
+                  "1010",
+                  "10"
+                ],
+                [
+                  "D1",
+                  "0110",
+                  "6"
+                ],
+                [
+                  "D2",
+                  "0011",
+                  "3"
+                ],
+                [
+                  "P = D0 XOR D1 XOR D2",
+                  "1111",
+                  "15"
+                ]
+              ]
+            },
+            {
+              "type": "text",
+              "text": "If the disk holding D1 fails: **D1 = D0 XOR D2 XOR P = 10 XOR 3 XOR 15 = 6**. XOR of all remaining blocks gives the lost one.",
+              "style": "lead"
+            }
+          ],
+          "why": "One parity block protects any number of data blocks against the loss of any one of them.",
+          "real": "RAID 5 and RAID 6 spread the parity across all the disks.",
+          "explainAgain": {
+            "beginner": "Three numbers and their total: if one number is lost, total minus the others gives it back. XOR does this for bits."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "raid",
+          "title": "Try it: the five RAID levels",
+          "blocks": [
+            {
+              "type": "raid",
+              "title": "RAID levels",
+              "levels": [
+                "0",
+                "1",
+                "5",
+                "6",
+                "10"
+              ],
+              "disks": 4,
+              "rows": 4,
+              "hint": "Click a disk to fail it, and see whether the data survives. Note: the demo mirrors RAID 1 across all its disks; the classic RAID 1 is two disks."
+            }
+          ],
+          "why": "With 4 disks: RAID 0 loses data with any failure; RAID 5 survives one; RAID 6 survives any two; RAID 10 survives one failure per mirrored pair (disks 0 and 1 failing together loses data, disks 0 and 2 do not)."
+        },
+        {
+          "type": "concept",
+          "concept": "raid",
+          "title": "Comparing the levels",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Level",
+                "How it works",
+                "Capacity (N disks)",
+                "Survives",
+                "Small write cost"
+              ],
+              "rows": [
+                [
+                  "RAID 0",
+                  "Striping only",
+                  "N",
+                  "nothing",
+                  "1 write"
+                ],
+                [
+                  "RAID 1",
+                  "Mirroring (2 disks)",
+                  "N/2",
+                  "1 failure",
+                  "2 writes"
+                ],
+                [
+                  "RAID 5",
+                  "Striping + rotating parity",
+                  "N − 1",
+                  "1 failure",
+                  "4 I/Os"
+                ],
+                [
+                  "RAID 6",
+                  "Striping + two parities (P and Q)",
+                  "N − 2",
+                  "2 failures",
+                  "6 I/Os"
+                ],
+                [
+                  "RAID 10",
+                  "Striped mirrored pairs",
+                  "N/2",
+                  "1 failure guaranteed; more if in different pairs",
+                  "2 writes"
+                ]
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "6 disks of 2 TB",
+                "Usable capacity"
+              ],
+              "rows": [
+                [
+                  "RAID 0",
+                  "12 TB"
+                ],
+                [
+                  "RAID 5",
+                  "10 TB"
+                ],
+                [
+                  "RAID 6",
+                  "8 TB"
+                ],
+                [
+                  "RAID 10",
+                  "6 TB"
+                ]
+              ]
+            }
+          ],
+          "why": "Every level trades capacity, fault tolerance and write speed. There is no single best choice.",
+          "real": "RAID 0 has no redundancy at all, so by itself it is the least reliable option.",
+          "mistake": {
+            "wrong": "RAID is a replacement for backups.",
+            "right": "RAID survives disk failures, not deletion, corruption, fire or a faulty controller. Keep backups."
+          },
+          "deeper": {
+            "text": "RAID 5 small-write problem: updating one block needs 4 I/Os: read old data, read old parity, write new data, write new parity (new parity = old parity XOR old data XOR new data)."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "raid",
+          "skill": "Apply",
+          "question": "Four disks in RAID 10: disks 0 and 1 are a mirrored pair, disks 2 and 3 are the other pair. Disks 0 and 2 fail. Is the data still available?",
+          "options": [
+            "Yes: each pair still has one good disk",
+            "No: two disks failed",
+            "Only if disk 3 is repaired",
+            "Only half of the data"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Each mirrored pair still has one working disk (1 and 3), so **all data survives**. If disks 0 and 1 had failed, the whole pair would be lost.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "That is why RAID 10 guarantees only one failure."
+        },
+        {
+          "type": "predict",
+          "concept": "raid",
+          "skill": "Apply",
+          "question": "Six 2 TB disks in RAID 6. How much usable capacity and how many failures survived?",
+          "options": [
+            "8 TB and any 2 failures",
+            "10 TB and 1 failure",
+            "12 TB and 2 failures",
+            "6 TB and 3 failures"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "RAID 6 uses two disks' worth of parity: (6 − 2) × 2 TB = **8 TB**, and survives **any two** failures.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "RAID 5 would give 10 TB but survive only one failure."
+        },
+        {
+          "type": "concept",
+          "concept": "raid",
+          "title": "Calculate: rebuild time and capacity",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Capacity and rebuild window",
+              "equation": "Rebuild time = disk size ÷ rebuild rate (illustrative)",
+              "inputs": [
+                {
+                  "id": "n",
+                  "label": "Number of disks",
+                  "value": 6,
+                  "min": 4,
+                  "max": 16,
+                  "step": 1
+                },
+                {
+                  "id": "tb",
+                  "label": "Disk size",
+                  "value": 2,
+                  "min": 1,
+                  "max": 20,
+                  "step": 1,
+                  "unit": "TB"
+                },
+                {
+                  "id": "r",
+                  "label": "Rebuild rate",
+                  "value": 100,
+                  "min": 20,
+                  "max": 500,
+                  "step": 10,
+                  "unit": "MB/s"
+                }
+              ],
+              "results": [
+                {
+                  "label": "RAID 0 capacity",
+                  "formula": "n * tb",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "TB"
+                },
+                {
+                  "label": "RAID 5 capacity",
+                  "formula": "(n - 1) * tb",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "TB"
+                },
+                {
+                  "label": "RAID 6 capacity",
+                  "formula": "(n - 2) * tb",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "TB"
+                },
+                {
+                  "label": "RAID 10 capacity",
+                  "formula": "n / 2 * tb",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "TB"
+                },
+                {
+                  "label": "Time to rebuild one disk",
+                  "formula": "tb * 1000000 / r / 3600",
+                  "format": "num",
+                  "digits": 1,
+                  "unit": "hours"
+                }
+              ]
+            }
+          ],
+          "why": "Six 2 TB disks: 12, 10, 8 and 6 TB. Rebuilding a 4 TB disk at 100 MB/s takes 11.1 hours, during which RAID 5 cannot survive another failure: one reason RAID 6 is preferred for big disks."
+        },
+        {
+          "type": "find",
+          "concept": "raid",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about RAID is wrong. Click it.",
+          "lines": [
+            "1. RAID 0 improves speed but gives no fault tolerance.",
+            "2. RAID 5 survives the failure of any one disk.",
+            "3. RAID 6 stores two parity blocks per stripe.",
+            "4. RAID 1 doubles the usable capacity of the disks."
+          ],
+          "wrong": 3,
+          "explain": "Mirroring halves the usable capacity: every block is stored twice.",
+          "fix": "RAID 1 uses half the capacity for the copy."
+        }
+      ]
+    },
+    {
+      "id": "design",
+      "label": "Designing storage",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "design",
+          "title": "The scenario",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "**You are designing storage for a banking database. Which RAID configuration would you choose and why?**",
+              "style": "lead"
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "**Reliability**: losing transaction data is unacceptable",
+                "**Write performance**: banking databases do many small random writes",
+                "**Capacity and cost**: acceptable, but secondary",
+                "**Availability**: the system must stay up through a disk failure and its repair",
+                "**Recovery**: protection against more than disk failure"
+              ]
+            }
+          ],
+          "why": "The right answer follows from the requirements, not from a rule: first list what matters, then compare the levels.",
+          "real": "Real designs combine RAID with hot spares, battery-backed write caches, replication to another site and regular backups."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "design",
+          "question": "Which RAID level would you pick for the banking database, and what would you say to someone who suggests RAID 5 to save money?",
+          "seconds": 60,
+          "ideas": [
+            "RAID 10: best write performance and fastest rebuild; survives a failure in each mirrored pair; the cost is 50% capacity.",
+            "RAID 5 has the 4-I/O small-write penalty, which hurts a transaction workload.",
+            "RAID 5 rebuilds are long and a second failure during the rebuild loses the data; RAID 6 would be safer if capacity matters more.",
+            "RAID is not a backup: add replication and off-site backups."
+          ]
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "A colleague says \"RAID 6 means we do not need backups\". What do you answer?",
+          "think": 20,
+          "pair": 40,
+          "answer": "RAID protects against disk failure only. Accidental deletion, software bugs, ransomware, a controller fault, fire or theft affect all the disks at once or are copied to every disk. Backups (preferably off-site) protect against those cases, so RAID and backups serve different purposes."
+        },
+        {
+          "type": "mcq",
+          "concept": "design",
+          "question": "For a write-heavy transaction database, which is the usual choice?",
+          "options": [
+            "RAID 10",
+            "RAID 0",
+            "RAID 5 with only three disks",
+            "No RAID"
+          ],
+          "answer": 0,
+          "why": "Mirrored stripes give fast writes and good fault tolerance.",
+          "feedback": [
+            "",
+            "RAID 0 has no redundancy.",
+            "RAID 5 has the small-write penalty and a vulnerable rebuild.",
+            "One failure would lose the data."
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What does availability depend on?",
+              "a": "Both MTTF (how rarely it fails) and MTTR (how fast it is repaired).",
+              "concept": "reliab"
+            },
+            {
+              "q": "How does parity let a lost block be rebuilt?",
+              "a": "XOR the remaining blocks and the parity.",
+              "concept": "raid"
+            },
+            {
+              "q": "Why is RAID not a backup?",
+              "a": "It protects against disk failure only, not deletion, corruption or site loss.",
+              "concept": "raid"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "bus",
+          "question": "Name the three buses and what each carries.",
+          "answer": "Address bus (the location wanted), data bus (the data) and control bus (read/write, clock, handshake).",
+          "solution": "Each group of lines has a distinct job.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "reliab",
+          "question": "MTTF 1,000 hours, MTTR 1 hour. Find the availability and the downtime per year.",
+          "answer": "99.9%; about 8.75 hours per year.",
+          "solution": "1000 ÷ 1001 = 0.999001. Downtime = 0.000999 × 8,760 ≈ 8.75 hours.",
+          "hint": "Availability = MTTF ÷ (MTTF + MTTR).",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "raid",
+          "question": "Data blocks 10, 6 and 3 are protected by an XOR parity block. Find the parity and rebuild the lost block 6.",
+          "answer": "Parity = 15; rebuilt 6 = 10 XOR 3 XOR 15.",
+          "solution": "10 XOR 6 XOR 3 = 15. 10 XOR 3 = 9; 9 XOR 15 = 6.",
+          "hint": "Write the numbers in binary.",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "bus",
+          "question": "A 128-bit bus runs at 200 MHz with two transfers per cycle. Find its bandwidth, and the address space if it has 36 address lines.",
+          "answer": "6,400 MB/s (6.4 GB/s); 64 GiB.",
+          "solution": "16 bytes × 200 million cycles × 2 = 6,400 MB/s. 2³⁶ bytes = 64 GiB.",
+          "mistake": "Using bits instead of bytes.",
+          "title": "Exam practice: bandwidth",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "reliab",
+          "question": "A disk has an MTTF of 1,000,000 hours. An array has 100 such disks without redundancy. Find the array MTTF in hours and days. If repair takes 24 hours, what is the availability of one disk?",
+          "answer": "10,000 hours (about 417 days); availability about 99.9976%.",
+          "solution": "Array MTTF = 1,000,000 ÷ 100 = 10,000 h = 417 days. Single disk: 1,000,000 ÷ 1,000,024 = 0.999976.",
+          "mistake": "Dividing by the wrong number.",
+          "title": "Exam practice: array failures",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "raid",
+          "question": "Four disks in RAID 5, RAID 6 and RAID 10 (pairs 0-1 and 2-3). Which survive (a) disks 0 and 1 failing, (b) disks 0 and 2 failing?",
+          "answer": "(a) RAID 6 only. (b) RAID 6 and RAID 10.",
+          "solution": "RAID 5 survives one failure. RAID 6 survives any two. RAID 10 survives if no mirrored pair loses both disks: 0 and 1 are a pair (lost), 0 and 2 are in different pairs (safe).",
+          "mistake": "Assuming RAID 10 survives any two failures.",
+          "title": "Exam practice: survival",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "raid",
+          "question": "Eight 4 TB disks. Give the usable capacity for RAID 0, 5, 6 and 10, and the number of failures each is guaranteed to survive.",
+          "answer": "RAID 0: 32 TB, 0. RAID 5: 28 TB, 1. RAID 6: 24 TB, 2. RAID 10: 16 TB, 1.",
+          "solution": "RAID 0 uses all 8 disks; RAID 5 loses one disk's worth to parity; RAID 6 loses two; RAID 10 stores every block twice.",
+          "mistake": "Forgetting the parity disk(s).",
+          "title": "Exam practice: capacity",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "design",
+          "question": "You are designing storage for a banking database. Which RAID configuration would you choose and why?",
+          "answer": "RAID 10 for the transaction database: it gives the best write performance (no parity small-write penalty), fast rebuilds and tolerates a failure in each mirrored pair, at the price of 50% capacity. RAID 6 could serve large read-mostly archives where capacity matters more. In both cases add hot spares, a battery-backed cache, replication or off-site backups, because RAID does not protect against deletion or site loss.",
+          "solution": "A strong answer weighs reliability, write performance, capacity, cost and rebuild risk, and mentions backups.",
+          "mistake": "Choosing RAID 0 for speed, or saying RAID replaces backups.",
+          "title": "Exam practice: banking database",
+          "think": 120,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Buses, reliability and RAID",
+          "branches": [
+            {
+              "label": "Buses",
+              "example": "address, data, control",
+              "section": "bus"
+            },
+            {
+              "label": "Reliability",
+              "example": "MTTF, MTTR, availability",
+              "section": "reliab"
+            },
+            {
+              "label": "RAID",
+              "example": "striping, mirroring, parity",
+              "section": "raid"
+            },
+            {
+              "label": "Design",
+              "example": "choosing a level",
+              "section": "design"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "A bus has address, data and control lines; bandwidth = bytes per transfer × transfers per second.",
+            "n address lines reach 2ⁿ locations.",
+            "Availability = MTTF ÷ (MTTF + MTTR); each extra nine cuts downtime tenfold.",
+            "More components mean more failures: array MTTF = disk MTTF ÷ number of disks.",
+            "RAID 0 stripes (no redundancy); RAID 1 and 10 mirror; RAID 5 and 6 use one or two parity blocks.",
+            "Parity is the XOR of the data blocks; XOR of the rest rebuilds a lost block.",
+            "Choose the level from the requirements and keep backups."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "High reliability means high availability.",
+              "right": "Slow repair (high MTTR) lowers availability."
+            },
+            {
+              "wrong": "RAID is a backup.",
+              "right": "It protects only against disk failure."
+            },
+            {
+              "wrong": "RAID 10 survives any two failures.",
+              "right": "Only if the failures are in different mirrored pairs."
+            },
+            {
+              "wrong": "RAID 0 is redundant.",
+              "right": "It has no redundancy at all."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Buses carry addresses, data and control signals, and their bandwidth is width times transfer rate. Large systems fail often, so reliability is measured by MTTF and MTTR and availability by MTTF divided by MTTF + MTTR. RAID combines striping, mirroring and parity: RAID 0 for speed, RAID 1 and 10 for mirrored redundancy, RAID 5 and 6 for parity with one or two failures tolerated. The choice depends on the requirements, and backups are still needed."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "bus",
+              "question": "Which bus determines how much memory can be addressed?",
+              "options": [
+                "Address bus",
+                "Data bus",
+                "Control bus",
+                "Power bus"
+              ],
+              "answer": 0,
+              "why": "n address lines reach 2ⁿ locations.",
+              "misconception": "The data bus fixes the bytes per transfer."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "raid",
+              "statement": "RAID 0 provides redundancy.",
+              "answer": false,
+              "why": "It only stripes; one failure loses everything.",
+              "misconception": "RAID 1, 5, 6 and 10 provide redundancy."
+            },
+            {
+              "level": "easy",
+              "concept": "reliab",
+              "question": "What is availability?",
+              "options": [
+                "MTTF ÷ (MTTF + MTTR)",
+                "MTTR ÷ MTTF",
+                "MTTF × MTTR",
+                "1 ÷ MTTF"
+              ],
+              "answer": 0,
+              "why": "The fraction of time the service is working.",
+              "misconception": "Both failure rate and repair time matter."
+            },
+            {
+              "level": "medium",
+              "concept": "bus",
+              "question": "64-bit bus, 100 MHz, one transfer per cycle: bandwidth?",
+              "options": [
+                "800 MB/s",
+                "100 MB/s",
+                "6.4 GB/s",
+                "64 MB/s"
+              ],
+              "answer": 0,
+              "why": "8 bytes × 100 million = 800 MB/s.",
+              "misconception": "Convert bits to bytes first."
+            },
+            {
+              "level": "medium",
+              "concept": "reliab",
+              "question": "Availability of 99.9% allows about how much downtime per year?",
+              "options": [
+                "8.76 hours",
+                "87.6 hours",
+                "52.6 minutes",
+                "5.26 minutes"
+              ],
+              "answer": 0,
+              "why": "0.001 × 8,760 hours.",
+              "misconception": "99.99% allows 52.6 minutes."
+            },
+            {
+              "level": "medium",
+              "concept": "raid",
+              "question": "Six 2 TB disks in RAID 5: usable capacity?",
+              "options": [
+                "10 TB",
+                "12 TB",
+                "8 TB",
+                "6 TB"
+              ],
+              "answer": 0,
+              "why": "(6 − 1) × 2 TB.",
+              "misconception": "One disk's worth is parity."
+            },
+            {
+              "level": "hard",
+              "concept": "raid",
+              "question": "Four-disk RAID 10 with pairs (0,1) and (2,3): which failures lose data?",
+              "options": [
+                "Disks 0 and 1",
+                "Disks 0 and 2",
+                "Disks 1 and 3",
+                "Disk 2 only"
+              ],
+              "answer": 0,
+              "why": "Both disks of a mirrored pair are gone.",
+              "misconception": "Different pairs survive."
+            },
+            {
+              "level": "hard",
+              "concept": "raid",
+              "question": "Data blocks 10, 6 and 3 with XOR parity 15. Block 6 is lost; rebuild it:",
+              "options": [
+                "10 XOR 3 XOR 15 = 6",
+                "10 + 3 + 15",
+                "15 − 10",
+                "3 XOR 15 = 12"
+              ],
+              "answer": 0,
+              "why": "XOR of all the remaining blocks gives the lost one.",
+              "misconception": "10 XOR 3 = 9; 9 XOR 15 = 6."
+            },
+            {
+              "level": "challenge",
+              "concept": "reliab",
+              "question": "100 disks, each MTTF 1,000,000 hours, no redundancy: expected time to the first failure in the array?",
+              "options": [
+                "10,000 hours (about 417 days)",
+                "1,000,000 hours",
+                "100 hours",
+                "100,000 hours"
+              ],
+              "answer": 0,
+              "why": "1,000,000 ÷ 100 = 10,000 hours.",
+              "misconception": "Failure rates add up."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "Name the three buses.",
+              "a": "Address, data and control.",
+              "concept": "bus"
+            },
+            {
+              "q": "Give the availability formula.",
+              "a": "MTTF ÷ (MTTF + MTTR).",
+              "concept": "reliab"
+            },
+            {
+              "q": "How many failures does RAID 6 survive?",
+              "a": "Any two.",
+              "concept": "raid"
+            },
+            {
+              "q": "How is a lost block rebuilt with parity?",
+              "a": "XOR of the remaining blocks and the parity.",
+              "concept": "raid"
+            },
+            {
+              "q": "Which RAID for a write-heavy critical database?",
+              "a": "RAID 10 (plus backups).",
+              "concept": "design"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

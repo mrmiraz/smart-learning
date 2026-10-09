@@ -1,0 +1,1074 @@
+{
+  "type": "diagram",
+  "title": "The single-cycle datapath",
+  "width": 960,
+  "height": 560,
+  "nodes": [
+    {
+      "id": "pc",
+      "label": "PC",
+      "kind": "reg",
+      "x": 25,
+      "y": 250,
+      "w": 50,
+      "h": 70
+    },
+    {
+      "id": "add4",
+      "label": "+4",
+      "kind": "adder",
+      "x": 95,
+      "y": 75,
+      "w": 56,
+      "h": 44
+    },
+    {
+      "id": "im",
+      "label": "Instruction\nmemory",
+      "kind": "mem",
+      "x": 120,
+      "y": 250,
+      "w": 100,
+      "h": 100
+    },
+    {
+      "id": "regdst",
+      "label": "",
+      "kind": "mux",
+      "x": 250,
+      "y": 335,
+      "w": 26,
+      "h": 60
+    },
+    {
+      "id": "rf",
+      "label": "Register\nfile",
+      "kind": "reg",
+      "x": 310,
+      "y": 235,
+      "w": 110,
+      "h": 140
+    },
+    {
+      "id": "signext",
+      "label": "Sign\nextend",
+      "kind": "unit",
+      "x": 290,
+      "y": 430,
+      "w": 90,
+      "h": 44
+    },
+    {
+      "id": "shift",
+      "label": "Shift\nleft 2",
+      "kind": "unit",
+      "x": 420,
+      "y": 130,
+      "w": 70,
+      "h": 40
+    },
+    {
+      "id": "badd",
+      "label": "Add",
+      "kind": "adder",
+      "x": 540,
+      "y": 75,
+      "w": 56,
+      "h": 44
+    },
+    {
+      "id": "pcsrc",
+      "label": "",
+      "kind": "mux",
+      "x": 700,
+      "y": 85,
+      "w": 26,
+      "h": 80
+    },
+    {
+      "id": "alusrc",
+      "label": "",
+      "kind": "mux",
+      "x": 470,
+      "y": 300,
+      "w": 26,
+      "h": 70
+    },
+    {
+      "id": "alu",
+      "label": "ALU",
+      "kind": "alu",
+      "x": 550,
+      "y": 250,
+      "w": 90,
+      "h": 120
+    },
+    {
+      "id": "dm",
+      "label": "Data\nmemory",
+      "kind": "mem",
+      "x": 700,
+      "y": 250,
+      "w": 110,
+      "h": 130
+    },
+    {
+      "id": "memtoreg",
+      "label": "",
+      "kind": "mux",
+      "x": 850,
+      "y": 290,
+      "w": 26,
+      "h": 70
+    },
+    {
+      "id": "ctrl",
+      "label": "Control",
+      "kind": "ctrl",
+      "x": 330,
+      "y": 12,
+      "w": 150,
+      "h": 40
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_pc_im",
+      "points": [
+        [
+          75,
+          285
+        ],
+        [
+          120,
+          285
+        ]
+      ]
+    },
+    {
+      "id": "e_pc_add4",
+      "points": [
+        [
+          50,
+          250
+        ],
+        [
+          50,
+          97
+        ],
+        [
+          95,
+          97
+        ]
+      ]
+    },
+    {
+      "id": "e_add4_pcsrc",
+      "points": [
+        [
+          151,
+          97
+        ],
+        [
+          175,
+          97
+        ],
+        [
+          175,
+          60
+        ],
+        [
+          670,
+          60
+        ],
+        [
+          670,
+          100
+        ],
+        [
+          700,
+          100
+        ]
+      ],
+      "label": "PC + 4",
+      "labelAt": [
+        420,
+        54
+      ]
+    },
+    {
+      "id": "e_add4_badd",
+      "points": [
+        [
+          500,
+          60
+        ],
+        [
+          500,
+          88
+        ],
+        [
+          540,
+          88
+        ]
+      ]
+    },
+    {
+      "id": "e_shift_badd",
+      "points": [
+        [
+          490,
+          150
+        ],
+        [
+          515,
+          150
+        ],
+        [
+          515,
+          106
+        ],
+        [
+          540,
+          106
+        ]
+      ]
+    },
+    {
+      "id": "e_badd_pcsrc",
+      "points": [
+        [
+          596,
+          97
+        ],
+        [
+          640,
+          97
+        ],
+        [
+          640,
+          150
+        ],
+        [
+          700,
+          150
+        ]
+      ],
+      "label": "branch target",
+      "labelAt": [
+        650,
+        92
+      ]
+    },
+    {
+      "id": "e_pcsrc_pc",
+      "points": [
+        [
+          726,
+          125
+        ],
+        [
+          930,
+          125
+        ],
+        [
+          930,
+          530
+        ],
+        [
+          10,
+          530
+        ],
+        [
+          10,
+          310
+        ],
+        [
+          25,
+          310
+        ]
+      ],
+      "label": "next PC",
+      "labelAt": [
+        470,
+        524
+      ]
+    },
+    {
+      "id": "e_im_rs",
+      "points": [
+        [
+          220,
+          270
+        ],
+        [
+          310,
+          270
+        ]
+      ],
+      "label": "rs",
+      "labelAt": [
+        265,
+        264
+      ]
+    },
+    {
+      "id": "e_im_rt",
+      "points": [
+        [
+          220,
+          300
+        ],
+        [
+          310,
+          300
+        ]
+      ],
+      "label": "rt",
+      "labelAt": [
+        265,
+        294
+      ]
+    },
+    {
+      "id": "e_im_regdst",
+      "points": [
+        [
+          220,
+          330
+        ],
+        [
+          235,
+          330
+        ],
+        [
+          235,
+          350
+        ],
+        [
+          250,
+          350
+        ]
+      ],
+      "label": "rt / rd",
+      "labelAt": [
+        216,
+        326
+      ]
+    },
+    {
+      "id": "e_regdst_rf",
+      "points": [
+        [
+          276,
+          365
+        ],
+        [
+          293,
+          365
+        ],
+        [
+          293,
+          355
+        ],
+        [
+          310,
+          355
+        ]
+      ],
+      "label": "write reg",
+      "labelAt": [
+        296,
+        380
+      ]
+    },
+    {
+      "id": "e_im_signext",
+      "points": [
+        [
+          190,
+          350
+        ],
+        [
+          190,
+          452
+        ],
+        [
+          290,
+          452
+        ]
+      ],
+      "label": "immediate",
+      "labelAt": [
+        240,
+        446
+      ]
+    },
+    {
+      "id": "e_signext_alusrc",
+      "points": [
+        [
+          380,
+          452
+        ],
+        [
+          452,
+          452
+        ],
+        [
+          452,
+          355
+        ],
+        [
+          470,
+          355
+        ]
+      ]
+    },
+    {
+      "id": "e_signext_shift",
+      "points": [
+        [
+          452,
+          355
+        ],
+        [
+          452,
+          150
+        ],
+        [
+          420,
+          150
+        ]
+      ],
+      "arrow": false
+    },
+    {
+      "id": "e_rf_alu",
+      "points": [
+        [
+          420,
+          275
+        ],
+        [
+          550,
+          275
+        ]
+      ],
+      "label": "read data 1",
+      "labelAt": [
+        485,
+        269
+      ]
+    },
+    {
+      "id": "e_rf_alusrc",
+      "points": [
+        [
+          420,
+          335
+        ],
+        [
+          435,
+          335
+        ],
+        [
+          435,
+          315
+        ],
+        [
+          470,
+          315
+        ]
+      ]
+    },
+    {
+      "id": "e_rf_dm",
+      "points": [
+        [
+          435,
+          335
+        ],
+        [
+          435,
+          400
+        ],
+        [
+          680,
+          400
+        ],
+        [
+          680,
+          355
+        ],
+        [
+          700,
+          355
+        ]
+      ],
+      "label": "read data 2",
+      "labelAt": [
+        560,
+        394
+      ]
+    },
+    {
+      "id": "e_alusrc_alu",
+      "points": [
+        [
+          496,
+          335
+        ],
+        [
+          550,
+          335
+        ]
+      ]
+    },
+    {
+      "id": "e_alu_dm",
+      "points": [
+        [
+          640,
+          310
+        ],
+        [
+          700,
+          310
+        ]
+      ],
+      "label": "address",
+      "labelAt": [
+        670,
+        304
+      ]
+    },
+    {
+      "id": "e_alu_memtoreg",
+      "points": [
+        [
+          665,
+          310
+        ],
+        [
+          665,
+          425
+        ],
+        [
+          830,
+          425
+        ],
+        [
+          830,
+          305
+        ],
+        [
+          850,
+          305
+        ]
+      ],
+      "arrow": true
+    },
+    {
+      "id": "e_dm_memtoreg",
+      "points": [
+        [
+          810,
+          330
+        ],
+        [
+          830,
+          330
+        ],
+        [
+          830,
+          345
+        ],
+        [
+          850,
+          345
+        ]
+      ]
+    },
+    {
+      "id": "e_memtoreg_rf",
+      "points": [
+        [
+          876,
+          325
+        ],
+        [
+          900,
+          325
+        ],
+        [
+          900,
+          548
+        ],
+        [
+          290,
+          548
+        ],
+        [
+          290,
+          370
+        ],
+        [
+          310,
+          370
+        ]
+      ],
+      "label": "write data",
+      "labelAt": [
+        600,
+        542
+      ]
+    },
+    {
+      "id": "e_im_ctrl",
+      "points": [
+        [
+          170,
+          250
+        ],
+        [
+          170,
+          32
+        ],
+        [
+          330,
+          32
+        ]
+      ],
+      "kind": "control",
+      "label": "opcode",
+      "labelAt": [
+        250,
+        26
+      ]
+    },
+    {
+      "id": "e_zero",
+      "points": [
+        [
+          600,
+          250
+        ],
+        [
+          600,
+          215
+        ],
+        [
+          713,
+          215
+        ],
+        [
+          713,
+          165
+        ]
+      ],
+      "kind": "control",
+      "label": "Zero",
+      "labelAt": [
+        640,
+        209
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "x": 260,
+      "y": 322,
+      "text": "RegDst",
+      "anchor": "middle"
+    },
+    {
+      "x": 483,
+      "y": 293,
+      "text": "ALUSrc",
+      "anchor": "middle"
+    },
+    {
+      "x": 863,
+      "y": 283,
+      "text": "MemtoReg",
+      "anchor": "middle"
+    },
+    {
+      "x": 713,
+      "y": 78,
+      "text": "PCSrc",
+      "anchor": "middle"
+    }
+  ],
+  "steps": [
+    {
+      "show": [
+        "pc",
+        "im",
+        "e_pc_im"
+      ],
+      "text": "The **program counter** holds the address of the instruction. It addresses the **instruction memory**."
+    },
+    {
+      "show": [
+        "rf",
+        "e_im_rs",
+        "e_im_rt",
+        "regdst",
+        "e_im_regdst",
+        "e_regdst_rf"
+      ],
+      "text": "Fields of the instruction name the registers to read in the **register file**; a multiplexer picks the destination register."
+    },
+    {
+      "show": [
+        "alu",
+        "alusrc",
+        "e_rf_alu",
+        "e_rf_alusrc",
+        "e_alusrc_alu"
+      ],
+      "text": "The **ALU** operates on register data, or on register data and an immediate chosen by a multiplexer."
+    },
+    {
+      "show": [
+        "signext",
+        "e_im_signext",
+        "e_signext_alusrc"
+      ],
+      "text": "The 16-bit immediate is **sign-extended** to 32 bits so it can be an ALU input."
+    },
+    {
+      "show": [
+        "dm",
+        "e_alu_dm",
+        "e_rf_dm",
+        "memtoreg",
+        "e_alu_memtoreg",
+        "e_dm_memtoreg",
+        "e_memtoreg_rf"
+      ],
+      "text": "**Data memory** is read or written for loads and stores; a multiplexer chooses what is written back to the register file."
+    },
+    {
+      "show": [
+        "add4",
+        "e_pc_add4",
+        "e_add4_pcsrc",
+        "pcsrc",
+        "e_pcsrc_pc"
+      ],
+      "text": "The PC normally advances by 4 to the next instruction."
+    },
+    {
+      "show": [
+        "shift",
+        "badd",
+        "e_add4_badd",
+        "e_shift_badd",
+        "e_badd_pcsrc",
+        "e_signext_shift",
+        "e_zero"
+      ],
+      "text": "For branches, a second adder computes the **branch target** and the ALU's Zero output helps choose the next PC."
+    },
+    {
+      "show": [
+        "ctrl",
+        "e_im_ctrl"
+      ],
+      "text": "The **control unit** reads the opcode and sets every multiplexer and memory control signal."
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "add $t0, $s1, $s2",
+      "steps": [
+        {
+          "highlight": [
+            "pc",
+            "e_pc_im",
+            "im"
+          ],
+          "text": "**Fetch**: the PC addresses the instruction memory and the instruction is read.",
+          "values": {
+            "pc": "0x00400000",
+            "im": "add $t0,$s1,$s2"
+          }
+        },
+        {
+          "highlight": [
+            "im",
+            "e_im_rs",
+            "e_im_rt",
+            "rf",
+            "e_im_ctrl",
+            "ctrl"
+          ],
+          "text": "**Decode**: the control unit sets the signals for an R-type instruction; registers $s1 and $s2 are read.",
+          "values": {
+            "rf": "$s1=5  $s2=7",
+            "ctrl": "RegDst=1 ALUSrc=0 RegWrite=1"
+          }
+        },
+        {
+          "highlight": [
+            "rf",
+            "e_rf_alu",
+            "e_rf_alusrc",
+            "alusrc",
+            "e_alusrc_alu",
+            "alu"
+          ],
+          "text": "**Execute**: the ALU adds the two register values.",
+          "values": {
+            "alu": "5 + 7 = 12",
+            "alusrc": "ALUSrc=0"
+          }
+        },
+        {
+          "highlight": [
+            "alu",
+            "e_alu_memtoreg",
+            "memtoreg",
+            "e_memtoreg_rf",
+            "rf",
+            "regdst",
+            "e_regdst_rf"
+          ],
+          "text": "**Write back**: the ALU result (not memory data) goes to the destination register $t0.",
+          "values": {
+            "memtoreg": "MemtoReg=0",
+            "rf": "$t0 = 12"
+          }
+        },
+        {
+          "highlight": [
+            "pc",
+            "add4",
+            "e_pc_add4",
+            "e_add4_pcsrc",
+            "pcsrc",
+            "e_pcsrc_pc"
+          ],
+          "text": "**Next instruction**: PC + 4 becomes the new PC.",
+          "values": {
+            "pc": "0x00400004"
+          }
+        }
+      ]
+    },
+    {
+      "name": "lw $t0, 8($s1)",
+      "steps": [
+        {
+          "highlight": [
+            "pc",
+            "e_pc_im",
+            "im"
+          ],
+          "text": "**Fetch** the load instruction.",
+          "values": {
+            "im": "lw $t0,8($s1)"
+          }
+        },
+        {
+          "highlight": [
+            "im",
+            "e_im_rs",
+            "rf",
+            "e_im_signext",
+            "signext",
+            "e_im_ctrl",
+            "ctrl"
+          ],
+          "text": "**Decode**: read the base register $s1; sign-extend the offset 8.",
+          "values": {
+            "rf": "$s1=0x1000",
+            "signext": "8",
+            "ctrl": "ALUSrc=1 MemRead=1 RegWrite=1"
+          }
+        },
+        {
+          "highlight": [
+            "rf",
+            "e_rf_alu",
+            "signext",
+            "e_signext_alusrc",
+            "alusrc",
+            "e_alusrc_alu",
+            "alu"
+          ],
+          "text": "**Execute**: the ALU adds the base and the offset to form the **address**.",
+          "values": {
+            "alu": "0x1000 + 8 = 0x1008"
+          }
+        },
+        {
+          "highlight": [
+            "alu",
+            "e_alu_dm",
+            "dm"
+          ],
+          "text": "**Memory access**: data memory is read at that address.",
+          "values": {
+            "dm": "Mem[0x1008] = 42"
+          }
+        },
+        {
+          "highlight": [
+            "dm",
+            "e_dm_memtoreg",
+            "memtoreg",
+            "e_memtoreg_rf",
+            "rf",
+            "e_im_regdst",
+            "regdst",
+            "e_regdst_rf"
+          ],
+          "text": "**Write back**: the loaded value goes to $t0 (here MemtoReg = 1, RegDst = 0).",
+          "values": {
+            "memtoreg": "MemtoReg=1",
+            "rf": "$t0 = 42"
+          }
+        }
+      ]
+    },
+    {
+      "name": "sw $t0, 8($s1)",
+      "steps": [
+        {
+          "highlight": [
+            "pc",
+            "e_pc_im",
+            "im"
+          ],
+          "text": "**Fetch** the store instruction.",
+          "values": {
+            "im": "sw $t0,8($s1)"
+          }
+        },
+        {
+          "highlight": [
+            "im",
+            "e_im_rs",
+            "e_im_rt",
+            "rf",
+            "signext",
+            "e_im_signext",
+            "e_im_ctrl",
+            "ctrl"
+          ],
+          "text": "**Decode**: read $s1 (base) and $t0 (the value to store); sign-extend the offset.",
+          "values": {
+            "ctrl": "ALUSrc=1 MemWrite=1 RegWrite=0"
+          }
+        },
+        {
+          "highlight": [
+            "rf",
+            "e_rf_alu",
+            "signext",
+            "e_signext_alusrc",
+            "alusrc",
+            "e_alusrc_alu",
+            "alu"
+          ],
+          "text": "**Execute**: compute the address base + offset.",
+          "values": {
+            "alu": "0x1000 + 8 = 0x1008"
+          }
+        },
+        {
+          "highlight": [
+            "alu",
+            "e_alu_dm",
+            "e_rf_dm",
+            "dm"
+          ],
+          "text": "**Memory access**: the register value is **written** to data memory. Nothing is written back to a register.",
+          "values": {
+            "dm": "Mem[0x1008] = $t0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "beq $s1, $s2, L",
+      "steps": [
+        {
+          "highlight": [
+            "pc",
+            "e_pc_im",
+            "im"
+          ],
+          "text": "**Fetch** the branch instruction.",
+          "values": {
+            "im": "beq $s1,$s2,L"
+          }
+        },
+        {
+          "highlight": [
+            "im",
+            "e_im_rs",
+            "e_im_rt",
+            "rf",
+            "e_im_signext",
+            "signext",
+            "e_im_ctrl",
+            "ctrl"
+          ],
+          "text": "**Decode**: read the two registers to compare; sign-extend the offset.",
+          "values": {
+            "ctrl": "Branch=1 ALUSrc=0 RegWrite=0"
+          }
+        },
+        {
+          "highlight": [
+            "rf",
+            "e_rf_alu",
+            "e_rf_alusrc",
+            "alusrc",
+            "e_alusrc_alu",
+            "alu",
+            "e_zero"
+          ],
+          "text": "**Execute**: the ALU subtracts the registers. If they are equal the result is zero and the **Zero** output is 1.",
+          "values": {
+            "alu": "5 - 5 = 0, Zero = 1"
+          }
+        },
+        {
+          "highlight": [
+            "signext",
+            "e_signext_shift",
+            "shift",
+            "e_shift_badd",
+            "add4",
+            "e_add4_badd",
+            "badd",
+            "e_badd_pcsrc"
+          ],
+          "text": "At the same time the **branch adder** computes PC + 4 + (offset × 4).",
+          "values": {
+            "badd": "branch target"
+          }
+        },
+        {
+          "highlight": [
+            "e_zero",
+            "pcsrc",
+            "e_badd_pcsrc",
+            "e_pcsrc_pc",
+            "pc"
+          ],
+          "text": "Branch AND Zero selects the branch target as the **next PC** (PCSrc = 1).",
+          "values": {
+            "pcsrc": "PCSrc=1"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1377 @@
+{
+  "id": "ca-24-vector-risc-x86-review",
+  "title": "Vector Processing, RISC/x86 and Course Review",
+  "subtitle": "Data parallelism, three instruction-set families, and the whole course in one picture.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "Appendices and ISA chapters",
+      "title": "Instruction-set architectures: RISC-V, ARM and x86 comparisons; data-level parallelism",
+      "topics": "Survey reading: the RISC-V, ARM and x86 appendices and the data-level parallelism sections"
+    },
+    {
+      "book": "CAQA",
+      "chapter": "2 (instruction sets) and 4 (vector)",
+      "title": "Instruction-Set Principles; Advanced Pipelining and ILP",
+      "topics": "Survey of RISC architectures and the Intel 80x86; vector processing (check the 2nd-edition appendices and chapter sections)"
+    }
+  ],
+  "objectives": [
+    "Explain scalar versus vector (SIMD) processing and where it is used",
+    "Compare MIPS, RISC-V and ARM and state the RISC principles",
+    "Describe the evolution of Intel x86 from the 8086 to x86-64 and why it is called CISC",
+    "Explain how a modern x86 core executes CISC instructions",
+    "Connect the whole course: performance, ISA, datapath, pipelining, memory, storage and parallelism"
+  ],
+  "concepts": [
+    {
+      "id": "vector",
+      "label": "Vector and SIMD",
+      "section": "vector"
+    },
+    {
+      "id": "risc",
+      "label": "RISC architectures",
+      "section": "risc"
+    },
+    {
+      "id": "x86",
+      "label": "Intel x86",
+      "section": "x86"
+    },
+    {
+      "id": "perf",
+      "label": "Part 1: performance, ISA and arithmetic (Classes 1-9)",
+      "section": "recap"
+    },
+    {
+      "id": "cpu",
+      "label": "Part 2: processor design (Classes 10-16)",
+      "section": "recap"
+    },
+    {
+      "id": "mem",
+      "label": "Part 3: memory, storage and parallelism (Classes 17-23)",
+      "section": "recap"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "A video player adds the same number to a million pixels. Why not add 8 or 16 pixels per instruction? And why does a 1978 instruction set still run on your laptop?",
+          "clues": [
+            "**Vector / SIMD** instructions apply one operation to many data items at once.",
+            "**RISC** designs keep instructions simple; **x86** kept compatibility for 45 years.",
+            "Today we also pull the whole course together."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "vector",
+      "label": "Vector processing and SIMD",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "vector",
+          "title": "Scalar vs vector",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "",
+                "Scalar",
+                "Vector / SIMD"
+              ],
+              "rows": [
+                [
+                  "One instruction operates on",
+                  "One data item",
+                  "Many data items at once (a vector)"
+                ],
+                [
+                  "Registers",
+                  "32-bit or 64-bit values",
+                  "Wide registers holding several values (128, 256, 512 bits) or many elements"
+                ],
+                [
+                  "Loop of 8 additions",
+                  "8 add instructions",
+                  "1 vector add (with enough lanes)"
+                ],
+                [
+                  "Also called",
+                  "SISD",
+                  "SIMD (single instruction, multiple data)"
+                ]
+              ]
+            }
+          ],
+          "why": "When the same operation is applied to lots of data, one instruction can do the work of many, saving fetch, decode and energy.",
+          "real": "x86 has SSE and AVX; ARM has NEON and SVE; RISC-V has a vector extension; GPUs are massive SIMD machines.",
+          "explainAgain": {
+            "beginner": "A cashier scanning items one by one (scalar) versus a machine that scans a whole tray at once (vector)."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "vector",
+          "title": "Try it: lanes and cycles",
+          "blocks": [
+            {
+              "type": "simd",
+              "title": "Scalar vs vector add",
+              "a": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "b": [
+                10,
+                20,
+                30,
+                40,
+                50,
+                60,
+                70,
+                80
+              ],
+              "lanes": 4
+            }
+          ],
+          "why": "8 additions: 8 cycles with 1 lane, 4 with 2 lanes, 2 with 4 lanes and 1 with 8 lanes. The speed-up equals the number of lanes when the work divides evenly."
+        },
+        {
+          "type": "predict",
+          "concept": "vector",
+          "skill": "Apply",
+          "question": "Eight element pairs are added by a vector unit with 4 lanes. How many add cycles does it need, and what is the speed-up over scalar?",
+          "options": [
+            "2 cycles; 4 times",
+            "4 cycles; 2 times",
+            "8 cycles; 1 time",
+            "1 cycle; 8 times"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Four elements per cycle: 8 ÷ 4 = **2 cycles**, against 8 for a scalar unit: a speed-up of **4**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "With 8 lanes it would be 1 cycle."
+        },
+        {
+          "type": "concept",
+          "concept": "vector",
+          "title": "Vector registers and applications",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "A **vector register** holds many elements; a vector instruction like `vadd v1, v2, v3` adds them element by element",
+                "Classic vector supercomputers had registers of 64 elements; modern SIMD uses 128 to 512 bits",
+                "Only code with **independent, regular** operations on arrays benefits (data-level parallelism)",
+                "Typical applications: graphics, video and audio, image processing, machine learning, scientific simulation"
+              ]
+            },
+            {
+              "type": "text",
+              "text": "Not everything vectorizes: loops with dependences between iterations or irregular branches stay scalar. Amdahl's Law applies again: a program with 80% vectorizable work and 8 lanes speeds up 1 ÷ (0.2 + 0.8 ÷ 8) = 3.33 times.",
+              "style": "muted"
+            }
+          ],
+          "why": "Vector hardware is the cheapest way to gain performance on data-parallel code.",
+          "real": "Libraries such as BLAS and image filters are hand-optimized with SIMD instructions.",
+          "mistake": {
+            "wrong": "Vector hardware speeds up every program.",
+            "right": "Only the vectorizable fraction speeds up; the rest is limited by Amdahl's Law."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "vector",
+          "title": "Calculate: partial vectorization",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Speed-up with SIMD (Amdahl's Law)",
+              "equation": "speedup = 1 ÷ ((1 − v) + v ÷ lanes)",
+              "inputs": [
+                {
+                  "id": "v",
+                  "label": "Vectorizable fraction",
+                  "value": 80,
+                  "min": 0,
+                  "max": 100,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "l",
+                  "label": "Lanes",
+                  "value": 8,
+                  "min": 1,
+                  "max": 64,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "Overall speed-up",
+                  "formula": "1 / ((1 - v/100) + (v/100) / l)",
+                  "format": "x",
+                  "digits": 2
+                },
+                {
+                  "label": "Limit with unlimited lanes",
+                  "formula": "1 / (1 - v/100)",
+                  "format": "x",
+                  "digits": 1
+                }
+              ]
+            }
+          ],
+          "why": "80% vectorizable with 8 lanes: 3.33 times. With 4 lanes: 2.5 times. The limit is 5 times, however wide the vector unit."
+        },
+        {
+          "type": "mcq",
+          "concept": "vector",
+          "question": "SIMD stands for:",
+          "options": [
+            "Single instruction, multiple data",
+            "Serial instruction, memory data",
+            "Simple instruction mode",
+            "Shared instruction memory"
+          ],
+          "answer": 0,
+          "why": "One instruction operates on multiple data elements.",
+          "feedback": [
+            "",
+            "Not a real term.",
+            "Not a real term.",
+            "Not a real term."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "vector",
+          "statement": "A vector unit with 4 lanes always runs every program 4 times faster.",
+          "answer": false,
+          "why": "Only the vectorizable part speeds up, and only if it divides evenly."
+        }
+      ]
+    },
+    {
+      "id": "risc",
+      "label": "RISC architectures",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "risc",
+          "title": "The RISC principles",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**Simple instructions** that take about one cycle each",
+                "**Fixed instruction length** (typically 32 bits): easy fetch and decode",
+                "**Load/store architecture**: only loads and stores touch memory; arithmetic works on registers",
+                "**Many registers** (32 or more)",
+                "Designed for **pipelining** (Classes 12 to 16)"
+              ]
+            },
+            {
+              "type": "text",
+              "text": "These follow the four design principles of the course: simplicity favours regularity, smaller is faster, make the common case fast, good design demands good compromises.",
+              "style": "muted"
+            }
+          ],
+          "why": "Simple, regular instructions make pipelines fast and compilers effective.",
+          "real": "All modern high-performance RISC designs (ARM, RISC-V) follow these ideas."
+        },
+        {
+          "type": "concept",
+          "concept": "risc",
+          "title": "MIPS, RISC-V and ARM",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "",
+                "MIPS",
+                "RISC-V",
+                "ARM"
+              ],
+              "rows": [
+                [
+                  "Origin",
+                  "Stanford / MIPS Computer Systems, mid 1980s",
+                  "UC Berkeley, from 2010, open standard",
+                  "Acorn RISC Machine (1985), now Arm Ltd"
+                ],
+                [
+                  "Registers",
+                  "32 integer",
+                  "32 integer (x0 is always 0)",
+                  "31 general registers in 64-bit (AArch64)"
+                ],
+                [
+                  "Instruction length",
+                  "32 bits fixed",
+                  "32 bits, optional 16-bit compressed",
+                  "32 bits fixed (64-bit mode)"
+                ],
+                [
+                  "Style",
+                  "Load/store, 3 formats (R, I, J)",
+                  "Load/store, modular extensions",
+                  "Load/store, many addressing modes"
+                ],
+                [
+                  "Where",
+                  "Education, embedded, networking",
+                  "Embedded, research, growing in industry",
+                  "Phones, tablets, servers, Apple silicon"
+                ]
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Operation",
+                "MIPS",
+                "RISC-V",
+                "ARM (64-bit)"
+              ],
+              "rows": [
+                [
+                  "add",
+                  "`add $t0,$s1,$s2`",
+                  "`add x5,x6,x7`",
+                  "`add x5,x6,x7`"
+                ],
+                [
+                  "load word",
+                  "`lw $t0,8($s1)`",
+                  "`lw x5,8(x6)`",
+                  "`ldr w5,[x6,#8]`"
+                ]
+              ]
+            }
+          ],
+          "why": "The three look very similar: they share the same RISC ideas, so skills from this course carry over directly.",
+          "real": "RISC-V is open, so anyone can build a processor without paying an ISA licence.",
+          "mistake": {
+            "wrong": "MIPS, RISC-V and ARM are completely different designs.",
+            "right": "They are close relatives with different encodings and details."
+          }
+        },
+        {
+          "type": "match",
+          "concept": "risc",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each instruction-set family with a fact.",
+          "pairs": [
+            {
+              "a": "MIPS",
+              "b": "The ISA used throughout this course"
+            },
+            {
+              "a": "RISC-V",
+              "b": "Open standard started at UC Berkeley"
+            },
+            {
+              "a": "ARM",
+              "b": "Dominant in phones and tablets"
+            },
+            {
+              "a": "RISC principle",
+              "b": "Only loads and stores access memory"
+            }
+          ],
+          "why": "Knowing the family helps place any new ISA."
+        },
+        {
+          "type": "find",
+          "concept": "risc",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about RISC is wrong. Click it.",
+          "lines": [
+            "1. RISC instructions are usually fixed length.",
+            "2. RISC arithmetic instructions can read operands directly from memory.",
+            "3. RISC designs are friendly to pipelining.",
+            "4. RISC machines have many registers."
+          ],
+          "wrong": 1,
+          "explain": "In a RISC load/store architecture only loads and stores access memory.",
+          "fix": "Arithmetic uses registers only."
+        }
+      ]
+    },
+    {
+      "id": "x86",
+      "label": "Intel x86",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "x86",
+          "title": "From the 8086 to x86-64",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Year (about)",
+                "Processor",
+                "Milestone"
+              ],
+              "rows": [
+                [
+                  "1978",
+                  "Intel 8086",
+                  "16-bit; 8 general registers; the origin of the architecture"
+                ],
+                [
+                  "1981",
+                  "8088 in the IBM PC",
+                  "Made x86 the personal-computer standard"
+                ],
+                [
+                  "1985",
+                  "80386",
+                  "32-bit registers and addresses"
+                ],
+                [
+                  "1993 to 1995",
+                  "Pentium, Pentium Pro",
+                  "Superscalar, then out-of-order execution"
+                ],
+                [
+                  "2003 to 2004",
+                  "AMD64 / Intel 64",
+                  "64-bit extension (x86-64), 16 general registers"
+                ],
+                [
+                  "2005 onwards",
+                  "Multicore, wide SIMD (AVX)",
+                  "Multiple cores and vector instructions"
+                ]
+              ]
+            }
+          ],
+          "why": "Backward compatibility is the reason for x86's success and also for its complexity: each generation added features without removing the old ones.",
+          "real": "A program written for the 1980s PC can often still run on a modern x86 machine.",
+          "explainAgain": {
+            "beginner": "A city that kept all its old streets and kept adding new ones: everything still works but the map is complicated."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "x86",
+          "title": "Why x86 is called CISC",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**Variable instruction length**: 1 to 15 bytes",
+                "**Two-operand** form (destination is also a source): `add eax, ebx`",
+                "Arithmetic can use a **memory operand**: `add eax, [rbx+8]` loads and adds in one instruction",
+                "Many **addressing modes** and special-purpose registers",
+                "Instructions that do a lot: string operations, complex calls"
+              ]
+            },
+            {
+              "type": "compare",
+              "left": {
+                "title": "MIPS (RISC): two instructions",
+                "items": [
+                  "`lw $t0, 8($s1)`",
+                  "`add $t2, $t2, $t0`"
+                ]
+              },
+              "right": {
+                "title": "x86 (CISC): one instruction",
+                "items": [
+                  "`add eax, [rbx+8]`",
+                  "Loads and adds in one go"
+                ]
+              }
+            }
+          ],
+          "why": "CISC code is compact, but variable length and complex instructions make decoding hard.",
+          "real": "Compactness mattered when memory was scarce; now decoding cost matters more."
+        },
+        {
+          "type": "concept",
+          "concept": "x86",
+          "title": "How a modern x86 core works inside",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Fetch bytes",
+                  "sub": "variable length",
+                  "note": "Find where each instruction starts."
+                },
+                {
+                  "label": "Decode",
+                  "sub": "CISC to micro-ops",
+                  "note": "Complex instructions become one or more simple internal operations."
+                },
+                {
+                  "label": "Micro-ops",
+                  "sub": "RISC-like",
+                  "note": "Simple, fixed-format internal operations."
+                },
+                {
+                  "label": "Out-of-order core",
+                  "sub": "Classes 14 to 16",
+                  "note": "Register renaming, reservation stations, branch prediction and speculation execute the micro-ops."
+                }
+              ],
+              "zoom": true
+            }
+          ],
+          "why": "Modern x86 processors hide the CISC instruction set behind a RISC-like engine, so the ideas of this whole course apply inside them.",
+          "real": "This is why x86 can compete with RISC designs in performance, at a cost in complexity and power.",
+          "deeper": {
+            "text": "The decoder, the micro-op cache and the long pipeline are large parts of an x86 core's area and power."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "x86",
+          "question": "Which feature makes x86 a CISC instruction set?",
+          "options": [
+            "Variable-length instructions and memory operands in arithmetic instructions",
+            "Fixed 32-bit instructions",
+            "Only loads and stores access memory",
+            "Three instruction formats"
+          ],
+          "answer": 0,
+          "why": "CISC trades simple regular instructions for powerful complicated ones.",
+          "feedback": [
+            "",
+            "That describes RISC.",
+            "That describes load/store RISC.",
+            "That describes MIPS."
+          ]
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Why did x86 survive for decades although RISC designs were technically cleaner?",
+          "think": 20,
+          "pair": 40,
+          "answer": "Software compatibility: a huge installed base of programs ran only on x86, so each new generation kept the old instructions. Intel and AMD also found a way to get RISC-like performance inside the chip by translating x86 instructions into micro-operations, which removed most of the performance disadvantage."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "label": "Course review",
+      "minutes": 16,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "perf",
+          "title": "Part 1: performance, ISA and arithmetic (Classes 1 to 9)",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Idea",
+                "Key point",
+                "Formula or number"
+              ],
+              "rows": [
+                [
+                  "Performance",
+                  "Compare using execution time",
+                  "CPU time = IC × CPI ÷ clock rate"
+                ],
+                [
+                  "Amdahl's Law",
+                  "The unimproved part limits the gain",
+                  "speed-up = 1 ÷ ((1 − f) + f ÷ s)"
+                ],
+                [
+                  "ISA",
+                  "The hardware/software interface; RISC vs CISC",
+                  "MIPS: 32 registers, load/store, formats R, I, J"
+                ],
+                [
+                  "Addressing",
+                  "Base + offset; byte addresses; alignment",
+                  "address = base + offset"
+                ],
+                [
+                  "Encoding",
+                  "R: op rs rt rd shamt funct; I: op rs rt imm; J: op target",
+                  "add $t2,$s0,$s1 = 0x02115020"
+                ],
+                [
+                  "Arithmetic",
+                  "Two's complement; overflow; IEEE 754 (1, 8, 23 bits)",
+                  "5.75 = 0x40B80000"
+                ]
+              ]
+            }
+          ],
+          "why": "Performance equations and the ISA are the language of the whole course.",
+          "real": "Every later class used these numbers: CPI in pipelining, base + offset in caches and pages."
+        },
+        {
+          "type": "concept",
+          "concept": "perf",
+          "title": "Calculate: the CPU equation",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "CPU time",
+              "equation": "time = instruction count × CPI ÷ clock rate",
+              "inputs": [
+                {
+                  "id": "ic",
+                  "label": "Instruction count",
+                  "value": 2,
+                  "min": 0.1,
+                  "max": 10,
+                  "step": 0.1,
+                  "unit": "billion"
+                },
+                {
+                  "id": "cpi",
+                  "label": "CPI",
+                  "value": 1.5,
+                  "min": 0.5,
+                  "max": 6,
+                  "step": 0.1
+                },
+                {
+                  "id": "f",
+                  "label": "Clock rate",
+                  "value": 3,
+                  "min": 0.5,
+                  "max": 6,
+                  "step": 0.1,
+                  "unit": "GHz"
+                }
+              ],
+              "results": [
+                {
+                  "label": "CPU time",
+                  "formula": "ic * cpi / f",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "s"
+                }
+              ]
+            }
+          ],
+          "why": "2 billion instructions at CPI 1.5 and 3 GHz take exactly 1 second. Change any factor to see how it scales the result."
+        },
+        {
+          "type": "concept",
+          "concept": "cpu",
+          "title": "Part 2: processor design (Classes 10 to 16)",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Idea",
+                "Key point",
+                "Formula or number"
+              ],
+              "rows": [
+                [
+                  "Single-cycle",
+                  "One long cycle per instruction; clock set by lw",
+                  "CPI = 1, slow clock"
+                ],
+                [
+                  "Multi-cycle",
+                  "Short cycles, shared hardware, FSM control",
+                  "R 4, lw 5, sw 4, beq 3 cycles"
+                ],
+                [
+                  "Pipelining",
+                  "Overlap instructions; throughput up, latency not",
+                  "n independent instructions: n + 4 cycles"
+                ],
+                [
+                  "Hazards",
+                  "Structural, data, control; forwarding; stalls",
+                  "load-use: 1 stall even with forwarding"
+                ],
+                [
+                  "ILP and OoO",
+                  "Superscalar, dynamic scheduling, renaming",
+                  "IPC = instructions ÷ cycles"
+                ],
+                [
+                  "Branch prediction",
+                  "2-bit counters; BTB; speculation",
+                  "CPI = 1 + f × miss rate × penalty"
+                ]
+              ]
+            }
+          ],
+          "why": "Each step removed one limit of the previous design: long clock, idle hardware, stalls, dependences, branches.",
+          "real": "These ideas are inside every modern CPU."
+        },
+        {
+          "type": "concept",
+          "concept": "cpu",
+          "title": "Calculate: pipeline speed-up",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Ideal pipeline",
+              "equation": "cycles = n + k − 1",
+              "inputs": [
+                {
+                  "id": "n",
+                  "label": "Instructions",
+                  "value": 20,
+                  "min": 1,
+                  "max": 1000,
+                  "step": 1
+                },
+                {
+                  "id": "k",
+                  "label": "Pipeline stages",
+                  "value": 5,
+                  "min": 2,
+                  "max": 20,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "Pipelined cycles",
+                  "formula": "n + k - 1",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Non-pipelined cycles",
+                  "formula": "n * k",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Speed-up",
+                  "formula": "n * k / (n + k - 1)",
+                  "format": "x",
+                  "digits": 2
+                }
+              ]
+            }
+          ],
+          "why": "20 independent instructions on 5 stages: 24 cycles instead of 100, a speed-up of 4.17. As n grows the speed-up approaches 5."
+        },
+        {
+          "type": "concept",
+          "concept": "mem",
+          "title": "Part 3: memory, storage and parallelism (Classes 17 to 23)",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Idea",
+                "Key point",
+                "Formula or number"
+              ],
+              "rows": [
+                [
+                  "Hierarchy",
+                  "Locality makes a small fast memory look big",
+                  "temporal and spatial locality"
+                ],
+                [
+                  "Caches",
+                  "tag | index | offset; direct, set, fully associative",
+                  "1 KiB direct, 16-byte blocks, 32-bit address: tag 22 bits"
+                ],
+                [
+                  "Cache performance",
+                  "Three Cs; AMAT",
+                  "AMAT = hit time + miss rate × miss penalty"
+                ],
+                [
+                  "Virtual memory",
+                  "Page table, TLB, page faults",
+                  "VA = page number | offset; offset unchanged"
+                ],
+                [
+                  "Storage",
+                  "Disk = seek + rotation + transfer; flash",
+                  "random 4 KB read about 8 ms on a disk"
+                ],
+                [
+                  "Reliability and RAID",
+                  "Availability; parity; RAID levels",
+                  "availability = MTTF ÷ (MTTF + MTTR)"
+                ],
+                [
+                  "Multiprocessors",
+                  "Coherence, races, locks, Amdahl",
+                  "90% parallel on 8 cores: 4.71 times"
+                ]
+              ]
+            }
+          ],
+          "why": "Memory and parallelism are where today's performance is decided.",
+          "real": "The same Amdahl's Law reappeared in I/O, vectors and parallel programs."
+        },
+        {
+          "type": "concept",
+          "concept": "mem",
+          "title": "Calculate: AMAT",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Average memory access time",
+              "equation": "AMAT = hit time + miss rate × miss penalty",
+              "inputs": [
+                {
+                  "id": "h",
+                  "label": "Hit time",
+                  "value": 1,
+                  "min": 1,
+                  "max": 5,
+                  "step": 1,
+                  "unit": "cycles"
+                },
+                {
+                  "id": "m",
+                  "label": "Miss rate",
+                  "value": 5,
+                  "min": 0,
+                  "max": 30,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "p",
+                  "label": "Miss penalty",
+                  "value": 20,
+                  "min": 5,
+                  "max": 300,
+                  "step": 5,
+                  "unit": "cycles"
+                }
+              ],
+              "results": [
+                {
+                  "label": "AMAT",
+                  "formula": "h + (m/100) * p",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "cycles"
+                }
+              ]
+            }
+          ],
+          "why": "1 + 0.05 × 20 = 2.0 cycles. The same formula applies to every level of the hierarchy."
+        },
+        {
+          "type": "arrange",
+          "concept": "mem",
+          "skill": "Understand",
+          "title": "Putting it together",
+          "prompt": "Put the path of a data load in order when the data is in the L1 cache but its translation is not in the TLB.",
+          "items": [
+            "The CPU issues a virtual address",
+            "The TLB misses and the page table is read",
+            "The physical address is formed",
+            "The L1 cache is looked up with the physical address and hits",
+            "The data returns to the CPU"
+          ],
+          "why": "Translation comes before the cache lookup in this simple model."
+        },
+        {
+          "type": "match",
+          "concept": "cpu",
+          "skill": "Understand",
+          "title": "Problems and cures",
+          "prompt": "Match each problem with its solution.",
+          "pairs": [
+            {
+              "a": "Long clock cycle in single-cycle",
+              "b": "Multi-cycle or pipelining"
+            },
+            {
+              "a": "Dependent instruction waits",
+              "b": "Forwarding"
+            },
+            {
+              "a": "Branch penalty",
+              "b": "Branch prediction"
+            },
+            {
+              "a": "Slow DRAM",
+              "b": "Caches"
+            }
+          ],
+          "why": "Each design step solves a specific limit."
+        },
+        {
+          "type": "mcq",
+          "concept": "perf",
+          "question": "Which statement ties the course together?",
+          "options": [
+            "Performance comes from many layers: ISA, pipeline, caches, parallelism, each limited by Amdahl-style bottlenecks",
+            "Only the clock rate matters",
+            "Only the number of cores matters",
+            "Memory speed is irrelevant"
+          ],
+          "answer": 0,
+          "why": "Every layer removes a bottleneck, and the slowest remaining part limits the whole.",
+          "feedback": [
+            "",
+            "Clock rate is only one factor in CPU time.",
+            "Cores help only parallel programs.",
+            "Memory speed limits many programs."
+          ],
+          "title": "The big picture"
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "mem",
+          "question": "Pick one idea from this course and explain how it appears in three different places.",
+          "seconds": 60,
+          "ideas": [
+            "Locality: caches, TLB, disk caches and prefetching.",
+            "Amdahl's Law: speed-up, I/O, vectors, multicore.",
+            "Caching of recent results: TLB, branch target buffer, register file.",
+            "Parallelism: pipelining, ILP, vectors, multicore, RAID."
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "Name one RISC principle and one CISC feature of x86.",
+              "a": "RISC: fixed-length simple instructions (or load/store). x86: variable-length instructions with memory operands.",
+              "concept": "risc"
+            },
+            {
+              "q": "What limits the speed-up from SIMD or from extra cores?",
+              "a": "The fraction that cannot be vectorized or parallelized (Amdahl's Law).",
+              "concept": "vector"
+            },
+            {
+              "q": "Which idea unites caches, the TLB and disk caches?",
+              "a": "Locality: recently and nearby used data is reused.",
+              "concept": "mem"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "vector",
+          "question": "Name the idea behind SIMD in one sentence.",
+          "answer": "One instruction applies the same operation to many data elements at once.",
+          "solution": "It is data-level parallelism.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "risc",
+          "question": "State three RISC principles.",
+          "answer": "Simple fixed-length instructions; load/store architecture; many registers (and design for pipelining).",
+          "solution": "These make decoding easy and pipelines fast.",
+          "think": 45
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "x86",
+          "question": "Give two reasons x86 is called CISC and one way a modern x86 core hides it.",
+          "answer": "Variable-length instructions (1 to 15 bytes) and arithmetic instructions with memory operands; the core decodes them into simple micro-operations executed by a RISC-like engine.",
+          "solution": "CISC complexity is confined to the decoder.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "perf",
+          "question": "A program executes 2 billion instructions at CPI 1.5 on a 3 GHz clock. Then 40% of the execution time is made 10 times faster. Find the original time and the overall speed-up.",
+          "answer": "1.0 s; speed-up 1.5625.",
+          "solution": "Time = 2×10⁹ × 1.5 ÷ 3×10⁹ = 1.0 s. Speed-up = 1 ÷ (0.6 + 0.4 ÷ 10) = 1.5625.",
+          "mistake": "Applying the 10× to the whole program.",
+          "title": "Exam practice: CPU equation",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "perf",
+          "question": "Encode `add $t2, $s0, $s1` in hex. Convert 5.75 to IEEE 754 single precision (hex).",
+          "answer": "0x02115020; 0x40B80000.",
+          "solution": "add: op 0, rs = $s0 = 16, rt = $s1 = 17, rd = $t2 = 10, shamt 0, funct 32. 5.75 = 101.11₂ = 1.0111 × 2²: exponent 129, fraction 0111…",
+          "mistake": "Putting rd first in the machine word.",
+          "title": "Exam practice: encoding and arithmetic",
+          "think": 105,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "cpu",
+          "question": "20 independent instructions run on a 5-stage pipeline. How many cycles, what is the speed-up over 5 cycles per instruction, and why is it below 5?",
+          "answer": "24 cycles; speed-up 100 ÷ 24 = 4.17; below 5 because of the 4 fill cycles.",
+          "solution": "Pipelined time is n + k − 1 = 24. Non-pipelined time is 20 × 5 = 100.",
+          "mistake": "Forgetting the fill cycles.",
+          "title": "Exam practice: pipelining",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "mem",
+          "question": "A 1 KiB direct-mapped cache with 16-byte blocks and 32-bit addresses: how many tag, index and offset bits? With hit time 1, miss rate 5% and penalty 20 cycles, what is the AMAT?",
+          "answer": "Tag 22, index 6, offset 4; AMAT = 2.0 cycles.",
+          "solution": "Lines = 64 (6 index bits); offset 4; tag 32 − 10 = 22. AMAT = 1 + 0.05 × 20 = 2.0.",
+          "mistake": "Using the hit rate instead of the miss rate.",
+          "title": "Exam practice: caches and AMAT",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "mem",
+          "question": "4 KiB pages. Split virtual address 0x3A7C into page number and offset. If page 3 is in frame 5, what is the physical address?",
+          "answer": "Page 3, offset 2,684; physical address 5 × 4096 + 2684 = 23,164.",
+          "solution": "0x3A7C = 14,972 = 3 × 4096 + 2,684. The frame number replaces the page number: 5 × 4,096 = 20,480; 20,480 + 2,684 = 23,164.",
+          "mistake": "Translating the offset too.",
+          "title": "Exam practice: virtual memory",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "mem",
+          "question": "(a) MTTF 1,000 h and MTTR 1 h: availability? (b) Six 2 TB disks in RAID 5: usable capacity? (c) A program is 90% parallel: speed-up on 8 cores?",
+          "answer": "(a) 99.9%; (b) 10 TB; (c) 4.71.",
+          "solution": "(a) 1000 ÷ 1001. (b) (6 − 1) × 2 TB. (c) 1 ÷ (0.1 + 0.9 ÷ 8).",
+          "mistake": "Using RAID 5 capacity of all six disks.",
+          "title": "Exam practice: storage and parallelism",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "x86",
+          "question": "Explain how RISC ideas and CISC compatibility meet inside a modern x86 processor, and name two techniques from this course that it uses.",
+          "answer": "The x86 instruction set stays CISC for compatibility, but the decoder translates instructions into simple micro-operations that execute on a RISC-like core. That core uses techniques from this course such as deep pipelining, out-of-order execution with register renaming, branch prediction and speculation, caches and SIMD.",
+          "solution": "A strong answer mentions micro-operations and at least two techniques.",
+          "mistake": "Saying x86 processors are not pipelined.",
+          "title": "Exam practice: synthesis",
+          "think": 105,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Computer Architecture",
+          "branches": [
+            {
+              "label": "Part 1",
+              "example": "performance, ISA, arithmetic",
+              "section": "recap"
+            },
+            {
+              "label": "Part 2",
+              "example": "datapath, pipeline, ILP",
+              "section": "recap"
+            },
+            {
+              "label": "Part 3",
+              "example": "memory, storage, parallelism",
+              "section": "recap"
+            },
+            {
+              "label": "Vector",
+              "example": "SIMD",
+              "section": "vector"
+            },
+            {
+              "label": "RISC",
+              "example": "MIPS, RISC-V, ARM",
+              "section": "risc"
+            },
+            {
+              "label": "x86",
+              "example": "CISC outside, RISC inside",
+              "section": "x86"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "SIMD applies one instruction to many data elements; the gain is limited by the vectorizable fraction (Amdahl's Law).",
+            "RISC: simple fixed-length instructions, load/store, many registers, pipelining-friendly; MIPS, RISC-V and ARM are close relatives.",
+            "x86 grew from the 8086 (1978) to x86-64 with full compatibility: variable-length CISC instructions, translated into micro-operations inside.",
+            "Performance: CPU time = IC × CPI ÷ clock rate; Amdahl's Law limits every improvement.",
+            "Processor: single-cycle, multi-cycle, pipelining, hazards, ILP, out-of-order, branch prediction.",
+            "Memory: locality, caches (tag/index/offset, AMAT), virtual memory and the TLB; storage and RAID; multicore with coherence, locks and Amdahl."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "Vector hardware speeds up every program.",
+              "right": "Only the vectorizable part."
+            },
+            {
+              "wrong": "RISC and CISC are unrelated to modern chips.",
+              "right": "x86 translates CISC instructions into RISC-like micro-operations."
+            },
+            {
+              "wrong": "Each topic of the course stands alone.",
+              "right": "They connect: locality, Amdahl's Law and parallelism recur everywhere."
+            },
+            {
+              "wrong": "Clock speed is performance.",
+              "right": "CPU time depends on instruction count, CPI and clock rate."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Vector and SIMD instructions exploit data parallelism but are limited by Amdahl's Law. RISC architectures such as MIPS, RISC-V and ARM share simple, regular design, while x86 kept CISC compatibility and uses micro-operations inside a RISC-like core. The course connects performance equations, instruction sets, datapath and pipelining, memory hierarchy, storage and multiprocessors through common ideas: locality, parallelism and Amdahl's Law."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "vector",
+              "question": "What does SIMD do?",
+              "options": [
+                "Applies one instruction to many data items",
+                "Runs many programs",
+                "Doubles the clock",
+                "Adds registers"
+              ],
+              "answer": 0,
+              "why": "Single instruction, multiple data.",
+              "misconception": "It is data-level parallelism."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "risc",
+              "statement": "In a RISC load/store architecture only loads and stores access memory.",
+              "answer": true,
+              "why": "Arithmetic uses registers.",
+              "misconception": "CISC allows memory operands in arithmetic."
+            },
+            {
+              "level": "easy",
+              "concept": "x86",
+              "question": "The x86 architecture began with which processor?",
+              "options": [
+                "The Intel 8086 (1978)",
+                "The Pentium (1993)",
+                "The 80386 (1985)",
+                "x86-64 (2003)"
+              ],
+              "answer": 0,
+              "why": "The 8086 of 1978 is the origin.",
+              "misconception": "Later generations kept compatibility."
+            },
+            {
+              "level": "medium",
+              "concept": "perf",
+              "question": "2 billion instructions, CPI 1.5, 3 GHz: CPU time?",
+              "options": [
+                "1.0 s",
+                "2.0 s",
+                "0.5 s",
+                "4.5 s"
+              ],
+              "answer": 0,
+              "why": "2×10⁹ × 1.5 ÷ 3×10⁹ = 1 s.",
+              "misconception": "CPI and clock both matter."
+            },
+            {
+              "level": "medium",
+              "concept": "cpu",
+              "question": "20 independent instructions in a 5-stage pipeline take:",
+              "options": [
+                "24 cycles",
+                "100 cycles",
+                "20 cycles",
+                "25 cycles"
+              ],
+              "answer": 0,
+              "why": "n + 4 = 24.",
+              "misconception": "100 would be the non-pipelined time."
+            },
+            {
+              "level": "medium",
+              "concept": "mem",
+              "question": "1 KiB direct-mapped cache, 16-byte blocks, 32-bit addresses: tag bits?",
+              "options": [
+                "22",
+                "26",
+                "16",
+                "10"
+              ],
+              "answer": 0,
+              "why": "32 − 6 − 4 = 22.",
+              "misconception": "Index 6, offset 4."
+            },
+            {
+              "level": "hard",
+              "concept": "mem",
+              "question": "4 KiB pages: virtual address 0x3A7C is in page:",
+              "options": [
+                "3 (offset 2,684)",
+                "14 (offset 972)",
+                "1 (offset 4,096)",
+                "0x3A (offset 0x7C)"
+              ],
+              "answer": 0,
+              "why": "14,972 ÷ 4,096 = 3 remainder 2,684.",
+              "misconception": "The offset is the low 12 bits."
+            },
+            {
+              "level": "hard",
+              "concept": "vector",
+              "question": "80% vectorizable, 8 lanes: overall speed-up?",
+              "options": [
+                "3.33",
+                "8",
+                "6.4",
+                "5"
+              ],
+              "answer": 0,
+              "why": "1 ÷ (0.2 + 0.8 ÷ 8) = 3.33.",
+              "misconception": "The limit is 5."
+            },
+            {
+              "level": "challenge",
+              "concept": "x86",
+              "question": "Why can a modern x86 core compete with RISC designs?",
+              "options": [
+                "It translates CISC instructions into simple micro-operations for a RISC-like out-of-order core",
+                "It has no pipeline",
+                "It uses fixed-length instructions",
+                "It has no caches"
+              ],
+              "answer": 0,
+              "why": "The CISC complexity is confined to the decoder.",
+              "misconception": "The core uses pipelining, renaming, prediction and caches."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "State three RISC principles.",
+              "a": "Fixed-length simple instructions, load/store, many registers.",
+              "concept": "risc"
+            },
+            {
+              "q": "What is the CPU time formula?",
+              "a": "IC × CPI ÷ clock rate.",
+              "concept": "perf"
+            },
+            {
+              "q": "Why is pipelining's speed-up below the stage count?",
+              "a": "Fill cycles, stalls and unbalanced stages.",
+              "concept": "cpu"
+            },
+            {
+              "q": "Which idea appears in caches, TLBs and disks?",
+              "a": "Locality.",
+              "concept": "mem"
+            },
+            {
+              "q": "What does SIMD exploit?",
+              "a": "Data-level parallelism.",
+              "concept": "vector"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

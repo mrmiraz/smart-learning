@@ -1,0 +1,1239 @@
+{
+  "id": "ca-04-isa-risc-cisc",
+  "title": "ISA Fundamentals, RISC vs CISC",
+  "subtitle": "The contract between software and hardware, and two ways to design it.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "2",
+      "title": "Instructions: Language of the Computer",
+      "topics": "Operations and operands of the computer hardware; the four design principles; MIPS; real stuff: ARM and x86 instruction sets"
+    },
+    {
+      "book": "CAQA",
+      "chapter": "2",
+      "title": "Instruction Set Principles and Examples",
+      "topics": "Classifying instruction set architectures (stack, accumulator, register); operations in the instruction set; RISC versus CISC"
+    }
+  ],
+  "objectives": [
+    "Explain what an instruction set architecture is and why it is the software/hardware interface",
+    "Name the main classes of instructions and the kinds of operands they use",
+    "Compare stack, accumulator, register-memory and load/store architectures",
+    "Explain a register-based, load/store design such as MIPS",
+    "Compare RISC and CISC and explain the trade-off with the CPU performance equation"
+  ],
+  "concepts": [
+    {
+      "id": "isa",
+      "label": "What an ISA is",
+      "section": "isa"
+    },
+    {
+      "id": "classes",
+      "label": "Instruction classes and operands",
+      "section": "classes"
+    },
+    {
+      "id": "styles",
+      "label": "Where operands live",
+      "section": "styles"
+    },
+    {
+      "id": "loadstore",
+      "label": "Load/store and registers",
+      "section": "styles"
+    },
+    {
+      "id": "risc",
+      "label": "RISC vs CISC",
+      "section": "risc"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "Why can't a program built for a phone chip run directly on most Windows laptops, even though both are fast computers?",
+          "clues": [
+            "Both are made of billions of transistors and can open the same web page.",
+            "But they understand different sets of machine instructions.",
+            "That set of instructions, and the rules around it, is the **instruction set architecture** (ISA)."
+          ],
+          "notes": {
+            "explain": "Let students guess. Common guesses: different speed, different operating system. Both matter, but the deeper reason is the ISA.",
+            "ask": "What do you think a processor actually 'understands'?",
+            "difficulty": "Easy."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the five objectives. This class is the doorway to the practical classes: from Class 5 we write MIPS instructions."
+          }
+        }
+      ]
+    },
+    {
+      "id": "isa",
+      "label": "The ISA",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "isa",
+          "title": "What is an ISA?",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "Software",
+                  "sub": "programs, compilers, operating system",
+                  "note": "Compilers turn programs into instructions that the ISA defines.",
+                  "example": "A C program built into MIPS instructions."
+                },
+                {
+                  "label": "ISA",
+                  "sub": "the contract",
+                  "note": "The **instruction set architecture** defines the instructions, registers, memory model and data types that software may use.",
+                  "example": "MIPS, Arm, x86-64.",
+                  "links": [
+                    0,
+                    2
+                  ]
+                },
+                {
+                  "label": "Hardware",
+                  "sub": "a processor that implements it",
+                  "note": "Any processor that implements the ISA can run the same programs, however it is built inside.",
+                  "example": "Two different MIPS chips run the same program."
+                }
+              ]
+            }
+          ],
+          "why": "The ISA is the one stable surface between the software people write and the hardware people build.",
+          "real": "Phones and Apple laptops use the Arm ISA. Most Windows laptops and servers use x86-64. This course uses MIPS because it is simple and clean.",
+          "mistake": {
+            "wrong": "The ISA is the hardware.",
+            "right": "The ISA is the specification. Many different hardware designs can implement the same ISA."
+          },
+          "explainAgain": {
+            "beginner": "The ISA is the menu of things the computer promises to do. The kitchen (the hardware) can be built many ways as long as every dish on the menu comes out right.",
+            "technical": "The ISA is the architecturally visible interface: the instruction set, the register file, the addressing modes, the data types and the exception model. Microarchitectures differ below it."
+          },
+          "deeper": {
+            "text": "x86 programs written for the 8086 of 1978 can still run on a modern x86-64 processor. That backward compatibility is one of the strongest forces in computing, and a strong reason to keep an ISA stable."
+          },
+          "notes": {
+            "explain": "Recall Class 1: architecture vs organization. The ISA is exactly the 'architecture' part. Click each box.",
+            "terms": [
+              "**ISA**",
+              "**Compatibility**"
+            ],
+            "misconceptions": [
+              "Students think the ISA is a physical part of the chip."
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "isa",
+          "title": "What an ISA specifies",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Part",
+                "Question it answers",
+                "Example (MIPS)"
+              ],
+              "rows": [
+                [
+                  "Instructions",
+                  "Which operations exist?",
+                  "add, lw, beq"
+                ],
+                [
+                  "Registers",
+                  "How many fast storage places can software name?",
+                  "32 general-purpose registers"
+                ],
+                [
+                  "Memory model",
+                  "How is memory addressed?",
+                  "Byte addresses, 32-bit words"
+                ],
+                [
+                  "Data types",
+                  "What sizes and formats are supported?",
+                  "32-bit integers, floating point"
+                ],
+                [
+                  "Instruction format",
+                  "How are instructions encoded?",
+                  "Every instruction is 32 bits long"
+                ]
+              ]
+            }
+          ],
+          "why": "If any of these differ, software built for one machine will not run on the other.",
+          "notes": {
+            "explain": "Reveal a row at a time. We study the encoding properly in Class 7."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "isa",
+          "skill": "Understand",
+          "question": "Two processors from different companies run exactly the same compiled programs. What must they share?",
+          "options": [
+            "The instruction set architecture",
+            "The same internal circuits",
+            "The same manufacturing process",
+            "The same clock rate"
+          ],
+          "answer": 0,
+          "why": "Compiled programs depend only on the ISA, not on how the chip is built.",
+          "feedback": [
+            "",
+            "Different companies usually build different circuits for the same ISA.",
+            "Manufacturing affects speed and cost, not what programs can run.",
+            "Clock rate affects speed, not compatibility."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "isa",
+          "skill": "Understand",
+          "statement": "Changing a processor's ISA is like changing its organization: old programs keep working.",
+          "answer": false,
+          "why": "A new organization runs the same programs faster. A new ISA means old programs no longer run unless the old instructions are kept."
+        }
+      ]
+    },
+    {
+      "id": "classes",
+      "label": "Instructions",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "classes",
+          "title": "Instruction classes",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Class",
+                "What it does",
+                "MIPS examples"
+              ],
+              "rows": [
+                [
+                  "Arithmetic",
+                  "Add, subtract and multiply numbers",
+                  "add, sub, addi"
+                ],
+                [
+                  "Logical",
+                  "Bitwise AND, OR, shifts",
+                  "and, or, sll"
+                ],
+                [
+                  "Data transfer",
+                  "Move data between memory and registers",
+                  "lw (load), sw (store)"
+                ],
+                [
+                  "Control flow",
+                  "Change which instruction runs next",
+                  "beq, bne, j"
+                ]
+              ]
+            }
+          ],
+          "why": "Every program, however large, is built from a small number of instruction classes.",
+          "real": "When you press a key, an app compares values (control flow), copies data (data transfer) and calculates (arithmetic), all as instructions like these.",
+          "mistake": {
+            "wrong": "Programs are mostly arithmetic instructions.",
+            "right": "A large share of a typical program is data movement and control flow, so those must be fast."
+          },
+          "notes": {
+            "explain": "We write many of these in Classes 5 to 8. Today we only classify them.",
+            "terms": [
+              "**Load** — memory to register",
+              "**Store** — register to memory"
+            ]
+          }
+        },
+        {
+          "type": "match",
+          "concept": "classes",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each MIPS instruction with its class.",
+          "pairs": [
+            {
+              "a": "add",
+              "b": "Arithmetic"
+            },
+            {
+              "a": "and",
+              "b": "Logical"
+            },
+            {
+              "a": "lw",
+              "b": "Data transfer"
+            },
+            {
+              "a": "beq",
+              "b": "Control flow"
+            }
+          ],
+          "why": "The name tells you the job: add computes, lw loads from memory, beq branches if equal."
+        },
+        {
+          "type": "concept",
+          "concept": "classes",
+          "title": "Operands: where the data comes from",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "Register operand",
+                  "sub": "in a CPU register",
+                  "note": "The value is in one of the CPU's fast registers.",
+                  "example": "add $t0, $s1, $s2 uses three registers."
+                },
+                {
+                  "label": "Memory operand",
+                  "sub": "in main memory",
+                  "note": "The value is in memory, which is slower to reach, so it must be loaded first.",
+                  "example": "lw $t0, 8($s1) fetches the word 8 bytes after the address in $s1."
+                },
+                {
+                  "label": "Immediate operand",
+                  "sub": "a constant inside the instruction",
+                  "note": "The value is part of the instruction itself, so no register or memory access is needed.",
+                  "example": "addi $t0, $s1, 4 adds the constant 4."
+                }
+              ]
+            }
+          ],
+          "why": "Where an operand lives decides how fast an instruction can run and how many bits it needs.",
+          "explainAgain": {
+            "beginner": "An operand is just an input to the instruction: it can be in your hand (register), on a shelf across the room (memory), or written on the instruction itself (immediate)."
+          },
+          "notes": {
+            "explain": "Keep MIPS syntax light today. Class 5 covers registers and Class 6 addressing in detail."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "classes",
+          "skill": "Apply",
+          "question": "In the instruction `addi $t0, $s1, 4`, what kind of operand is the number 4?",
+          "options": [
+            "Immediate operand",
+            "Register operand",
+            "Memory operand",
+            "Address operand"
+          ],
+          "answer": 0,
+          "why": "The constant 4 is written inside the instruction itself, which is an immediate operand.",
+          "feedback": [
+            "",
+            "A register operand would be named like $s1.",
+            "A memory operand would need a load such as lw.",
+            "There is no address in this instruction."
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What is an ISA?",
+              "a": "The set of instructions, registers, memory model and data types that software uses to control the hardware. It is the software/hardware interface.",
+              "concept": "isa"
+            },
+            {
+              "q": "Name the four main instruction classes.",
+              "a": "Arithmetic, logical, data transfer and control flow.",
+              "concept": "classes"
+            },
+            {
+              "q": "What are the three kinds of operand?",
+              "a": "Register, memory and immediate.",
+              "concept": "classes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "styles",
+      "label": "Operand Storage",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "styles",
+          "title": "Where do operands live?",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                {
+                  "text": "**Stack**",
+                  "sub": "Operands are implicitly the top of a stack."
+                },
+                {
+                  "text": "**Accumulator**",
+                  "sub": "One implicit register holds an operand and the result."
+                },
+                {
+                  "text": "**Register-memory**",
+                  "sub": "Ordinary instructions may take a memory operand directly."
+                },
+                {
+                  "text": "**Load/store**",
+                  "sub": "Arithmetic uses registers only; separate load and store instructions reach memory."
+                }
+              ]
+            }
+          ],
+          "why": "This one choice shapes the instruction count, the instruction length and how easy the hardware is to speed up.",
+          "real": "MIPS and Arm are load/store designs. x86 is register-memory.",
+          "explainAgain": {
+            "beginner": "Imagine adding two numbers written in a notebook. Either you copy them to your hand first and then add (load/store), or the adding machine can read the notebook itself (register-memory)."
+          },
+          "notes": {
+            "explain": "Introduce the four names, then use the next screen to compare them on one expression.",
+            "terms": [
+              "**Load/store architecture**",
+              "**Accumulator**"
+            ]
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "styles",
+          "skill": "Apply",
+          "question": "We want x = y + z, where x, y and z are all in memory. A load/store machine must load, add and store. How many instructions does it need?",
+          "options": [
+            "2",
+            "3",
+            "4",
+            "5"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "Style",
+                "Instructions for x = y + z",
+                "Count"
+              ],
+              "rows": [
+                [
+                  "Stack",
+                  "push y; push z; add; pop x",
+                  "4"
+                ],
+                [
+                  "Accumulator",
+                  "load y; add z; store x",
+                  "3"
+                ],
+                [
+                  "Register-memory",
+                  "load r1, y; add r1, r1, z; store r1, x",
+                  "3"
+                ],
+                [
+                  "Load/store",
+                  "load r1, y; load r2, z; add r3, r1, r2; store r3, x",
+                  "4"
+                ]
+              ]
+            }
+          ],
+          "result": "Load/store needs 4: two loads, one add and one store. Fewer instructions is not the same as faster, as the next screens show."
+        },
+        {
+          "type": "concept",
+          "concept": "styles",
+          "title": "Why load/store won",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Register-memory (CISC style)",
+                "items": [
+                  "Fewer instructions per task",
+                  "Instructions differ a lot in length and time",
+                  "Harder to overlap in a pipeline"
+                ]
+              },
+              "right": {
+                "title": "Load/store (RISC style)",
+                "items": [
+                  "More instructions per task",
+                  "Every instruction is similar in length and time",
+                  "Easy to pipeline and to speed up"
+                ]
+              }
+            }
+          ],
+          "why": "Simple, regular instructions are easier for hardware to overlap, which is the subject of Classes 12 and 13.",
+          "mistake": {
+            "wrong": "Fewer instructions always means a faster program.",
+            "right": "Time = instruction count × CPI × clock cycle time, so simpler instructions can win even when there are more of them."
+          }
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "concept": "styles",
+          "prompt": "A load/store design needs more instructions for the same task. How can it still run the program faster?",
+          "think": 20,
+          "pair": 40,
+          "answer": "CPU time = instruction count × CPI × clock cycle time. Simple, regular instructions can give a lower CPI and a shorter clock cycle, and they pipeline well. If those savings outweigh the higher instruction count, the program finishes sooner.",
+          "notes": {
+            "explain": "Send students back to the CPU equation from Class 3. The answer must mention all three factors."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "loadstore",
+          "title": "Registers: a small, fast workspace",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "MIPS has **32 general-purpose registers**, each 32 bits wide",
+                "Registers are the **fastest storage**, inside the CPU",
+                "Naming one of 32 registers takes **5 bits**, because 2⁵ = 32",
+                "More registers mean fewer slow memory accesses, but every instruction needs more bits and the register file gets slower"
+              ]
+            }
+          ],
+          "why": "Compilers keep the most-used variables in registers, so a good register count is a trade-off, not a free gain.",
+          "real": "When you read `$s0` or `$t1` in MIPS code, that is a register name.",
+          "explainAgain": {
+            "beginner": "Registers are the numbered slots on your desk. A bigger desk holds more, but you need longer labels and it takes longer to find things."
+          },
+          "notes": {
+            "explain": "This is the design principle 'smaller is faster' in action. We study registers in Class 5.",
+            "terms": [
+              "**Register file**",
+              "**General-purpose register**"
+            ]
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "loadstore",
+          "skill": "Apply",
+          "question": "An ISA has 16 registers. How many bits are needed to name one register?",
+          "options": [
+            "2",
+            "4",
+            "8",
+            "16"
+          ],
+          "answer": 1,
+          "why": "2⁴ = 16, so 4 bits are enough.",
+          "feedback": [
+            "2 bits can name only 4 registers.",
+            "",
+            "8 bits could name 256 registers, far more than needed.",
+            "16 is the number of registers, not the number of bits."
+          ]
+        },
+        {
+          "type": "arrange",
+          "concept": "loadstore",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the load/store sequence for x = y + z in order.",
+          "items": [
+            "Load y from memory into a register",
+            "Load z from memory into another register",
+            "Add the two registers into a third register",
+            "Store the result back to x in memory"
+          ],
+          "why": "Data must be in registers before the add, and the result must be stored back to reach memory."
+        }
+      ]
+    },
+    {
+      "id": "risc",
+      "label": "RISC vs CISC",
+      "minutes": 11,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "risc",
+          "title": "RISC and CISC",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "RISC (reduced instruction set)",
+                "items": [
+                  "Simple instructions, one clear job each",
+                  "Fixed length (MIPS: 32 bits)",
+                  "Load/store: only loads and stores touch memory",
+                  "Many registers",
+                  "Simpler hardware, easy to pipeline"
+                ]
+              },
+              "right": {
+                "title": "CISC (complex instruction set)",
+                "items": [
+                  "Powerful instructions, several steps each",
+                  "Variable length (x86: 1 to 15 bytes)",
+                  "Ordinary instructions may use memory",
+                  "Fewer registers, historically",
+                  "More complex hardware"
+                ]
+              }
+            }
+          ],
+          "why": "The two styles make opposite bets about where to spend effort: in the instructions or in the hardware.",
+          "real": "Phones and Apple laptops use Arm, a RISC design. Most Windows laptops and servers use x86-64, a CISC-style ISA.",
+          "mistake": [
+            {
+              "wrong": "RISC programs are shorter than CISC programs.",
+              "right": "RISC programs usually need more instructions, but each one is simpler and faster."
+            },
+            {
+              "wrong": "More powerful instructions mean higher performance.",
+              "right": "Performance depends on instruction count, CPI and clock cycle time together."
+            }
+          ],
+          "explainAgain": {
+            "beginner": "RISC is a toolbox of simple tools you combine. CISC is a toolbox with fancy multi-purpose gadgets. Simple tools are quick to pick up; gadgets save steps but are slower to use."
+          },
+          "notes": {
+            "explain": "Avoid declaring a winner. The honest answer comes from the CPU equation on the next screens.",
+            "terms": [
+              "**RISC**",
+              "**CISC**",
+              "**Microcode**"
+            ],
+            "misconceptions": [
+              "Students think RISC has fewer instructions in the program."
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "risc",
+          "title": "Four design principles behind MIPS",
+          "blocks": [
+            {
+              "type": "flow",
+              "layout": "grid",
+              "cols": 2,
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "Simplicity favors regularity",
+                  "sub": "same-shaped instructions",
+                  "note": "Regular instructions are easier to build and faster.",
+                  "example": "MIPS arithmetic instructions always have three operands."
+                },
+                {
+                  "label": "Smaller is faster",
+                  "sub": "keep things small",
+                  "note": "A small set of fast storage is quicker to reach than a large one.",
+                  "example": "MIPS has 32 registers, not thousands."
+                },
+                {
+                  "label": "Make the common case fast",
+                  "sub": "improve what happens most",
+                  "note": "Frequent cases deserve special help.",
+                  "example": "Constants are common, so there is an add-immediate instruction."
+                },
+                {
+                  "label": "Good design demands good compromises",
+                  "sub": "balance the goals",
+                  "note": "Perfect on every count is impossible, so designers choose a sensible middle.",
+                  "example": "MIPS keeps every instruction 32 bits and uses only a few formats."
+                }
+              ]
+            }
+          ],
+          "why": "The first, second and fourth explain why RISC looks the way it does; the third is the same idea you met in Amdahl's Law.",
+          "notes": {
+            "explain": "These principle names come from the textbook. Use your own examples as students suggest them."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "risc",
+          "skill": "Analyze",
+          "question": "A CISC-style program needs fewer instructions, but each takes more cycles. A RISC-style program needs more instructions, each simpler. Which one runs faster?",
+          "options": [
+            "CISC always wins because it has fewer instructions",
+            "RISC always wins because it has a lower CPI",
+            "It depends on instruction count, CPI and clock cycle time together",
+            "They always take the same time"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "",
+                "Instruction count",
+                "CPI",
+                "Clock cycle time"
+              ],
+              "rows": [
+                [
+                  "CISC style",
+                  "Fewer",
+                  "Higher",
+                  "Often longer"
+                ],
+                [
+                  "RISC style",
+                  "More",
+                  "Lower",
+                  "Often shorter"
+                ]
+              ]
+            },
+            {
+              "type": "text",
+              "text": "CPU time = **Instruction count × CPI × Clock cycle time**: all three factors count.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "No single factor decides. You must multiply all three, exactly as in Class 3."
+        },
+        {
+          "type": "concept",
+          "concept": "risc",
+          "title": "Try it: RISC versus CISC",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "CPU time for two styles (illustrative numbers, not real chips)",
+              "equation": "**CPU time = Instruction count × CPI ÷ Clock rate**",
+              "inputs": [
+                {
+                  "id": "icc",
+                  "label": "CISC instruction count",
+                  "value": 100,
+                  "min": 50,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "million"
+                },
+                {
+                  "id": "cpic",
+                  "label": "CISC CPI",
+                  "value": 3,
+                  "min": 1,
+                  "max": 6,
+                  "step": 0.1
+                },
+                {
+                  "id": "clkc",
+                  "label": "CISC clock rate",
+                  "value": 2,
+                  "min": 1,
+                  "max": 4,
+                  "step": 0.1,
+                  "unit": "GHz"
+                },
+                {
+                  "id": "icr",
+                  "label": "RISC instruction count",
+                  "value": 130,
+                  "min": 50,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "million"
+                },
+                {
+                  "id": "cpir",
+                  "label": "RISC CPI",
+                  "value": 1.4,
+                  "min": 1,
+                  "max": 6,
+                  "step": 0.1
+                },
+                {
+                  "id": "clkr",
+                  "label": "RISC clock rate",
+                  "value": 2.4,
+                  "min": 1,
+                  "max": 4,
+                  "step": 0.1,
+                  "unit": "GHz"
+                }
+              ],
+              "results": [
+                {
+                  "label": "CISC style CPU time",
+                  "formula": "icc*1e6*cpic/(clkc*1e9)",
+                  "format": "time",
+                  "better": "lower"
+                },
+                {
+                  "label": "RISC style CPU time",
+                  "formula": "icr*1e6*cpir/(clkr*1e9)",
+                  "format": "time",
+                  "better": "lower"
+                },
+                {
+                  "label": "RISC style is this many times faster",
+                  "formula": "(icc*cpic/clkc)/(icr*cpir/clkr)",
+                  "format": "x",
+                  "digits": 2
+                }
+              ],
+              "trace": "CISC {r0}   RISC {r1}   RISC speedup {r2}"
+            }
+          ],
+          "why": "Move one slider at a time. Raising the RISC instruction count can be cancelled by a lower CPI or a faster clock.",
+          "notes": {
+            "explain": "Ask students to make CISC win by changing only one slider. Then ask whether that setting is realistic."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "risc",
+          "title": "x86 and Arm today",
+          "blocks": [
+            {
+              "type": "timeline",
+              "items": [
+                {
+                  "when": "1978",
+                  "label": "Intel 8086",
+                  "note": "the start of the x86 family"
+                },
+                {
+                  "when": "1985",
+                  "label": "MIPS R2000",
+                  "note": "an early commercial RISC processor"
+                },
+                {
+                  "when": "1985",
+                  "label": "First Arm processor",
+                  "note": "Arm began as a RISC design"
+                },
+                {
+                  "when": "1995",
+                  "label": "Pentium Pro",
+                  "note": "x86 chips begin translating complex instructions into simpler internal operations"
+                },
+                {
+                  "when": "2003",
+                  "label": "x86-64",
+                  "note": "the 64-bit extension of x86, first introduced by AMD"
+                }
+              ]
+            }
+          ],
+          "why": "Modern x86 processors blur the line: the ISA is CISC-style, but inside they run RISC-like simple operations.",
+          "deeper": {
+            "text": "The ISA a programmer sees and the operations the hardware actually runs can differ. Intel and AMD chips decode each x86 instruction into one or more simpler internal operations."
+          },
+          "notes": {
+            "explain": "Dates are approximate and given for orientation only."
+          }
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "risc",
+          "question": "Why would a phone maker choose a RISC ISA, while PC makers keep x86?",
+          "seconds": 60,
+          "ideas": [
+            "RISC designs are simple, which helps power efficiency.",
+            "x86 keeps decades of existing software working.",
+            "Modern x86 chips translate to simple internal operations, so the gap is smaller than it looks.",
+            "The quality of the implementation often matters more than the ISA label."
+          ],
+          "notes": {
+            "explain": "Let groups argue both sides before you reveal the ideas."
+          }
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "isa",
+          "skill": "Remember",
+          "think": 25,
+          "question": "What is an ISA, and why is it called the software/hardware interface?",
+          "answer": "An ISA is the set of instructions, registers, memory model and data types that software uses to control the hardware. It sits between software, which is built to it, and hardware, which implements it.",
+          "solution": "Compilers produce instructions the ISA defines; any processor implementing the ISA can run them. That shared boundary is why it is called the interface."
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "classes",
+          "skill": "Apply",
+          "think": 40,
+          "question": "Classify each MIPS instruction as arithmetic, logical, data transfer or control flow:\n(a) add  (b) lw  (c) beq  (d) and  (e) sw  (f) j",
+          "answer": "(a) arithmetic, (b) data transfer, (c) control flow, (d) logical, (e) data transfer, (f) control flow.",
+          "solution": "add computes; lw and sw move data between memory and registers; beq and j change which instruction runs next; and is a bitwise logical operation.",
+          "mistake": "Calling lw an arithmetic instruction because it computes an address."
+        },
+        {
+          "type": "find",
+          "concept": "loadstore",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement is wrong. Click it.",
+          "lines": [
+            "1. A load/store architecture lets arithmetic instructions use memory operands directly.",
+            "2. In a load/store architecture only loads and stores access memory.",
+            "3. MIPS has 32 general-purpose registers.",
+            "4. Naming one of 32 registers takes 5 bits."
+          ],
+          "wrong": 0,
+          "explain": "In a load/store architecture arithmetic instructions work on registers only. Register-memory designs allow memory operands.",
+          "fix": "Arithmetic instructions use registers only; loads and stores access memory."
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "styles",
+          "skill": "Analyze",
+          "think": 75,
+          "question": "For a = b + c − d (all four variables in memory), count the instructions needed by (i) a load/store machine and (ii) an accumulator machine.",
+          "hint": "Load/store: every operand must be loaded to a register first. Accumulator: one operand is already in the accumulator.",
+          "answer": "Load/store: 6 instructions. Accumulator: 4 instructions.",
+          "solution": "Load/store: load b; load c; add; load d; subtract; store a = 6.\nAccumulator: load b; add c; subtract d; store a = 4.",
+          "mistake": "Forgetting the final store, or loading d before it is needed."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "loadstore",
+          "skill": "Apply",
+          "title": "Exam practice: numerical",
+          "think": 75,
+          "question": "A redesigned ISA has 64 registers instead of 32. How many bits are needed to name one register, and by how many bits does an instruction that names three registers grow?",
+          "answer": "6 bits per register instead of 5, so a three-register instruction grows by 3 bits (18 versus 15).",
+          "solution": "2⁶ = 64, so 6 bits per register. Three registers need 18 bits instead of 15, a growth of 3 bits.",
+          "mistake": "Answering 64 or 32 (the number of registers) instead of the number of bits."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "risc",
+          "skill": "Evaluate",
+          "title": "Exam practice: performance calculation",
+          "think": 120,
+          "question": "A CISC-style version of a program executes 8 × 10⁸ instructions at CPI 3.5. A RISC-style version executes 1.2 × 10⁹ instructions at CPI 1.5. Both machines run at 2 GHz. Which is faster, and by how much?",
+          "hint": "CPU time = instruction count × CPI ÷ clock rate.",
+          "answer": "The RISC-style version is faster: about 1.56 times (0.9 s versus 1.4 s).",
+          "solution": "CISC: 8×10⁸ × 3.5 ÷ (2×10⁹) = 1.4 s.\nRISC: 1.2×10⁹ × 1.5 ÷ (2×10⁹) = 0.9 s.\nSpeedup = 1.4 ÷ 0.9 ≈ 1.56.",
+          "mistake": "Choosing CISC because it has fewer instructions."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "risc",
+          "skill": "Understand",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "question": "Compare RISC and CISC on four points: instruction complexity, instruction length, memory access and hardware complexity.",
+          "answer": "RISC: simple instructions, fixed length, only loads and stores access memory, simpler hardware. CISC: complex instructions, variable length, ordinary instructions may access memory, more complex hardware.",
+          "solution": "A good answer covers all four points and adds the trade-off: RISC needs more instructions but each is simple; CISC needs fewer instructions but each is more complex. The CPU equation decides which is faster.",
+          "mistake": "Saying RISC programs have fewer instructions."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "classes",
+          "skill": "Apply",
+          "title": "Exam practice: translate to MIPS",
+          "think": 90,
+          "question": "Variables x, y, z and w are in registers $s0, $s1, $s2 and $s3. Write MIPS instructions for x = (y + z) − w. You may use $t0 as a temporary register.",
+          "hint": "Do the addition first and keep the intermediate result in $t0.",
+          "answer": "add $t0, $s1, $s2\nsub $s0, $t0, $s3",
+          "solution": "add puts y + z into $t0. sub then subtracts w ($s3) from $t0 and places the result in x ($s0). MIPS arithmetic instructions always take exactly three operands, so two instructions are needed.",
+          "mistake": "Trying to write one instruction with four operands."
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Instruction set architecture",
+          "branches": [
+            {
+              "label": "The ISA",
+              "example": "Software/hardware contract",
+              "section": "isa"
+            },
+            {
+              "label": "Instructions",
+              "example": "Arithmetic · Logic · Data transfer · Control",
+              "section": "classes"
+            },
+            {
+              "label": "Operand storage",
+              "example": "Stack · Accumulator · Register-memory · Load/store",
+              "section": "styles"
+            },
+            {
+              "label": "RISC vs CISC",
+              "example": "Simple vs complex",
+              "section": "risc"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "The ISA is the software/hardware interface: instructions, registers, memory model, data types.",
+            "Many different hardware designs can implement one ISA.",
+            "Instructions fall into arithmetic, logical, data transfer and control flow classes.",
+            "Operands are in registers, in memory or immediate.",
+            "MIPS is a load/store architecture with 32 registers; naming one takes 5 bits.",
+            "RISC: simple, fixed-length, load/store. CISC: complex, variable-length, memory operands.",
+            "Only the CPU equation tells you which is faster."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "The ISA is a part of the chip.",
+              "right": "The ISA is the specification; the chip implements it."
+            },
+            {
+              "wrong": "RISC programs are shorter.",
+              "right": "RISC programs usually need more instructions."
+            },
+            {
+              "wrong": "Fewer instructions always means faster.",
+              "right": "CPU time depends on instruction count, CPI and cycle time together."
+            },
+            {
+              "wrong": "Arithmetic instructions read memory in MIPS.",
+              "right": "MIPS arithmetic uses registers; only lw and sw access memory."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "The instruction set architecture is the contract between software and hardware: the instructions, registers, memory model and data types software can use. Instructions are arithmetic, logical, data transfer or control flow, with operands in registers, memory or the instruction itself. MIPS is a load/store design with 32 registers. RISC and CISC make opposite bets, and the CPU performance equation decides which wins for a given design."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "isa",
+              "question": "What is an instruction set architecture?",
+              "options": [
+                "The instructions, registers and rules that software uses to control the hardware",
+                "The materials a chip is made of",
+                "The speed of the clock",
+                "The size of the memory"
+              ],
+              "answer": 0,
+              "why": "An ISA is the software/hardware interface.",
+              "misconception": "The other options describe hardware details, not the interface software depends on."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "classes",
+              "statement": "The MIPS instruction lw is a data transfer instruction.",
+              "answer": true,
+              "why": "lw loads a word from memory into a register.",
+              "misconception": "Instructions that move data between memory and registers are data transfer instructions."
+            },
+            {
+              "level": "easy",
+              "concept": "styles",
+              "question": "In a load/store architecture, which instructions can access memory?",
+              "options": [
+                "Only loads and stores",
+                "All arithmetic instructions",
+                "Only branches",
+                "Every instruction"
+              ],
+              "answer": 0,
+              "why": "Only loads and stores reach memory; arithmetic works on registers.",
+              "misconception": "Allowing arithmetic to use memory directly describes a register-memory machine."
+            },
+            {
+              "level": "medium",
+              "concept": "loadstore",
+              "question": "How many registers can be named using 4 bits?",
+              "options": [
+                "4",
+                "8",
+                "16",
+                "32"
+              ],
+              "answer": 2,
+              "why": "2⁴ = 16.",
+              "misconception": "The count of names is 2 raised to the number of bits, not the number of bits itself."
+            },
+            {
+              "level": "medium",
+              "concept": "classes",
+              "question": "In `lw $t0, 8($s1)`, where is the data being loaded from?",
+              "options": [
+                "Main memory",
+                "A register",
+                "The instruction itself",
+                "The program counter"
+              ],
+              "answer": 0,
+              "why": "lw loads from the memory address formed by adding 8 to the value in $s1.",
+              "misconception": "The data comes from memory; the register $s1 only holds part of the address."
+            },
+            {
+              "level": "medium",
+              "concept": "styles",
+              "question": "How many instructions does an accumulator machine need for x = y + z (all in memory)?",
+              "options": [
+                "2",
+                "3",
+                "4",
+                "5"
+              ],
+              "answer": 1,
+              "why": "load y; add z; store x is 3 instructions.",
+              "misconception": "The accumulator already holds one operand, so no second load is needed."
+            },
+            {
+              "level": "hard",
+              "concept": "risc",
+              "question": "Which statement about RISC is true?",
+              "options": [
+                "Instructions are simple and fixed length, so programs often need more instructions",
+                "Programs always need fewer instructions than CISC",
+                "Arithmetic instructions usually use memory operands",
+                "Instructions vary widely in length"
+              ],
+              "answer": 0,
+              "why": "Simple, regular instructions are the point of RISC, at the price of a higher instruction count.",
+              "misconception": "Fewer instructions and memory operands describe CISC."
+            },
+            {
+              "level": "hard",
+              "concept": "risc",
+              "question": "A CISC-style version needs 20% fewer instructions, but its CPI is 50% higher, with the same clock. Compared with the RISC-style version, its CPU time is…",
+              "options": [
+                "20% faster",
+                "20% slower",
+                "The same",
+                "50% slower"
+              ],
+              "answer": 1,
+              "why": "Time scales by 0.8 × 1.5 = 1.2, so it takes 20% longer.",
+              "misconception": "Multiply the ratios: fewer instructions helps, but a higher CPI hurts by more."
+            },
+            {
+              "level": "challenge",
+              "concept": "risc",
+              "question": "Why is x86, a CISC-style ISA, still widely used in laptops and servers?",
+              "options": [
+                "A huge amount of existing software depends on it, and modern chips run simple internal operations",
+                "CISC is always faster than RISC",
+                "It has far fewer registers, which is cheaper",
+                "RISC cannot run any real programs"
+              ],
+              "answer": 0,
+              "why": "Software compatibility and the internal translation to simple operations keep x86 competitive.",
+              "misconception": "No ISA is always faster; the implementation and compatibility matter at least as much."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "What is an ISA?",
+              "a": "The instructions, registers, memory model and data types software uses to control hardware: the software/hardware interface.",
+              "concept": "isa"
+            },
+            {
+              "q": "Name the four instruction classes and the three operand kinds.",
+              "a": "Arithmetic, logical, data transfer, control flow. Register, memory, immediate.",
+              "concept": "classes"
+            },
+            {
+              "q": "What is a load/store architecture?",
+              "a": "Only load and store instructions access memory; arithmetic works on registers.",
+              "concept": "styles"
+            },
+            {
+              "q": "How many bits name one of 32 registers, and why?",
+              "a": "5 bits, because 2^5 = 32.",
+              "concept": "loadstore"
+            },
+            {
+              "q": "Compare RISC and CISC in one sentence.",
+              "a": "RISC uses simple, fixed-length, load/store instructions; CISC uses complex, variable-length instructions that may use memory. The CPU equation decides which is faster.",
+              "concept": "risc"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

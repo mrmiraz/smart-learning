@@ -1,0 +1,1416 @@
+{
+  "id": "ca-09-computer-arithmetic",
+  "title": "Computer Arithmetic and Floating Point",
+  "subtitle": "How computers store numbers, add, multiply and approximate fractions.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "3",
+      "title": "Arithmetic for Computers",
+      "topics": "Signed and unsigned numbers, addition and subtraction, overflow, multiplication, division, floating point and IEEE 754"
+    }
+  ],
+  "objectives": [
+    "Represent unsigned and signed (two's complement) integers",
+    "Add and subtract binary numbers and detect overflow",
+    "Explain shift-and-add multiplication and restoring division",
+    "Explain the IEEE 754 single-precision fields and convert simple values",
+    "Explain why some decimal fractions cannot be stored exactly"
+  ],
+  "concepts": [
+    {
+      "id": "integers",
+      "label": "Integers and two's complement",
+      "section": "integers"
+    },
+    {
+      "id": "addsub",
+      "label": "Addition, subtraction, overflow",
+      "section": "addsub"
+    },
+    {
+      "id": "muldiv",
+      "label": "Multiplication and division",
+      "section": "muldiv"
+    },
+    {
+      "id": "fp",
+      "label": "Floating point (IEEE 754)",
+      "section": "fp"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "Two puzzles: why can adding two positive numbers give a negative result, and why is 0.1 + 0.2 not exactly 0.3?",
+          "clues": [
+            "Computer numbers have a **fixed number of bits**, so they can run out of room.",
+            "Negative numbers share the same bit patterns as big positive ones.",
+            "Fractions are stored in binary, and some decimal fractions have **no finite binary form**."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "integers",
+      "label": "Integers",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "integers",
+          "title": "Unsigned binary integers",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Bits",
+                "Distinct patterns",
+                "Unsigned range"
+              ],
+              "rows": [
+                [
+                  "4",
+                  "16",
+                  "0 to 15"
+                ],
+                [
+                  "8",
+                  "256",
+                  "0 to 255"
+                ],
+                [
+                  "16",
+                  "65,536",
+                  "0 to 65,535"
+                ],
+                [
+                  "32",
+                  "4,294,967,296",
+                  "0 to 4,294,967,295"
+                ]
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "value = Σ bitᵢ × 2ⁱ",
+                  "note": "each bit has a weight that doubles to the left"
+                },
+                {
+                  "t": "n bits → 2ⁿ patterns",
+                  "note": "the range is 0 to 2ⁿ − 1"
+                }
+              ]
+            }
+          ],
+          "why": "A word has a fixed width, so every integer type has a smallest and a largest value.",
+          "real": "A 32-bit counter that adds 1 each millisecond wraps around after about 49 days.",
+          "explainAgain": {
+            "beginner": "A car odometer with 4 digits goes from 0000 to 9999, then rolls over to 0000. Binary registers do the same."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "integers",
+          "title": "Signed numbers: two's complement",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "The leftmost bit has a **negative** weight: −2ⁿ⁻¹",
+                "All other bits keep their positive weights",
+                "The leftmost bit is the **sign bit**: 1 means negative",
+                "n bits cover −2ⁿ⁻¹ to 2ⁿ⁻¹ − 1 (8 bits: −128 to 127)"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "8-bit pattern",
+                "Unsigned",
+                "Signed"
+              ],
+              "rows": [
+                [
+                  "00000101",
+                  "5",
+                  "5"
+                ],
+                [
+                  "01111111",
+                  "127",
+                  "127"
+                ],
+                [
+                  "10000000",
+                  "128",
+                  "−128"
+                ],
+                [
+                  "11111011",
+                  "251",
+                  "−5"
+                ],
+                [
+                  "11111111",
+                  "255",
+                  "−1"
+                ]
+              ]
+            }
+          ],
+          "why": "One adder works for both signed and unsigned numbers; only the way we read the pattern changes.",
+          "real": "Java int, C int and MIPS words all use two's complement.",
+          "mistake": {
+            "wrong": "The leftmost bit is just a plus or minus sign and the rest is the magnitude.",
+            "right": "In two's complement the leftmost bit carries weight −2ⁿ⁻¹, not a separate sign."
+          },
+          "notes": {
+            "explain": "Read 11111011 both ways: 251 as unsigned, but −128 + 123 = −5 as signed.",
+            "terms": [
+              "**two's complement**",
+              "**sign bit**"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "integers",
+          "title": "Negate: flip all the bits, add 1",
+          "blocks": [
+            {
+              "type": "bits",
+              "title": "Two's complement",
+              "modes": [
+                "twos"
+              ],
+              "bits": 8,
+              "value": 5
+            }
+          ],
+          "why": "Press the negate button on 5: you get 11111011 = −5. Press it again and you are back at 5."
+        },
+        {
+          "type": "predict",
+          "concept": "integers",
+          "skill": "Apply",
+          "question": "What is the 8-bit pattern `11111011` as a signed number?",
+          "options": [
+            "−5",
+            "251",
+            "−123",
+            "−7"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Leftmost bit weight −128; the other bits give 64 + 32 + 16 + 8 + 2 + 1 = 123. −128 + 123 = **−5**. (As unsigned it is 251.)",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Flip the bits (00000100) and add 1 (00000101) to get the magnitude 5."
+        },
+        {
+          "type": "concept",
+          "concept": "integers",
+          "title": "In MIPS: signed and unsigned comparison",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Negation and slt vs sltu",
+              "program": "addi $t0, $zero, -5\nnor $t2, $t0, $zero\naddi $t2, $t2, 1\nslt $t3, $t0, $zero\nsltu $t4, $t0, $zero",
+              "watch": [
+                "$t0",
+                "$t2",
+                "$t3",
+                "$t4"
+              ],
+              "hint": "$t0 is −5. The nor/addi pair negates it. Compare slt (signed) with sltu (unsigned).",
+              "editable": true
+            }
+          ],
+          "why": "The same bits give different answers: −5 < 0 for slt, but as unsigned it is a huge number, so sltu says no.",
+          "real": "Array bounds checks use unsigned comparison for exactly this reason."
+        },
+        {
+          "type": "mcq",
+          "concept": "integers",
+          "question": "What is the range of an 8-bit two's complement integer?",
+          "options": [
+            "−128 to 127",
+            "−127 to 127",
+            "0 to 255",
+            "−256 to 255"
+          ],
+          "answer": 0,
+          "why": "The sign bit has weight −128, so the lowest value is −128 and the highest is 127.",
+          "feedback": [
+            "",
+            "That range would give two zeros; two's complement has one.",
+            "That is the unsigned range.",
+            "8 bits give only 256 patterns in total."
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "integers",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each 8-bit pattern with its signed value.",
+          "pairs": [
+            {
+              "a": "00000101",
+              "b": "5"
+            },
+            {
+              "a": "11111111",
+              "b": "−1"
+            },
+            {
+              "a": "10000000",
+              "b": "−128"
+            },
+            {
+              "a": "11111011",
+              "b": "−5"
+            }
+          ],
+          "why": "Negative numbers start with a 1 in the leftmost bit."
+        },
+        {
+          "type": "find",
+          "concept": "integers",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about two's complement is wrong. Click it.",
+          "lines": [
+            "1. The leftmost bit of a negative number is 1.",
+            "2. Negating a number flips every bit and adds 1.",
+            "3. 8 bits can hold 256 different values.",
+            "4. There are two zeros: +0 and −0."
+          ],
+          "wrong": 3,
+          "explain": "Two's complement has a single zero, which is one of its advantages.",
+          "fix": "There is only one zero (all bits 0)."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What weight does the leftmost bit have in an n-bit two's complement number?",
+              "a": "−2ⁿ⁻¹.",
+              "concept": "integers"
+            },
+            {
+              "q": "How do you negate a two's complement number?",
+              "a": "Flip all the bits, then add 1.",
+              "concept": "integers"
+            },
+            {
+              "q": "What is the range of a 32-bit signed integer?",
+              "a": "−2,147,483,648 to 2,147,483,647.",
+              "concept": "integers"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "addsub",
+      "label": "Addition and subtraction",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "addsub",
+          "title": "Binary addition",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Add each column right to left: 0+0=0, 0+1=1, 1+1=**10** (write 0, carry 1)",
+                "Each column also adds the carry from the column on its right",
+                "The same hardware adder works for signed and unsigned numbers",
+                "**Subtraction** a − b is a + (−b): negate b, then add"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Example",
+                "Result"
+              ],
+              "rows": [
+                [
+                  "0110 + 0011",
+                  "1001 (6 + 3 = 9)"
+                ],
+                [
+                  "00000111 + 11111011",
+                  "1 00000010: drop the carry out, result 2 (7 + (−5))"
+                ]
+              ]
+            }
+          ],
+          "why": "Because of two's complement, subtraction needs no separate subtractor logic.",
+          "real": "Your CPU's ALU is built around exactly this: one adder, plus an inverter for subtraction."
+        },
+        {
+          "type": "concept",
+          "concept": "addsub",
+          "title": "Try it: addition with carries",
+          "blocks": [
+            {
+              "type": "bits",
+              "title": "Addition and overflow",
+              "modes": [
+                "add"
+              ],
+              "bits": 8,
+              "a": 109,
+              "b": 38
+            }
+          ],
+          "why": "109 + 38 = 147 does not fit in 8 signed bits: watch the carries and the overflow flag."
+        },
+        {
+          "type": "concept",
+          "concept": "addsub",
+          "title": "Overflow",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Case",
+                "Unsigned detection",
+                "Signed detection"
+              ],
+              "rows": [
+                [
+                  "Rule",
+                  "A carry out of the top bit",
+                  "Two operands with the same sign give a result of the opposite sign"
+                ],
+                [
+                  "109 + 38 (8-bit)",
+                  "No carry out: fine (147)",
+                  "Overflow: 147 reads as −109"
+                ],
+                [
+                  "200 + 100 (8-bit)",
+                  "Carry out: overflow (result 44)",
+                  "No overflow: −56 + 100 = 44"
+                ]
+              ]
+            }
+          ],
+          "why": "Overflow depends on how you interpret the bits, so signed and unsigned have different tests.",
+          "real": "An overflowed counter is behind many famous software bugs, from counters wrapping around to money errors.",
+          "mistake": {
+            "wrong": "Overflow happens whenever there is a carry out of the top bit.",
+            "right": "A carry out signals unsigned overflow only; signed overflow needs the sign check."
+          },
+          "deeper": {
+            "text": "Adding numbers of opposite sign can never overflow in two's complement."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "addsub",
+          "skill": "Apply",
+          "question": "In 8-bit signed arithmetic, what is 109 + 38?",
+          "options": [
+            "−109 (overflow)",
+            "147",
+            "43",
+            "−147"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "109 + 38 = 147 is above 127, so the pattern 10010011 is read as **−109**. Two positive operands gave a negative result: signed overflow.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The true sum 147 needs 9 signed bits."
+        },
+        {
+          "type": "concept",
+          "concept": "addsub",
+          "title": "MIPS: add vs addu",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "add / addi / sub",
+                "items": [
+                  "Signed arithmetic",
+                  "**Traps** (exception) on signed overflow",
+                  "Used by languages that must detect overflow, such as Ada"
+                ]
+              },
+              "right": {
+                "title": "addu / addiu / subu",
+                "items": [
+                  "Wraps around silently",
+                  "No exception",
+                  "Used for addresses and by C and Java integer arithmetic"
+                ]
+              }
+            }
+          ],
+          "why": "MIPS lets the programmer or compiler choose whether overflow is an error or is ignored.",
+          "real": "Java and C int addition wraps around (addu), so 2,147,483,647 + 1 gives −2,147,483,648."
+        },
+        {
+          "type": "concept",
+          "concept": "addsub",
+          "title": "Run it: add vs addu",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "addu wraps around",
+              "program": "lui $t0, 0x7FFF\nori $t0, $t0, 0xFFFF\naddi $t2, $zero, 1\naddu $t3, $t0, $t2",
+              "watch": [
+                "$t0",
+                "$t2",
+                "$t3"
+              ],
+              "hint": "$t0 = 2,147,483,647 (the largest signed int). addu gives −2,147,483,648.",
+              "editable": true
+            },
+            {
+              "type": "mips",
+              "title": "add traps on overflow",
+              "program": "lui $t0, 0x7FFF\nori $t0, $t0, 0xFFFF\naddi $t2, $zero, 1\nadd $t3, $t0, $t2",
+              "expectError": true,
+              "watch": [
+                "$t0",
+                "$t2",
+                "$t3"
+              ],
+              "hint": "The same addition with add stops with an arithmetic overflow error.",
+              "editable": true
+            }
+          ],
+          "why": "Same operands, two instructions: one wraps, the other raises an exception."
+        },
+        {
+          "type": "mcq",
+          "concept": "addsub",
+          "question": "Which test detects overflow when adding two signed numbers?",
+          "options": [
+            "Both operands have the same sign and the result has the opposite sign",
+            "There is a carry out of the top bit",
+            "The result is zero",
+            "The result is odd"
+          ],
+          "answer": 0,
+          "why": "This is the signed overflow rule.",
+          "feedback": [
+            "",
+            "A carry out only indicates unsigned overflow.",
+            "Zero is a normal result.",
+            "Parity is unrelated."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "addsub",
+          "statement": "Adding a positive and a negative two's complement number can overflow.",
+          "answer": false,
+          "why": "Their sum always lies between the two operands, so it fits."
+        }
+      ]
+    },
+    {
+      "id": "muldiv",
+      "label": "Multiplication and division",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "muldiv",
+          "title": "Multiplication: shift and add",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Look at each bit of the multiplier, from the right",
+                "If the bit is **1**, add the multiplicand to the product",
+                "Shift the multiplicand left by 1 each step (×2)",
+                "After n steps the product is complete"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Step",
+                "Multiplier bit",
+                "Add",
+                "Product"
+              ],
+              "rows": [
+                [
+                  "0",
+                  "1",
+                  "13",
+                  "13"
+                ],
+                [
+                  "1",
+                  "1",
+                  "26",
+                  "39"
+                ],
+                [
+                  "2",
+                  "0",
+                  "0",
+                  "39"
+                ],
+                [
+                  "3",
+                  "1",
+                  "104",
+                  "143"
+                ]
+              ]
+            }
+          ],
+          "why": "A multiplication is a series of shifts and additions, the same as long multiplication in decimal.",
+          "real": "This 13 × 11 = 143 example takes four steps; a 32-bit multiply takes 32 steps in the simplest hardware.",
+          "explainAgain": {
+            "beginner": "Long multiplication on paper: each digit of the second number produces a shifted copy of the first."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "muldiv",
+          "title": "Try it: multiplication",
+          "blocks": [
+            {
+              "type": "bits",
+              "title": "Shift-and-add multiplication",
+              "modes": [
+                "mul"
+              ],
+              "a": 13,
+              "b": 11
+            }
+          ],
+          "why": "Change the multiplier to 9 or 15 and predict the partial products."
+        },
+        {
+          "type": "concept",
+          "concept": "muldiv",
+          "title": "The same in MIPS",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "13 × 11 with sll, srl and add",
+              "program": "addi $s0, $zero, 13\naddi $s1, $zero, 11\naddi $s2, $zero, 0\naddi $t0, $zero, 0\nloop: slti $t1, $t0, 4\nbeq $t1, $zero, end\nandi $t2, $s1, 1\nbeq $t2, $zero, skip\nadd $s2, $s2, $s0\nskip: sll $s0, $s0, 1\nsrl $s1, $s1, 1\naddi $t0, $t0, 1\nj loop\nend:",
+              "watch": [
+                "$s0",
+                "$s1",
+                "$s2",
+                "$t0"
+              ],
+              "hint": "$s2 collects the product, $s0 doubles each loop and $s1 loses its lowest bit each loop.",
+              "editable": true
+            }
+          ],
+          "why": "This is the multiply algorithm written as a loop: and, test, add, shift."
+        },
+        {
+          "type": "predict",
+          "concept": "muldiv",
+          "skill": "Apply",
+          "question": "What does the MIPS loop leave in `$s2`?",
+          "options": [
+            "143",
+            "24",
+            "156",
+            "11"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The multiplier 11 = 1011 has bits 1, 1, 0, 1 (from the right), so it adds 13, 26 and 104: 13 + 26 + 104 = **143**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The 0 bit in position 2 means that step adds nothing."
+        },
+        {
+          "type": "concept",
+          "concept": "muldiv",
+          "title": "Division: restoring",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Bring down one bit of the dividend into the remainder",
+                "Try to subtract the divisor",
+                "If the remainder stays ≥ 0, the quotient bit is **1**",
+                "Otherwise **restore** (undo) the subtraction and the quotient bit is **0**",
+                "Repeat for every bit"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Dividend",
+                "Divisor",
+                "Quotient",
+                "Remainder"
+              ],
+              "rows": [
+                [
+                  "13 (1101)",
+                  "3",
+                  "4 (0100)",
+                  "1"
+                ]
+              ]
+            }
+          ],
+          "why": "Division is repeated trial subtraction. It is slower than multiplication, which is why compilers avoid it where they can.",
+          "real": "A 32-bit divide takes dozens of cycles on many processors, so programmers prefer shifts for dividing by powers of 2."
+        },
+        {
+          "type": "concept",
+          "concept": "muldiv",
+          "title": "Try it: division",
+          "blocks": [
+            {
+              "type": "bits",
+              "title": "Restoring division",
+              "modes": [
+                "div"
+              ],
+              "a": 13,
+              "b": 3
+            }
+          ],
+          "why": "Watch each remainder step and the quotient bits appear."
+        },
+        {
+          "type": "arrange",
+          "concept": "muldiv",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put one step of shift-and-add multiplication in order.",
+          "items": [
+            "Look at the lowest bit of the multiplier",
+            "If it is 1, add the multiplicand to the product",
+            "Shift the multiplicand left by 1",
+            "Shift the multiplier right by 1",
+            "Repeat for the next bit"
+          ],
+          "why": "The bit test comes first, and both shifts prepare the next step."
+        },
+        {
+          "type": "mcq",
+          "concept": "muldiv",
+          "question": "What is the remainder of 13 ÷ 3?",
+          "options": [
+            "1",
+            "0",
+            "2",
+            "3"
+          ],
+          "answer": 0,
+          "why": "13 = 3 × 4 + 1, so the quotient is 4 and the remainder is 1.",
+          "feedback": [
+            "",
+            "3 divides 12, not 13.",
+            "13 − 12 = 1, not 2.",
+            "The remainder is always smaller than the divisor."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fp",
+      "label": "Floating point",
+      "minutes": 12,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "fp",
+          "title": "Why floating point?",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Integers cannot hold fractions or extremely large or small numbers",
+                "Scientific notation: ± 1.xxxx × 10ⁿ, with a **sign**, a **significand** and an **exponent**",
+                "The binary version is ± 1.xxxx₂ × 2ⁿ",
+                "IEEE 754 fixes how these are laid out so every computer agrees"
+              ]
+            }
+          ],
+          "why": "A float trades exactness for range: it can represent tiny and huge values using the same 32 bits.",
+          "real": "Games, graphics, science and machine learning all depend on floating point."
+        },
+        {
+          "type": "concept",
+          "concept": "fp",
+          "title": "IEEE 754 single precision",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Field",
+                "Sign",
+                "Exponent",
+                "Fraction"
+              ],
+              "rows": [
+                [
+                  "Bits",
+                  "1",
+                  "8",
+                  "23"
+                ],
+                [
+                  "Meaning",
+                  "0 = positive, 1 = negative",
+                  "biased by 127",
+                  "digits after the hidden leading 1"
+                ]
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "value = (−1)ˢ × 1.fraction × 2^(exponent − 127)",
+                  "note": "for normal numbers"
+                },
+                {
+                  "t": "the leading 1 is \"hidden\"",
+                  "note": "it is not stored, which gives 24 bits of precision"
+                }
+              ]
+            }
+          ],
+          "why": "The bias lets the exponent be stored as an unsigned number, so floats can be compared with integer-style hardware.",
+          "real": "Java float and C float use exactly this layout.",
+          "mistake": {
+            "wrong": "The stored exponent is the real exponent.",
+            "right": "The stored exponent is the real exponent plus 127."
+          },
+          "notes": {
+            "explain": "Use 1.0: sign 0, exponent 127 (real exponent 0), fraction 0: 0x3F800000.",
+            "terms": [
+              "**bias**",
+              "**hidden bit**",
+              "**significand**"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "fp",
+          "title": "Worked example: 5.75",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Step",
+                "Result"
+              ],
+              "rows": [
+                [
+                  "Convert to binary",
+                  "5.75 = 101.11₂"
+                ],
+                [
+                  "Normalize",
+                  "1.0111 × 2²"
+                ],
+                [
+                  "Exponent field",
+                  "2 + 127 = 129 = 10000001"
+                ],
+                [
+                  "Fraction field",
+                  "0111 followed by zeros"
+                ],
+                [
+                  "Sign",
+                  "0"
+                ],
+                [
+                  "Result",
+                  "0 10000001 01110000000000000000000 = 0x40B80000"
+                ]
+              ]
+            }
+          ],
+          "why": "This is the whole conversion procedure: binary, normalize, add the bias, fill the fields."
+        },
+        {
+          "type": "concept",
+          "concept": "fp",
+          "title": "Try it: IEEE 754 fields",
+          "blocks": [
+            {
+              "type": "bits",
+              "title": "IEEE 754 single precision",
+              "modes": [
+                "ieee"
+              ],
+              "value": 5.75
+            }
+          ],
+          "why": "Type 5.75, then −6.5, 0.75, 100 and 0.1 and compare the fields with your hand conversion."
+        },
+        {
+          "type": "predict",
+          "concept": "fp",
+          "skill": "Apply",
+          "question": "What is the hexadecimal pattern of −6.5?",
+          "options": [
+            "0xC0D00000",
+            "0x40D00000",
+            "0xC0A00000",
+            "0xBF800000"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "6.5 = 110.1₂ = 1.101 × 2². Exponent 2 + 127 = 129. Fraction 101000…. Sign 1. So 1 10000001 101000… = **0xC0D00000**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The only difference from +6.5 (0x40D00000) is the sign bit."
+        },
+        {
+          "type": "concept",
+          "concept": "fp",
+          "title": "Special values",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Exponent",
+                "Fraction",
+                "Meaning"
+              ],
+              "rows": [
+                [
+                  "0",
+                  "0",
+                  "Zero (+0 or −0)"
+                ],
+                [
+                  "0",
+                  "not 0",
+                  "Denormal (tiny) numbers"
+                ],
+                [
+                  "1 to 254",
+                  "any",
+                  "Normal numbers"
+                ],
+                [
+                  "255",
+                  "0",
+                  "Infinity (±∞)"
+                ],
+                [
+                  "255",
+                  "not 0",
+                  "NaN (not a number)"
+                ]
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Pattern",
+                "Value"
+              ],
+              "rows": [
+                [
+                  "0x7F800000",
+                  "+∞"
+                ],
+                [
+                  "0x7FC00000",
+                  "NaN"
+                ],
+                [
+                  "0x7F7FFFFF",
+                  "largest normal ≈ 3.4 × 10³⁸"
+                ],
+                [
+                  "0x00800000",
+                  "smallest normal ≈ 1.18 × 10⁻³⁸"
+                ]
+              ]
+            }
+          ],
+          "why": "Reserving the extreme exponents gives infinity and NaN, so computations such as 1/0 do not crash.",
+          "real": "NaN appears when you compute 0/0 or the square root of a negative number."
+        },
+        {
+          "type": "concept",
+          "concept": "fp",
+          "title": "Rounding: 0.1 is not exact",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "0.1 = 0.0001100110011…₂: the binary expansion **never ends**",
+                "A float keeps only 24 significant bits, so it stores the nearest value",
+                "In single precision 0.1 is stored as 0x3DCCCCCD ≈ 0.10000000149",
+                "Whole numbers up to 2²⁴ = 16,777,216 are exact; 16,777,217 is not"
+              ]
+            }
+          ],
+          "why": "This is why comparing floats with == is risky: the stored values are approximations.",
+          "real": "Never use floats for exact money: use integers (cents) or decimal types.",
+          "mistake": {
+            "wrong": "A float stores 0.1 exactly.",
+            "right": "It stores the nearest binary fraction, about 0.10000000149."
+          },
+          "explainAgain": {
+            "beginner": "One third is 0.3333… in decimal and never ends. One tenth is the same kind of problem in binary."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "fp",
+          "question": "The exponent field of 1.0 in IEEE single precision is:",
+          "options": [
+            "127",
+            "0",
+            "1",
+            "128"
+          ],
+          "answer": 0,
+          "why": "Real exponent 0 plus the bias 127 gives 127 (0x3F800000).",
+          "feedback": [
+            "",
+            "0 would be the real exponent before biasing.",
+            "The real exponent of 1.0 is 0.",
+            "128 would be the field for 2.0."
+          ]
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "A float has 32 bits, the same as an int. Why can it store numbers up to about 3.4 × 10³⁸ while an int stops at about 2.1 billion?",
+          "think": 20,
+          "pair": 40,
+          "answer": "The float spends its bits differently: 8 bits of exponent give it an enormous range, but only 24 bits of significand, so it can only keep about 7 significant decimal digits. It gains range and loses exactness."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "fp",
+          "question": "When should a program use integers instead of floating-point numbers?",
+          "seconds": 60,
+          "ideas": [
+            "Money: use integers (cents).",
+            "Counters and indexes: use integers; floats lose exactness above 16,777,216.",
+            "Scientific measurements: floats are fine because the data are approximate anyway.",
+            "Comparisons: compare floats with a tolerance, not with ==."
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What are the three fields of IEEE 754 single precision?",
+              "a": "Sign (1 bit), exponent (8 bits, bias 127) and fraction (23 bits).",
+              "concept": "fp"
+            },
+            {
+              "q": "Why is 0.1 not stored exactly?",
+              "a": "Its binary expansion never ends, so it is rounded to 24 bits.",
+              "concept": "fp"
+            },
+            {
+              "q": "What does an exponent field of 255 mean?",
+              "a": "Infinity (fraction 0) or NaN (fraction not 0).",
+              "concept": "fp"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "integers",
+          "question": "What is the range of a 4-bit unsigned integer, and of a 4-bit two's complement integer?",
+          "answer": "Unsigned 0 to 15; signed −8 to 7.",
+          "solution": "Four bits give 16 patterns. Unsigned 0 to 15; signed −2³ = −8 to 2³ − 1 = 7.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "integers",
+          "question": "Write −20 as an 8-bit two's complement number in binary and hex.",
+          "answer": "11101100 = 0xEC.",
+          "solution": "20 = 00010100. Flip the bits: 11101011. Add 1: 11101100 = 0xEC (256 − 20 = 236).",
+          "hint": "Flip, then add 1.",
+          "mistake": "Forgetting to add 1 after flipping.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "addsub",
+          "question": "Add the 8-bit signed numbers 01101101 and 00100110. Give the result and say whether signed overflow occurred.",
+          "answer": "10010011; yes, signed overflow (109 + 38 = 147, read as −109).",
+          "solution": "Add column by column with carries: the result is 10010011 = 147 unsigned, but as signed it is −109. Two positive operands gave a negative result.",
+          "hint": "Check the signs of the operands and the result.",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "fp",
+          "question": "Convert 100 to IEEE 754 single precision (hex).",
+          "answer": "0x42C80000.",
+          "solution": "100 = 1100100₂ = 1.100100 × 2⁶. Exponent 6 + 127 = 133 = 10000101. Fraction 100100…. Sign 0. Bits 0 10000101 1001000… = 0x42C80000.",
+          "hint": "Normalize first, then add 127 to the exponent.",
+          "mistake": "Forgetting the bias, or storing the hidden 1.",
+          "think": 90
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "addsub",
+          "question": "Add 200 and 100 as 8-bit numbers. What is the result and does unsigned overflow occur? Does signed overflow occur?",
+          "answer": "Result 44 with a carry out: unsigned overflow yes; signed overflow no.",
+          "solution": "200 + 100 = 300 = 256 + 44, so the 8-bit result is 44 with a carry out (unsigned overflow). As signed: −56 + 100 = 44 with no sign problem (opposite signs).",
+          "mistake": "Using a carry out to claim signed overflow.",
+          "title": "Exam practice: numerical",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "muldiv",
+          "question": "Multiply 13 by 11 with shift-and-add. Give the product after each of the four steps.",
+          "answer": "13, 39, 39, 143.",
+          "solution": "The multiplier bits from the right are 1, 1, 0, 1. Add 13; add 26; add 0; add 104. Running totals: 13, 39, 39, 143.",
+          "mistake": "Not shifting the multiplicand each step.",
+          "title": "Exam practice: numerical",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "muldiv",
+          "question": "Divide 13 by 3 (4-bit restoring division). What are the quotient and remainder?",
+          "answer": "Quotient 4 and remainder 1.",
+          "solution": "Go through the bits 1, 1, 0, 1 of 13, subtracting 3 whenever the remainder allows: quotient bits 0, 1, 0, 0 give 4; final remainder 1.",
+          "mistake": "Writing the remainder as 3 or 2.",
+          "title": "Exam practice: numerical",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "fp",
+          "question": "Explain why 0.1 cannot be stored exactly in a float, and why 16,777,217 cannot be stored exactly either.",
+          "answer": "In binary, 0.1 is a repeating fraction (0.000110011…), so it must be rounded to 24 significant bits. A float has only a 24-bit significand, so integers above 2²⁴ = 16,777,216 cannot all be represented; 16,777,217 is rounded to 16,777,216.",
+          "solution": "A strong answer mentions the finite significand in both cases.",
+          "mistake": "Saying the float runs out of exponent bits.",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Computer arithmetic",
+          "branches": [
+            {
+              "label": "Integers",
+              "example": "Unsigned and two's complement",
+              "section": "integers"
+            },
+            {
+              "label": "Add / subtract",
+              "example": "Carries and overflow",
+              "section": "addsub"
+            },
+            {
+              "label": "Mul / div",
+              "example": "Shift-add, restoring",
+              "section": "muldiv"
+            },
+            {
+              "label": "Floating point",
+              "example": "IEEE 754",
+              "section": "fp"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "n-bit unsigned: 0 to 2ⁿ−1. n-bit two's complement: −2ⁿ⁻¹ to 2ⁿ⁻¹−1; negate = flip + 1.",
+            "Addition uses the same adder for signed and unsigned; subtraction adds the negation.",
+            "Signed overflow: same-sign operands, opposite-sign result. Unsigned overflow: a carry out of the top bit.",
+            "MIPS add traps on overflow; addu wraps around.",
+            "Multiplication is shift-and-add; division is repeated trial subtraction.",
+            "IEEE single: 1 sign, 8 exponent (bias 127), 23 fraction, hidden leading 1.",
+            "Floats are approximations: 0.1 is rounded and integers above 16,777,216 are not exact."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "The leftmost bit is only a sign.",
+              "right": "It has weight −2ⁿ⁻¹ in two's complement."
+            },
+            {
+              "wrong": "A carry out always means overflow.",
+              "right": "It means unsigned overflow only."
+            },
+            {
+              "wrong": "The stored float exponent is the real exponent.",
+              "right": "It is the real exponent plus 127."
+            },
+            {
+              "wrong": "0.1 is stored exactly in a float.",
+              "right": "It is stored as the nearest binary fraction."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Computers store integers in two's complement and fractions in IEEE 754. Addition, subtraction, multiplication and division all work on a fixed number of bits, so overflow and rounding are real effects. Signed overflow and unsigned overflow are detected differently, multiplication is shift-and-add, and floats approximate real numbers with sign, biased exponent and a 23-bit fraction."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "integers",
+              "question": "How many different values can 8 bits represent?",
+              "options": [
+                "256",
+                "255",
+                "128",
+                "512"
+              ],
+              "answer": 0,
+              "why": "2⁸ = 256 patterns.",
+              "misconception": "Counting 0 to 255 gives 256 values."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "integers",
+              "statement": "In two's complement a leading 1 means the number is negative.",
+              "answer": true,
+              "why": "The sign bit has negative weight.",
+              "misconception": "The leftmost bit is 1 for every negative value."
+            },
+            {
+              "level": "easy",
+              "concept": "fp",
+              "question": "What is the exponent bias in IEEE 754 single precision?",
+              "options": [
+                "127",
+                "128",
+                "255",
+                "23"
+              ],
+              "answer": 0,
+              "why": "The bias is 127.",
+              "misconception": "The field is 8 bits wide, so the bias is 2⁷ − 1."
+            },
+            {
+              "level": "medium",
+              "concept": "integers",
+              "question": "What is 11111011 as an 8-bit signed number?",
+              "options": [
+                "−5",
+                "251",
+                "−7",
+                "−123"
+              ],
+              "answer": 0,
+              "why": "−128 + 123 = −5.",
+              "misconception": "It is 251 only if read as unsigned."
+            },
+            {
+              "level": "medium",
+              "concept": "addsub",
+              "question": "When does signed overflow occur in addition?",
+              "options": [
+                "Same-sign operands give an opposite-sign result",
+                "Whenever there is a carry out",
+                "Whenever the result is negative",
+                "Whenever one operand is zero"
+              ],
+              "answer": 0,
+              "why": "That is the signed overflow rule.",
+              "misconception": "A carry out signals unsigned overflow."
+            },
+            {
+              "level": "medium",
+              "concept": "fp",
+              "question": "Which float is 0x3F800000?",
+              "options": [
+                "1.0",
+                "0.5",
+                "2.0",
+                "0.0"
+              ],
+              "answer": 0,
+              "why": "Sign 0, exponent field 127 (real exponent 0), fraction 0: 1.0 × 2⁰ = 1.0.",
+              "misconception": "The exponent field 127 means a real exponent of 0."
+            },
+            {
+              "level": "hard",
+              "concept": "fp",
+              "question": "What does 0xC0D00000 represent?",
+              "options": [
+                "−6.5",
+                "6.5",
+                "−3.25",
+                "−13"
+              ],
+              "answer": 0,
+              "why": "Sign 1, exponent field 129 (real 2), fraction .101 gives −1.101₂ × 2² = −6.5.",
+              "misconception": "The positive version is 0x40D00000."
+            },
+            {
+              "level": "hard",
+              "concept": "addsub",
+              "question": "Which MIPS instruction wraps around silently on overflow instead of trapping?",
+              "options": [
+                "addu",
+                "add",
+                "addi",
+                "sub"
+              ],
+              "answer": 0,
+              "why": "addu (and addiu, subu) never trap.",
+              "misconception": "add, addi and sub raise an exception on signed overflow."
+            },
+            {
+              "level": "challenge",
+              "concept": "fp",
+              "question": "A 32-bit float is asked to store 16,777,217. What does it actually hold?",
+              "options": [
+                "16,777,216",
+                "16,777,217",
+                "16,777,218",
+                "Infinity"
+              ],
+              "answer": 0,
+              "why": "The 24-bit significand cannot represent 2²⁴ + 1, so it rounds to 16,777,216.",
+              "misconception": "Integers above 2²⁴ lose exactness in single precision."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "Give the range of an n-bit two's complement integer.",
+              "a": "−2ⁿ⁻¹ to 2ⁿ⁻¹ − 1.",
+              "concept": "integers"
+            },
+            {
+              "q": "How is subtraction done?",
+              "a": "Negate the second number (flip, add 1) and add.",
+              "concept": "addsub"
+            },
+            {
+              "q": "What are the steps of shift-and-add multiplication?",
+              "a": "Test the multiplier bit, add the multiplicand if 1, shift, repeat.",
+              "concept": "muldiv"
+            },
+            {
+              "q": "What are the IEEE 754 single fields?",
+              "a": "Sign 1, exponent 8 (bias 127), fraction 23.",
+              "concept": "fp"
+            },
+            {
+              "q": "Why is 0.1 inexact?",
+              "a": "Its binary fraction repeats forever and must be rounded.",
+              "concept": "fp"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

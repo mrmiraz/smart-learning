@@ -1,0 +1,1307 @@
+{
+  "id": "ca-06-addressing-modes",
+  "title": "Addressing Modes and Memory Access",
+  "subtitle": "How an instruction finds its operands and its targets.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "2",
+      "title": "Instructions: Language of the Computer",
+      "topics": "MIPS addressing for branches and jumps; memory operands; byte and half-word loads and stores; byte order and alignment"
+    }
+  ],
+  "objectives": [
+    "Name the MIPS addressing modes and say where each finds its operand",
+    "Calculate effective addresses for lw and sw (base plus displacement)",
+    "Calculate branch and jump targets (PC-relative and pseudo-direct)",
+    "Explain alignment and what happens when it is violated",
+    "Compare big endian and little endian byte order"
+  ],
+  "concepts": [
+    {
+      "id": "modes",
+      "label": "Addressing modes overview",
+      "section": "modes"
+    },
+    {
+      "id": "base",
+      "label": "Base/displacement addressing",
+      "section": "base"
+    },
+    {
+      "id": "pcrel",
+      "label": "PC-relative and jump addressing",
+      "section": "pcrel"
+    },
+    {
+      "id": "align",
+      "label": "Alignment",
+      "section": "align"
+    },
+    {
+      "id": "endian",
+      "label": "Big and little endian",
+      "section": "align"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "A program can use over four billion addresses, but `lw` has only 16 bits for an offset. How can it still reach any element of any array?",
+          "clues": [
+            "An address is a 32-bit number; the offset field is only 16 bits.",
+            "The trick: add a small offset to a **base address** kept in a register.",
+            "Ways of finding an operand or a target are called **addressing modes**."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "modes",
+      "label": "Modes",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "modes",
+          "title": "Where does an operand come from?",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Mode",
+                "Where the operand or target is",
+                "MIPS example"
+              ],
+              "rows": [
+                [
+                  "Immediate",
+                  "A constant inside the instruction",
+                  "addi $t0, $s1, 4"
+                ],
+                [
+                  "Register",
+                  "In a register",
+                  "add $t0, $s1, $s2"
+                ],
+                [
+                  "Base / displacement",
+                  "In memory at register + offset",
+                  "lw $t0, 8($s1)"
+                ],
+                [
+                  "PC-relative",
+                  "Target = PC + 4 + offset × 4",
+                  "beq $t0, $t1, label"
+                ],
+                [
+                  "Pseudo-direct",
+                  "Target built from the jump field and the PC",
+                  "j label"
+                ]
+              ]
+            }
+          ],
+          "why": "Each mode is a different way of turning bits in the instruction into a value or an address. The ISA picks a few good ones.",
+          "real": "Every array access, loop and function call you write uses one of these modes.",
+          "explainAgain": {
+            "beginner": "An addressing mode is just the rule for finding the thing the instruction works on."
+          },
+          "notes": {
+            "explain": "Reveal rows one at a time. Students already met immediate, register and base+offset in Class 5."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "modes",
+          "title": "Immediate and register addressing",
+          "blocks": [
+            {
+              "type": "walkthrough",
+              "title": "Two simple modes",
+              "modes": [
+                {
+                  "name": "Immediate",
+                  "inputs": [
+                    {
+                      "id": "s1",
+                      "label": "$s1 value",
+                      "value": 10,
+                      "min": -100,
+                      "max": 100,
+                      "step": 1
+                    },
+                    {
+                      "id": "imm",
+                      "label": "Immediate",
+                      "value": 4,
+                      "min": -50,
+                      "max": 50,
+                      "step": 1
+                    }
+                  ],
+                  "stages": [
+                    {
+                      "label": "Instruction",
+                      "text": "`addi $t0, $s1, {imm}`"
+                    },
+                    {
+                      "label": "Operands",
+                      "text": "$s1 = {s1}; the immediate **{imm}** is inside the instruction"
+                    },
+                    {
+                      "label": "ALU",
+                      "text": "{s1} + {imm}"
+                    },
+                    {
+                      "label": "Result",
+                      "text": "$t0 = **{s1+imm}**"
+                    }
+                  ]
+                },
+                {
+                  "name": "Register",
+                  "inputs": [
+                    {
+                      "id": "s1",
+                      "label": "$s1 value",
+                      "value": 10,
+                      "min": -100,
+                      "max": 100,
+                      "step": 1
+                    },
+                    {
+                      "id": "s2",
+                      "label": "$s2 value",
+                      "value": 32,
+                      "min": -100,
+                      "max": 100,
+                      "step": 1
+                    }
+                  ],
+                  "stages": [
+                    {
+                      "label": "Instruction",
+                      "text": "`add $t0, $s1, $s2`"
+                    },
+                    {
+                      "label": "Operands",
+                      "text": "Both are read from the register file"
+                    },
+                    {
+                      "label": "ALU",
+                      "text": "{s1} + {s2}"
+                    },
+                    {
+                      "label": "Result",
+                      "text": "$t0 = **{s1+s2}**"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "No memory access is needed in either mode, so these are the fastest."
+        },
+        {
+          "type": "mcq",
+          "concept": "modes",
+          "question": "Which addressing mode do the operands of `add $t0, $s1, $s2` use?",
+          "options": [
+            "Register addressing",
+            "Immediate addressing",
+            "Base/displacement addressing",
+            "PC-relative addressing"
+          ],
+          "answer": 0,
+          "why": "All three operands are registers.",
+          "feedback": [
+            "",
+            "An immediate would be a constant written in the instruction.",
+            "Base/displacement forms a memory address.",
+            "PC-relative is used by branches."
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "modes",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each instruction with its addressing mode.",
+          "pairs": [
+            {
+              "a": "addi $t0, $s1, 4",
+              "b": "Immediate"
+            },
+            {
+              "a": "add $t0, $s1, $s2",
+              "b": "Register"
+            },
+            {
+              "a": "lw $t0, 8($s1)",
+              "b": "Base/displacement"
+            },
+            {
+              "a": "beq $t0, $t1, L",
+              "b": "PC-relative"
+            }
+          ],
+          "why": "The operand fields tell you the mode."
+        }
+      ]
+    },
+    {
+      "id": "base",
+      "label": "Base + Offset",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "base",
+          "title": "Base/displacement addressing",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "Effective address",
+                  "note": "The memory address the instruction really uses."
+                },
+                {
+                  "t": "="
+                },
+                {
+                  "t": "base register",
+                  "note": "A register holds the start of the array or structure."
+                },
+                {
+                  "t": "+"
+                },
+                {
+                  "t": "sign-extended offset",
+                  "note": "A 16-bit signed constant in the instruction, counted in **bytes**."
+                }
+              ]
+            }
+          ],
+          "why": "The base register can point anywhere in memory, while the small offset picks an element near it. That is how one 16-bit field reaches any array.",
+          "real": "Reading A[i] in C, a field of a struct or a local variable on the stack all compile to a base + offset load.",
+          "mistake": {
+            "wrong": "The offset in `lw` counts words.",
+            "right": "The offset counts bytes. For an array of words use 4 × index."
+          },
+          "notes": {
+            "explain": "Write the formula on the whiteboard and keep it there for the walkthrough.",
+            "terms": [
+              "**Effective address**",
+              "**Displacement** (offset)"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "base",
+          "title": "Try it: effective address",
+          "blocks": [
+            {
+              "type": "walkthrough",
+              "title": "lw $t0, offset($s1)",
+              "inputs": [
+                {
+                  "id": "base",
+                  "label": "Base address in $s1",
+                  "value": 268500992,
+                  "min": 268500928,
+                  "max": 268501248,
+                  "step": 4
+                },
+                {
+                  "id": "off",
+                  "label": "Offset (bytes)",
+                  "value": 20,
+                  "min": -32,
+                  "max": 64,
+                  "step": 4
+                }
+              ],
+              "stages": [
+                {
+                  "label": "Instruction",
+                  "text": "`lw $t0, {off}($s1)`"
+                },
+                {
+                  "label": "Address calculation",
+                  "text": "{base} + ({off}) = **{base+off}**"
+                },
+                {
+                  "label": "In hex",
+                  "text": "{base+off|hex8}"
+                },
+                {
+                  "label": "Alignment",
+                  "text": "{base+off} mod 4 = {mod(base+off,4)} (0 means aligned)"
+                },
+                {
+                  "label": "Memory",
+                  "text": "The word at that address goes to `$t0`"
+                }
+              ],
+              "hint": "Drag the offset to a value that is not a multiple of 4 and watch the alignment stage."
+            }
+          ],
+          "why": "Effective address first, memory access second."
+        },
+        {
+          "type": "predict",
+          "concept": "base",
+          "skill": "Apply",
+          "question": "Array A of words starts at `0x10010000`. What is the address of `A[5]`?",
+          "options": [
+            "0x10010005",
+            "0x10010014",
+            "0x10010050",
+            "0x10010010"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "Step",
+                "Value"
+              ],
+              "rows": [
+                [
+                  "index × 4",
+                  "5 × 4 = 20"
+                ],
+                [
+                  "20 in hex",
+                  "0x14"
+                ],
+                [
+                  "0x10010000 + 0x14",
+                  "0x10010014"
+                ]
+              ]
+            }
+          ],
+          "result": "Each word is 4 bytes, so A[5] is 20 bytes past the start."
+        },
+        {
+          "type": "concept",
+          "concept": "base",
+          "title": "Run it: two loads, an add and a store",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Using A[1] and A[3]",
+              "program": "lw $t0, 4($s1)\nlw $t1, 12($s1)\nadd $t2, $t0, $t1\nsw $t2, 16($s1)",
+              "registers": {
+                "$s1": 268500992
+              },
+              "memory": {
+                "0x10010004": 7,
+                "0x1001000C": 9
+              },
+              "watch": [
+                "$s1",
+                "$t0",
+                "$t1",
+                "$t2"
+              ],
+              "hint": "$s1 = 0x10010000 is the base. A[1] = 7 and A[3] = 9. Where is the result stored?",
+              "editable": true
+            }
+          ],
+          "why": "Each of the three memory instructions forms its own effective address from $s1."
+        },
+        {
+          "type": "concept",
+          "concept": "base",
+          "title": "Bytes, halfwords and words",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Size",
+                "Load",
+                "Store",
+                "Alignment"
+              ],
+              "rows": [
+                [
+                  "Byte (8 bits)",
+                  "lb / lbu",
+                  "sb",
+                  "any address"
+                ],
+                [
+                  "Halfword (16 bits)",
+                  "lh / lhu",
+                  "sh",
+                  "multiple of 2"
+                ],
+                [
+                  "Word (32 bits)",
+                  "lw",
+                  "sw",
+                  "multiple of 4"
+                ]
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "`lb` and `lh` **sign-extend**; `lbu` and `lhu` zero-extend",
+                "Loading a negative byte with the wrong instruction gives the wrong number"
+              ]
+            }
+          ],
+          "why": "Text is stored in bytes, so byte loads and stores are everywhere in string-handling code.",
+          "real": "Reading one character of a string is a byte load."
+        },
+        {
+          "type": "concept",
+          "concept": "base",
+          "title": "Run it: lb versus lbu",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Same byte, two instructions",
+              "program": "lb $t0, 3($s1)\nlbu $t1, 3($s1)",
+              "registers": {
+                "$s1": 268500992
+              },
+              "memory": {
+                "0x10010000": 128
+              },
+              "watch": [
+                "$t0",
+                "$t1"
+              ],
+              "hint": "The word holds 128 = 0x80 in its last byte."
+            }
+          ],
+          "why": "The byte 0x80 is −128 as a signed value and 128 as an unsigned one."
+        },
+        {
+          "type": "mcq",
+          "concept": "base",
+          "question": "`$s1 = 0x1000`. What address does `lw $t0, -4($s1)` read?",
+          "options": [
+            "0x0FFC",
+            "0x1004",
+            "0x0FFF",
+            "0x1FFC"
+          ],
+          "answer": 0,
+          "why": "0x1000 − 4 = 0x0FFC.",
+          "feedback": [
+            "",
+            "That adds 4 instead of subtracting it.",
+            "Only one byte below; a word offset is 4 bytes.",
+            "Check the hex arithmetic: 0x1000 − 4."
+          ]
+        },
+        {
+          "type": "find",
+          "concept": "base",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement is wrong. Click it.",
+          "lines": [
+            "1. The offset in `lw` is a signed 16-bit number of bytes.",
+            "2. A[i] for words is at base + 4 × i.",
+            "3. `lbu` sign-extends the loaded byte.",
+            "4. The effective address is computed by the ALU."
+          ],
+          "wrong": 2,
+          "explain": "`lbu` is the unsigned load: it zero-extends. `lb` sign-extends.",
+          "fix": "`lbu` zero-extends; `lb` sign-extends."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "How is the effective address of lw formed?",
+              "a": "Base register plus the sign-extended 16-bit byte offset.",
+              "concept": "base"
+            },
+            {
+              "q": "What is the address of A[i] for an array of words?",
+              "a": "Base + 4 × i.",
+              "concept": "base"
+            },
+            {
+              "q": "Which instruction loads a signed byte?",
+              "a": "lb (lbu loads it unsigned).",
+              "concept": "base"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pcrel",
+      "label": "Branches and Jumps",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "pcrel",
+          "title": "PC-relative addressing",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "Branch target",
+                  "note": "The address of the instruction that runs next if the branch is taken."
+                },
+                {
+                  "t": "="
+                },
+                {
+                  "t": "PC + 4",
+                  "note": "The address of the instruction after the branch."
+                },
+                {
+                  "t": "+"
+                },
+                {
+                  "t": "offset × 4",
+                  "note": "The 16-bit offset counts **instructions** (words), so it is multiplied by 4."
+                }
+              ]
+            }
+          ],
+          "why": "Branch targets are usually close, so a small signed offset is enough, and the code works wherever it is loaded in memory.",
+          "real": "Every if, while and for loop compiles to branches like this.",
+          "mistake": {
+            "wrong": "The branch offset counts bytes from the branch itself.",
+            "right": "It counts instructions from the instruction **after** the branch (PC + 4)."
+          },
+          "explainAgain": {
+            "beginner": "\"Skip the next 3 instructions\" is the same wherever the code sits."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "pcrel",
+          "title": "Try it: branch and jump targets",
+          "blocks": [
+            {
+              "type": "walkthrough",
+              "title": "Computing targets",
+              "modes": [
+                {
+                  "name": "PC-relative (beq)",
+                  "inputs": [
+                    {
+                      "id": "pc",
+                      "label": "Address of the branch",
+                      "value": 4194320,
+                      "min": 4194304,
+                      "max": 4194560,
+                      "step": 4
+                    },
+                    {
+                      "id": "w",
+                      "label": "Offset field (instructions)",
+                      "value": 3,
+                      "min": -8,
+                      "max": 8,
+                      "step": 1
+                    }
+                  ],
+                  "stages": [
+                    {
+                      "label": "Branch at",
+                      "text": "PC = {pc|hex8}"
+                    },
+                    {
+                      "label": "PC + 4",
+                      "text": "{pc+4|hex8}"
+                    },
+                    {
+                      "label": "Offset in bytes",
+                      "text": "{w} × 4 = {w*4}"
+                    },
+                    {
+                      "label": "Target",
+                      "text": "**{pc+4+w*4|hex8}**"
+                    }
+                  ]
+                },
+                {
+                  "name": "Pseudo-direct (j)",
+                  "inputs": [
+                    {
+                      "id": "pc",
+                      "label": "Address of the jump",
+                      "value": 4194304,
+                      "min": 4194304,
+                      "max": 4194560,
+                      "step": 4
+                    },
+                    {
+                      "id": "t26",
+                      "label": "26-bit target field",
+                      "value": 1048592,
+                      "min": 1048576,
+                      "max": 1048640,
+                      "step": 1
+                    }
+                  ],
+                  "stages": [
+                    {
+                      "label": "Jump at",
+                      "text": "PC = {pc|hex8}"
+                    },
+                    {
+                      "label": "Top 4 bits of PC + 4",
+                      "text": "{and(pc+4,4026531840)|hex8}"
+                    },
+                    {
+                      "label": "Target field × 4",
+                      "text": "{t26*4|hex8}"
+                    },
+                    {
+                      "label": "Jump target",
+                      "text": "**{or(and(pc+4,4026531840),t26*4)|hex8}**"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "A branch reaches nearby code; a jump reaches anywhere in the same 256 MB region."
+        },
+        {
+          "type": "predict",
+          "concept": "pcrel",
+          "skill": "Apply",
+          "question": "A `beq` is at address `0x00400010` and its offset field is 3. If the branch is taken, what is the target?",
+          "options": [
+            "0x00400013",
+            "0x0040001C",
+            "0x00400020",
+            "0x00400010"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "Step",
+                "Value"
+              ],
+              "rows": [
+                [
+                  "PC + 4",
+                  "0x00400014"
+                ],
+                [
+                  "offset × 4",
+                  "3 × 4 = 12 = 0xC"
+                ],
+                [
+                  "target",
+                  "0x00400014 + 0xC = 0x00400020"
+                ]
+              ]
+            }
+          ],
+          "result": "Count from the instruction after the branch."
+        },
+        {
+          "type": "concept",
+          "concept": "pcrel",
+          "title": "See the offset in the encoding",
+          "blocks": [
+            {
+              "type": "encoder",
+              "title": "A branch in machine code",
+              "mode": "encode",
+              "initial": "beq $t0, $t1, 3",
+              "presets": [
+                "beq $t0, $t1, 3",
+                "bne $t0, $t1, -3",
+                "j 0x00400040"
+              ],
+              "hint": "The branch field holds the offset in instructions. The jump holds the address shifted right by 2."
+            }
+          ],
+          "why": "The offset 3 is stored as the 16-bit value 0x0003; the hardware multiplies by 4 and adds it to PC + 4."
+        },
+        {
+          "type": "mcq",
+          "concept": "pcrel",
+          "question": "In `li $t0,0 / li $t1,5 / loop: addi $t0,$t0,1 / slt $t2,$t0,$t1 / bne $t2,$zero,loop` the code starts at 0x00400000. What is the branch offset field of `bne`?",
+          "options": [
+            "-3",
+            "-4",
+            "3",
+            "-12"
+          ],
+          "answer": 0,
+          "why": "The `bne` is at 0x00400010, so PC + 4 = 0x00400014; the label is at 0x00400008: (0x08 − 0x14) ÷ 4 = −3.",
+          "feedback": [
+            "",
+            "That counts from the branch itself rather than the next instruction.",
+            "The target is behind the branch, so the offset is negative.",
+            "−12 is in bytes; the field counts instructions."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "pcrel",
+          "statement": "A `j` instruction forms its target with PC-relative addressing.",
+          "answer": false,
+          "why": "`j` uses pseudo-direct addressing: the 26-bit field times 4, joined with the top bits of PC + 4."
+        },
+        {
+          "type": "concept",
+          "concept": "pcrel",
+          "title": "Jumps: pseudo-direct addressing",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "`j` and `jal` hold a **26-bit** word address",
+                "Target = (top 4 bits of PC + 4) followed by (26-bit field × 4)",
+                "Reaches any instruction in the same 256 MB region",
+                "`jr $ra` jumps to an address held in a register, so it can reach anywhere"
+              ]
+            }
+          ],
+          "why": "A jump needs more reach than a branch, so it gets almost the whole instruction word."
+        }
+      ]
+    },
+    {
+      "id": "align",
+      "label": "Alignment and Endianness",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "align",
+          "title": "Alignment",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "A word must start at an address that is a **multiple of 4**",
+                "A halfword at a multiple of 2; a byte anywhere",
+                "Then one memory access fetches a whole word",
+                "A misaligned `lw` makes the MIPS machine fault"
+              ]
+            }
+          ],
+          "why": "Aligned data lets hardware read a word in one step instead of two, so alignment rules keep memory fast and simple.",
+          "real": "Compilers pad structures so that each field is aligned.",
+          "mistake": {
+            "wrong": "Any address works for `lw`.",
+            "right": "`lw` needs an address that is a multiple of 4."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "align",
+          "skill": "Apply",
+          "question": "`$s1 = 0x10010000`. What happens when `lw $t0, 2($s1)` runs?",
+          "options": [
+            "It loads the word at 0x10010002",
+            "The processor reports an alignment error",
+            "It loads the word at 0x10010000",
+            "It loads only two bytes"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "0x10010002 is not a multiple of 4, so the load faults.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Run the next demo to see the simulator report it."
+        },
+        {
+          "type": "concept",
+          "concept": "align",
+          "title": "Run it: a misaligned load",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Misaligned word load",
+              "program": "lw $t0, 2($s1)",
+              "expectError": true,
+              "registers": {
+                "$s1": 268500992
+              },
+              "hint": "Change the offset from 2 to 0 or 4 and run again.",
+              "editable": true
+            }
+          ],
+          "why": "Offsets 0, 4, 8 and so on keep the address a multiple of 4."
+        },
+        {
+          "type": "concept",
+          "concept": "endian",
+          "title": "Big endian and little endian",
+          "blocks": [
+            {
+              "type": "bits",
+              "title": "The same word in memory",
+              "modes": [
+                "endian"
+              ],
+              "value": 16909060
+            }
+          ],
+          "why": "A 32-bit word occupies four bytes, and the machine must decide which byte goes at the lowest address.",
+          "real": "x86 and most modern chips are little endian; network protocols use big endian (\"network byte order\"). MIPS can be either.",
+          "mistake": {
+            "wrong": "Endianness changes the value of a word.",
+            "right": "It changes only the order of the bytes in memory, not the value in a register."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "endian",
+          "title": "Run it: which byte is first?",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Big endian (the default here)",
+              "program": "li $s1, 268500992\nli $t0, 16909060\nsw $t0, 0($s1)\nlb $t1, 0($s1)\nlbu $t2, 3($s1)",
+              "watch": [
+                "$t0",
+                "$t1",
+                "$t2"
+              ],
+              "hint": "$t0 = 0x01020304. $t1 is the byte at the lowest address; $t2 is the byte at the highest."
+            },
+            {
+              "type": "mips",
+              "title": "Little endian",
+              "program": "li $s1, 268500992\nli $t0, 16909060\nsw $t0, 0($s1)\nlb $t1, 0($s1)\nlbu $t2, 3($s1)",
+              "watch": [
+                "$t0",
+                "$t1",
+                "$t2"
+              ],
+              "hint": "Same program, opposite byte order.",
+              "endian": "little"
+            }
+          ],
+          "why": "The register $t0 is identical; only the bytes you read back differ."
+        },
+        {
+          "type": "predict",
+          "concept": "endian",
+          "skill": "Understand",
+          "question": "On a **little-endian** machine the word 0x01020304 is stored at address 0x1000. Which byte is at address 0x1000?",
+          "options": [
+            "0x01",
+            "0x02",
+            "0x03",
+            "0x04"
+          ],
+          "answer": 3,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Little endian puts the **least significant** byte first: 0x04 at 0x1000.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The little end comes first."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Two computers of different byte order exchange a binary file of 32-bit numbers. What goes wrong, and how do real systems avoid it?",
+          "think": 20,
+          "pair": 40,
+          "answer": "Each 32-bit number is read with its bytes in the wrong order, so 0x01020304 becomes 0x04030201. Systems agree a byte order (for example network byte order, which is big endian) and convert at the edges.",
+          "notes": {
+            "explain": "Connect to file formats and network protocols."
+          }
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "align",
+          "question": "Should hardware allow misaligned loads and stores?",
+          "seconds": 60,
+          "ideas": [
+            "Allowing them makes simple programs easier to write.",
+            "But the hardware may need two memory accesses, which is slower and more complex.",
+            "Many RISC designs forbid them to keep memory access simple and fast.",
+            "Some CPUs allow them but run them more slowly."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "modes",
+          "question": "Name the five MIPS addressing modes.",
+          "answer": "Immediate, register, base/displacement, PC-relative and pseudo-direct.",
+          "solution": "The first two give operands; base/displacement forms a data address; PC-relative and pseudo-direct form branch and jump targets.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "base",
+          "question": "`$s1 = 0x10010000`. Give the effective address of `lw $t0, 24($s1)` and of A[7] in an array of words starting at $s1.",
+          "answer": "0x10010018 for the load; 0x1001001C for A[7].",
+          "solution": "24 = 0x18, so 0x10010000 + 0x18 = 0x10010018. A[7] is at 7 × 4 = 28 = 0x1C, giving 0x1001001C.",
+          "hint": "Convert the decimal offset to hex before adding.",
+          "mistake": "Adding 24 to the address in decimal and leaving it unconverted.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "pcrel",
+          "question": "A `beq` is at 0x00400100 and its offset field is −6. What is the target if taken?",
+          "answer": "0x004000EC.",
+          "solution": "PC + 4 = 0x00400104. −6 × 4 = −24 = −0x18. 0x00400104 − 0x18 = 0x004000EC.",
+          "hint": "Subtract 0x18 from 0x00400104.",
+          "mistake": "Starting from the branch address instead of PC + 4.",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "align",
+          "question": "Is `lw $t0, 10($s1)` valid when `$s1 = 0x10010000`? Give the address and your reason.",
+          "answer": "No. The address is 0x1001000A, which is not a multiple of 4, so the load is misaligned.",
+          "solution": "0x10010000 + 10 = 0x1001000A. 10 mod 4 = 2, so the address is not word-aligned.",
+          "think": 45
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "base",
+          "question": "A program stores records of 12 bytes each, starting at 0x10010000. What is the address of the field at offset 8 inside record number 5 (counting from record 0)?",
+          "answer": "0x10010044.",
+          "solution": "Record 5 starts at 5 × 12 = 60 bytes from the base. Add the field offset 8: 68 = 0x44, giving 0x10010044.",
+          "mistake": "Using 5 × 4 instead of 5 × 12.",
+          "title": "Exam practice: numerical",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "endian",
+          "question": "A word 0x0A0B0C0D is stored at address 0x2000. Which byte is at 0x2001 on a big-endian and on a little-endian machine?",
+          "answer": "Big endian: 0x0B. Little endian: 0x0C.",
+          "solution": "Big endian stores 0A 0B 0C 0D at 0x2000 to 0x2003, so 0x2001 holds 0B. Little endian stores 0D 0C 0B 0A, so 0x2001 holds 0C.",
+          "mistake": "Reading the bytes in the same order on both machines.",
+          "title": "Exam practice: byte order",
+          "think": 60,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "pcrel",
+          "question": "A `j` at 0x00400000 jumps to the label at 0x00400040. What 26-bit field is stored, and what target does the hardware compute?",
+          "answer": "The field is 0x100010; the target is 0x00400040.",
+          "solution": "0x00400040 ÷ 4 = 0x100010 (a shift right by 2). The hardware computes (PC + 4)[31:28] with 0x100010 × 4 = 0x00400040.",
+          "mistake": "Storing the byte address 0x00400040 without shifting.",
+          "title": "Exam practice: jump target",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "pcrel",
+          "question": "Explain why a branch offset is relative to the PC and counted in instructions.",
+          "answer": "Targets are usually close, so a short signed offset is enough, and relative offsets keep code position-independent. Counting in instructions makes a 16-bit field reach four times further, since every instruction is 4 bytes.",
+          "solution": "A strong answer mentions short distances, relocation, and the factor of 4.",
+          "mistake": "Saying the offset counts bytes.",
+          "title": "Exam practice: conceptual",
+          "think": 75,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Addressing and memory access",
+          "branches": [
+            {
+              "label": "Modes",
+              "example": "Immediate · Register · Base · PC-relative",
+              "section": "modes"
+            },
+            {
+              "label": "Base + offset",
+              "example": "Effective address for lw and sw",
+              "section": "base"
+            },
+            {
+              "label": "Targets",
+              "example": "Branches and jumps",
+              "section": "pcrel"
+            },
+            {
+              "label": "Alignment and byte order",
+              "example": "Multiples of 4; big vs little",
+              "section": "align"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Addressing modes: immediate, register, base/displacement, PC-relative, pseudo-direct.",
+            "Effective address of lw/sw = base register + sign-extended byte offset.",
+            "A word array element i is at base + 4 × i.",
+            "Branch target = PC + 4 + offset × 4.",
+            "Jump target joins the top 4 bits of PC + 4 with the 26-bit field × 4.",
+            "Words must be aligned to multiples of 4; byte order may be big or little endian."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "The lw offset counts words.",
+              "right": "It counts bytes."
+            },
+            {
+              "wrong": "A branch offset is measured from the branch itself.",
+              "right": "It is measured from PC + 4, in instructions."
+            },
+            {
+              "wrong": "Endianness changes a register value.",
+              "right": "It changes only byte order in memory."
+            },
+            {
+              "wrong": "Any address is valid for lw.",
+              "right": "Word addresses must be multiples of 4."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Operands and targets are found with a few addressing modes. Loads and stores add a byte offset to a base register; branches add an instruction offset to PC + 4; jumps join a 26-bit field with the PC. Words must be aligned, and a machine may store the bytes of a word in big or little endian order."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "modes",
+              "question": "Which mode is used by `addi $t0, $s1, 4`?",
+              "options": [
+                "Immediate",
+                "PC-relative",
+                "Base/displacement",
+                "Pseudo-direct"
+              ],
+              "answer": 0,
+              "why": "The constant 4 is inside the instruction.",
+              "misconception": "Branch and jump instructions use PC-relative and pseudo-direct modes."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "align",
+              "statement": "A word load needs an address that is a multiple of 4.",
+              "answer": true,
+              "why": "Aligned words can be read in a single memory access.",
+              "misconception": "Misaligned word accesses fault on MIPS."
+            },
+            {
+              "level": "easy",
+              "concept": "base",
+              "question": "In `lw $t0, 8($s1)`, how is the address formed?",
+              "options": [
+                "$s1 + 8",
+                "$s1 × 8",
+                "8 only",
+                "$s1 + 8 × 4"
+              ],
+              "answer": 0,
+              "why": "Base plus byte offset.",
+              "misconception": "The offset is already in bytes; do not multiply it."
+            },
+            {
+              "level": "medium",
+              "concept": "base",
+              "question": "$s1 = 0x2000. What address does `lw $t0, 20($s1)` read?",
+              "options": [
+                "0x2014",
+                "0x2020",
+                "0x2200",
+                "0x2010"
+              ],
+              "answer": 0,
+              "why": "20 = 0x14, so 0x2000 + 0x14 = 0x2014.",
+              "misconception": "Convert 20 to hex (0x14) first."
+            },
+            {
+              "level": "medium",
+              "concept": "pcrel",
+              "question": "A taken `beq` at 0x00400020 has offset 5. What is the target?",
+              "options": [
+                "0x00400038",
+                "0x00400039",
+                "0x00400034",
+                "0x00400025"
+              ],
+              "answer": 0,
+              "why": "PC + 4 = 0x00400024; 5 × 4 = 20 = 0x14; 0x24 + 0x14 = 0x38.",
+              "misconception": "Start from PC + 4 and multiply the offset by 4."
+            },
+            {
+              "level": "medium",
+              "concept": "endian",
+              "question": "On a little-endian machine, which byte of 0xAABBCCDD is stored at the lowest address?",
+              "options": [
+                "0xDD",
+                "0xAA",
+                "0xBB",
+                "0xCC"
+              ],
+              "answer": 0,
+              "why": "The least significant byte comes first.",
+              "misconception": "0xAA is first on a big-endian machine."
+            },
+            {
+              "level": "hard",
+              "concept": "base",
+              "question": "An array of words starts at 0x10010000. What is the address of A[9]?",
+              "options": [
+                "0x10010024",
+                "0x10010009",
+                "0x10010090",
+                "0x10010018"
+              ],
+              "answer": 0,
+              "why": "9 × 4 = 36 = 0x24.",
+              "misconception": "Multiply the index by 4, then convert to hex."
+            },
+            {
+              "level": "hard",
+              "concept": "pcrel",
+              "question": "A `beq` at 0x00400040 branches back to 0x00400030. What is its offset field?",
+              "options": [
+                "-5",
+                "-4",
+                "-3",
+                "-16"
+              ],
+              "answer": 0,
+              "why": "PC + 4 = 0x44. (0x30 − 0x44) ÷ 4 = −20 ÷ 4 = −5.",
+              "misconception": "Count from PC + 4 and divide the byte distance by 4."
+            },
+            {
+              "level": "challenge",
+              "concept": "align",
+              "question": "Which of these loads is valid for a word when $s1 = 0x10010000?",
+              "options": [
+                "lw $t0, 12($s1)",
+                "lw $t0, 6($s1)",
+                "lw $t0, 10($s1)",
+                "lw $t0, 1($s1)"
+              ],
+              "answer": 0,
+              "why": "12 is a multiple of 4; the others are not.",
+              "misconception": "The effective address must be a multiple of 4."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "What is the effective address of lw?",
+              "a": "Base register plus the sign-extended byte offset.",
+              "concept": "base"
+            },
+            {
+              "q": "How is a branch target computed?",
+              "a": "PC + 4 + offset × 4.",
+              "concept": "pcrel"
+            },
+            {
+              "q": "What does alignment require for a word?",
+              "a": "The address must be a multiple of 4.",
+              "concept": "align"
+            },
+            {
+              "q": "Which byte comes first in little endian?",
+              "a": "The least significant byte.",
+              "concept": "endian"
+            },
+            {
+              "q": "Name the five MIPS addressing modes.",
+              "a": "Immediate, register, base/displacement, PC-relative, pseudo-direct.",
+              "concept": "modes"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

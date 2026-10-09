@@ -206,4 +206,4 @@ When presented in class, students should feel they are participating, not watchi
 | Checks that a lesson follows the spec | `lesson-validate.js` (`npm run check`) |
 | How to author one | `.claude/skills/new-lesson/SKILL.md` and `reference.md` |
 
-Example lessons to copy from: `content/computer-architecture/03-cost-performance-quantitative-principles.lesson.json` (calculators, formulas, exam practice) and `docs/examples/cpu-basics.lesson.json`. The Computer Architecture brief is `docs/computer-architecture-spec.md`.
+Example lessons to copy from: `content/computer-architecture/03-quantitative-principles-performance-measurement.lesson.json` (calculators, formulas, exam practice) and `docs/examples/cpu-basics.lesson.json`. The Computer Architecture brief is `docs/computer-architecture-spec.md`.

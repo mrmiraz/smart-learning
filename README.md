@@ -8,7 +8,7 @@ Just tell Claude Code the topic (course, level, duration and objectives are opti
 `docs/lesson-spec.md` and are applied automatically through `CLAUDE.md` and the `new-lesson` skill, so you never
 paste the brief again. A topic becomes `content/<course>/<topic>.lesson.json`; the shared engine
 (`assets/lesson.js`) provides presentation mode, questions, practice, quiz and the learning report.
-`npm run check` validates a lesson against the spec. Examples: `content/computer-architecture/03-cost-performance-quantitative-principles.lesson.json`, `docs/examples/cpu-basics.lesson.json`.
+`npm run check` validates a lesson against the spec. Examples: `content/computer-architecture/03-quantitative-principles-performance-measurement.lesson.json`, `docs/examples/cpu-basics.lesson.json`.
 
 ## Add plain Markdown slides (older style)
 1. Add a topic to `content/courses.json`.

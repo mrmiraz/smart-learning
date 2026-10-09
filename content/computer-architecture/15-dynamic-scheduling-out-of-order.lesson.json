@@ -1,0 +1,1820 @@
+{
+  "id": "ca-15-dynamic-scheduling",
+  "title": "Dynamic Scheduling and Out-of-Order Execution",
+  "subtitle": "Why a modern CPU does not run your program in the order you wrote it.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "CAQA",
+      "chapter": "4",
+      "title": "Advanced Pipelining and Instruction-Level Parallelism",
+      "topics": "Overcoming data hazards with dynamic scheduling: scoreboarding and Tomasulo's approach (reservation stations, common data bus, register renaming)"
+    },
+    {
+      "book": "COD",
+      "chapter": "4",
+      "title": "The Processor",
+      "topics": "Dynamic multiple-issue processors and out-of-order execution (overview)"
+    }
+  ],
+  "objectives": [
+    "Explain why a processor may execute instructions out of program order",
+    "Define dynamic scheduling and reservation stations",
+    "Follow a simplified Tomasulo algorithm: issue, execute, write result on the CDB",
+    "Explain register renaming and which dependences it removes",
+    "Compare in-order and out-of-order execution with cycle counts"
+  ],
+  "concepts": [
+    {
+      "id": "why",
+      "label": "Why out of order",
+      "section": "why"
+    },
+    {
+      "id": "dynamic",
+      "label": "Dynamic scheduling",
+      "section": "dynamic"
+    },
+    {
+      "id": "tomasulo",
+      "label": "Tomasulo's algorithm",
+      "section": "tomasulo"
+    },
+    {
+      "id": "rename",
+      "label": "Register renaming",
+      "section": "rename"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "Your program says A, then B, then C. Why might the CPU finish C before B?",
+          "clues": [
+            "A slow instruction (a divide, a cache miss) makes its **dependents** wait.",
+            "Instructions that do **not** depend on it can run **in the meantime**.",
+            "The CPU just has to make the **result look as if** it ran in order."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "why",
+      "label": "Why out of order",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "why",
+          "title": "In-order execution waits behind the slowest",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "In an **in-order** machine an instruction cannot start before the ones before it. If the first one is slow and the second depends on it, **everything behind them waits**, even instructions that have nothing to do with the divide."
+            },
+            {
+              "type": "table",
+              "head": [
+                "Program order",
+                "Depends on",
+                "Latency"
+              ],
+              "rows": [
+                [
+                  "1. div r1,r2,r3",
+                  "-",
+                  "8 cycles"
+                ],
+                [
+                  "2. add r4,r1,r5",
+                  "div (r1)",
+                  "1"
+                ],
+                [
+                  "3. sub r6,r7,r8",
+                  "nothing",
+                  "1"
+                ],
+                [
+                  "4. and r9,r10,r11",
+                  "nothing",
+                  "1"
+                ]
+              ]
+            }
+          ],
+          "why": "The last two instructions are independent, yet an in-order processor makes them wait for the divide.",
+          "real": "A cache miss or a divide can leave a simple in-order core idle for dozens of cycles.",
+          "explainAgain": {
+            "beginner": "A queue at the bank: the person at the front is slow, and everyone behind has to wait even if they only want to ask a quick question at another window."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "why",
+          "title": "Try it: in order or out of order",
+          "blocks": [
+            {
+              "type": "scheduler",
+              "title": "div, dependent add, two independent instructions",
+              "instructions": [
+                {
+                  "t": "div r1,r2,r3",
+                  "dest": "r1",
+                  "srcs": [
+                    "r2",
+                    "r3"
+                  ],
+                  "lat": 8
+                },
+                {
+                  "t": "add r4,r1,r5",
+                  "dest": "r4",
+                  "srcs": [
+                    "r1",
+                    "r5"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "sub r6,r7,r8",
+                  "dest": "r6",
+                  "srcs": [
+                    "r7",
+                    "r8"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "and r9,r10,r11",
+                  "dest": "r9",
+                  "srcs": [
+                    "r10",
+                    "r11"
+                  ],
+                  "lat": 1
+                }
+              ],
+              "controls": [
+                "mode",
+                "width"
+              ],
+              "options": {
+                "mode": "inorder",
+                "width": 1,
+                "rename": true
+              },
+              "hint": "Switch **Execution order** between In order and Out of order, and try widths 1 and 2."
+            }
+          ],
+          "why": "In order: 14 cycles (width 1) or 13 (width 2). Out of order: 12 cycles either way: sub and and finish early, then the dependent add finishes last."
+        },
+        {
+          "type": "predict",
+          "concept": "why",
+          "skill": "Apply",
+          "question": "On a 1-wide machine, how many cycles does the div/add/sub/and sequence take out of order (in order it takes 14)?",
+          "options": [
+            "12",
+            "14",
+            "10",
+            "8"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The long chain **div (8 cycles) then add** sets the minimum: the add writes in cycle 12. The independent sub and and finish earlier, in cycles 5 and 6. Total **12**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The critical path is the dependent chain, not the number of instructions."
+        },
+        {
+          "type": "concept",
+          "concept": "why",
+          "title": "Out of order, but still correct",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Instructions that depend on each other are **never** reordered past a dependence",
+                "Independent instructions can run in any order without changing the result",
+                "The processor **commits** (makes visible) results **in program order**, so the program behaves as if it ran in order",
+                "This is why a modern core can run instructions out of order and still be correct"
+              ]
+            }
+          ],
+          "why": "Reordering is allowed only because the observable result is the same as in order.",
+          "real": "Programmers never see the reordering; debuggers show the program as written.",
+          "mistake": {
+            "wrong": "Out-of-order execution can change what a single program computes.",
+            "right": "It cannot: true dependences are respected and results are committed in order."
+          }
+        },
+        {
+          "type": "tf",
+          "concept": "why",
+          "statement": "An out-of-order processor may produce a different final result than an in-order one.",
+          "answer": false,
+          "why": "Dependences are respected and results are committed in program order."
+        },
+        {
+          "type": "mcq",
+          "concept": "why",
+          "question": "What is out-of-order execution for?",
+          "options": [
+            "To let independent instructions run while a slow one is waiting",
+            "To change the program's meaning",
+            "To skip instructions",
+            "To reduce the number of registers"
+          ],
+          "answer": 0,
+          "why": "It uses the time an in-order processor wastes waiting.",
+          "feedback": [
+            "",
+            "The result must stay the same.",
+            "No instruction is skipped.",
+            "It actually uses more (renamed) registers."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dynamic",
+      "label": "Dynamic scheduling",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "dynamic",
+          "title": "Dynamic scheduling",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "",
+                "Static scheduling",
+                "Dynamic scheduling"
+              ],
+              "rows": [
+                [
+                  "Decided by",
+                  "The compiler, before the run",
+                  "The hardware, while the program runs"
+                ],
+                [
+                  "Can react to",
+                  "Only what the compiler can predict",
+                  "Run-time delays such as cache misses"
+                ],
+                [
+                  "Binary compatibility",
+                  "Needs recompiling for a new machine",
+                  "Old code runs faster on new hardware"
+                ],
+                [
+                  "Cost",
+                  "Simple hardware",
+                  "A lot of hardware (queues, tags, buses)"
+                ]
+              ]
+            }
+          ],
+          "why": "The hardware sees delays the compiler cannot predict. A load that misses the cache takes far longer than a load that hits, and the schedule adapts.",
+          "real": "Almost every laptop, phone and server core uses dynamic scheduling."
+        },
+        {
+          "type": "concept",
+          "concept": "dynamic",
+          "title": "A load that misses the cache",
+          "blocks": [
+            {
+              "type": "scheduler",
+              "title": "lw takes 6 cycles (a miss)",
+              "instructions": [
+                {
+                  "t": "lw r1,0(r10)",
+                  "dest": "r1",
+                  "srcs": [
+                    "r10"
+                  ],
+                  "lat": 6
+                },
+                {
+                  "t": "add r2,r1,r3",
+                  "dest": "r2",
+                  "srcs": [
+                    "r1",
+                    "r3"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "sub r4,r5,r6",
+                  "dest": "r4",
+                  "srcs": [
+                    "r5",
+                    "r6"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "or r7,r8,r9",
+                  "dest": "r7",
+                  "srcs": [
+                    "r8",
+                    "r9"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "xor r11,r12,r13",
+                  "dest": "r11",
+                  "srcs": [
+                    "r12",
+                    "r13"
+                  ],
+                  "lat": 1
+                }
+              ],
+              "controls": [
+                "mode",
+                "width"
+              ],
+              "options": {
+                "mode": "inorder",
+                "width": 1,
+                "rename": true
+              },
+              "hint": "Switch to Out of order: the three independent instructions run during the miss."
+            }
+          ],
+          "why": "In order: 13 cycles (width 1) or 11 (width 2). Out of order: 10 cycles in both."
+        },
+        {
+          "type": "concept",
+          "concept": "dynamic",
+          "title": "Reservation stations",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "A **reservation station** is a small buffer in front of an execution unit",
+                "It holds an **instruction**, its **operand values** if ready, or **tags** naming the unit that will produce them",
+                "The instruction **starts when all operands are ready**, regardless of program order",
+                "A tag is just a name for \"the result that will come from that station\""
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Field",
+                "Meaning"
+              ],
+              "rows": [
+                [
+                  "Op",
+                  "The operation (add, div, ...)"
+                ],
+                [
+                  "Value 1, Value 2",
+                  "Operands that are already available"
+                ],
+                [
+                  "Tag 1, Tag 2",
+                  "Which station will produce an operand that is not ready"
+                ],
+                [
+                  "Busy",
+                  "The station is in use"
+                ]
+              ]
+            }
+          ],
+          "why": "Reservation stations let instructions wait for operands without blocking the ones behind them.",
+          "real": "Intel and AMD cores call their versions the scheduler or issue queue.",
+          "explainAgain": {
+            "beginner": "A to-do list for each worker: every task lists what is still missing, and it can be started as soon as the missing parts arrive."
+          },
+          "deeper": {
+            "text": "In real designs the stations are part of a larger structure that also includes a reorder buffer, which commits results in order."
+          }
+        },
+        {
+          "type": "arrange",
+          "concept": "dynamic",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the life of an instruction in a reservation-station machine in order.",
+          "items": [
+            "Issue: placed in a station in program order",
+            "Wait until all operands are ready",
+            "Execute in a functional unit",
+            "Write the result on the common data bus",
+            "Waiting instructions capture the result"
+          ],
+          "why": "The instruction waits for operands, runs, then broadcasts the result."
+        },
+        {
+          "type": "match",
+          "concept": "dynamic",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each term with its meaning.",
+          "pairs": [
+            {
+              "a": "Reservation station",
+              "b": "Buffer holding an instruction and its operands or tags"
+            },
+            {
+              "a": "Tag",
+              "b": "A name for a result that is still being computed"
+            },
+            {
+              "a": "Dynamic scheduling",
+              "b": "Reordering by the hardware at run time"
+            },
+            {
+              "a": "Issue",
+              "b": "Sending an instruction to a station, in program order"
+            }
+          ],
+          "why": "These four terms are the vocabulary of Tomasulo's algorithm."
+        },
+        {
+          "type": "find",
+          "concept": "dynamic",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about dynamic scheduling is wrong. Click it.",
+          "lines": [
+            "1. The hardware decides the execution order while the program runs.",
+            "2. A reservation station can hold an operand tag instead of a value.",
+            "3. An instruction must wait until all earlier instructions have finished.",
+            "4. It lets independent instructions run during a cache miss."
+          ],
+          "wrong": 2,
+          "explain": "An instruction only waits for its own operands, not for every earlier instruction.",
+          "fix": "It waits for its operands only."
+        }
+      ]
+    },
+    {
+      "id": "tomasulo",
+      "label": "Tomasulo's algorithm",
+      "minutes": 12,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "tomasulo",
+          "title": "Three steps (simplified)",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Step",
+                "What happens"
+              ],
+              "rows": [
+                [
+                  "1. Issue (in order)",
+                  "Take the next instruction; put it in a free reservation station of the right kind; copy ready operand values or the tags of the stations that will produce them; mark its destination register with its own tag"
+                ],
+                [
+                  "2. Execute (out of order)",
+                  "When both operands are ready and the unit is free, the instruction starts"
+                ],
+                [
+                  "3. Write result",
+                  "The unit broadcasts **tag + value** on the common data bus (CDB); every waiting station and the registers that were waiting for that tag capture the value"
+                ]
+              ]
+            },
+            {
+              "type": "text",
+              "text": "We keep it simple: no memory, no branches, no reorder buffer. The goal is to see why instructions can run out of order, not to learn every detail.",
+              "style": "muted"
+            }
+          ],
+          "why": "Only these three steps are needed to understand how dependences are tracked at run time.",
+          "real": "IBM introduced this scheme in 1967 for the floating-point unit of the System/360 Model 91; Tomasulo's idea is inside today's CPUs.",
+          "notes": {
+            "explain": "Issue is in order; execute and write result are out of order.",
+            "terms": [
+              "**CDB**",
+              "**tag**",
+              "**reservation station**"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "tomasulo",
+          "title": "Build the organisation",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Simplified Tomasulo organisation (build-up)",
+              "width": 960,
+              "height": 484,
+              "nodes": [
+                {
+                  "id": "q",
+                  "label": "Instruction\nqueue",
+                  "kind": "mem",
+                  "x": 20,
+                  "y": 144,
+                  "w": 120,
+                  "h": 180
+                },
+                {
+                  "id": "rsadd",
+                  "label": "Add / sub\nreservation stations",
+                  "kind": "unit",
+                  "x": 250,
+                  "y": 84,
+                  "w": 170,
+                  "h": 100
+                },
+                {
+                  "id": "addfu",
+                  "label": "Adder",
+                  "kind": "alu",
+                  "x": 490,
+                  "y": 94,
+                  "w": 90,
+                  "h": 80
+                },
+                {
+                  "id": "rsmul",
+                  "label": "Mul / div\nreservation stations",
+                  "kind": "unit",
+                  "x": 250,
+                  "y": 244,
+                  "w": 170,
+                  "h": 100
+                },
+                {
+                  "id": "mulfu",
+                  "label": "Mul /\nDiv",
+                  "kind": "alu",
+                  "x": 490,
+                  "y": 254,
+                  "w": 90,
+                  "h": 80
+                },
+                {
+                  "id": "cdb",
+                  "label": "CDB",
+                  "kind": "ctrl",
+                  "x": 636,
+                  "y": 84,
+                  "w": 44,
+                  "h": 330
+                },
+                {
+                  "id": "regs",
+                  "label": "Registers\n(value or tag)",
+                  "kind": "reg",
+                  "x": 730,
+                  "y": 164,
+                  "w": 170,
+                  "h": 130
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_q_add",
+                  "points": [
+                    [
+                      140,
+                      164
+                    ],
+                    [
+                      250,
+                      164
+                    ]
+                  ],
+                  "label": "issue",
+                  "labelAt": [
+                    195,
+                    158
+                  ]
+                },
+                {
+                  "id": "e_q_mul",
+                  "points": [
+                    [
+                      140,
+                      304
+                    ],
+                    [
+                      250,
+                      304
+                    ]
+                  ],
+                  "label": "issue",
+                  "labelAt": [
+                    195,
+                    298
+                  ]
+                },
+                {
+                  "id": "e_add_fu",
+                  "points": [
+                    [
+                      420,
+                      134
+                    ],
+                    [
+                      490,
+                      134
+                    ]
+                  ],
+                  "label": "ready",
+                  "labelAt": [
+                    455,
+                    128
+                  ]
+                },
+                {
+                  "id": "e_mul_fu",
+                  "points": [
+                    [
+                      420,
+                      294
+                    ],
+                    [
+                      490,
+                      294
+                    ]
+                  ],
+                  "label": "ready",
+                  "labelAt": [
+                    455,
+                    288
+                  ]
+                },
+                {
+                  "id": "e_addfu_cdb",
+                  "points": [
+                    [
+                      580,
+                      134
+                    ],
+                    [
+                      636,
+                      134
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_mulfu_cdb",
+                  "points": [
+                    [
+                      580,
+                      294
+                    ],
+                    [
+                      636,
+                      294
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_cdb_regs",
+                  "points": [
+                    [
+                      680,
+                      229
+                    ],
+                    [
+                      730,
+                      229
+                    ]
+                  ],
+                  "label": "result",
+                  "labelAt": [
+                    705,
+                    223
+                  ]
+                },
+                {
+                  "id": "e_cdb_rsadd",
+                  "points": [
+                    [
+                      658,
+                      84
+                    ],
+                    [
+                      658,
+                      50
+                    ],
+                    [
+                      335,
+                      50
+                    ],
+                    [
+                      335,
+                      84
+                    ]
+                  ],
+                  "label": "broadcast: tag + value",
+                  "labelAt": [
+                    490,
+                    44
+                  ],
+                  "kind": "control"
+                },
+                {
+                  "id": "e_cdb_rsmul",
+                  "points": [
+                    [
+                      658,
+                      414
+                    ],
+                    [
+                      658,
+                      450
+                    ],
+                    [
+                      335,
+                      450
+                    ],
+                    [
+                      335,
+                      344
+                    ]
+                  ],
+                  "label": "broadcast: tag + value",
+                  "labelAt": [
+                    490,
+                    444
+                  ],
+                  "kind": "control"
+                }
+              ],
+              "labels": [
+                {
+                  "x": 100,
+                  "y": 136,
+                  "text": "program order",
+                  "anchor": "middle"
+                }
+              ],
+              "steps": [
+                {
+                  "show": [
+                    "q",
+                    "e_q_add",
+                    "e_q_mul"
+                  ],
+                  "text": "Instructions are **issued in program order** from a queue. Each goes to the reservation station of the unit it needs."
+                },
+                {
+                  "show": [
+                    "rsadd",
+                    "rsmul",
+                    "addfu",
+                    "mulfu",
+                    "e_add_fu",
+                    "e_mul_fu"
+                  ],
+                  "text": "A **reservation station** holds an instruction and its operands (or **tags** for operands still being computed). It sends the instruction to the unit **as soon as its operands are ready**, whatever the order."
+                },
+                {
+                  "show": [
+                    "cdb",
+                    "e_addfu_cdb",
+                    "e_mulfu_cdb",
+                    "e_cdb_rsadd",
+                    "e_cdb_rsmul"
+                  ],
+                  "text": "When a unit finishes, it puts the **result and its tag on the common data bus (CDB)**. Every waiting station listens and picks up the value it needs."
+                },
+                {
+                  "show": [
+                    "regs",
+                    "e_cdb_regs"
+                  ],
+                  "text": "The registers also take the result, and a register that is still being computed holds a **tag** instead of a value: this is **register renaming**."
+                }
+              ]
+            }
+          ],
+          "why": "The CDB is what lets one result reach every waiting instruction at the same time."
+        },
+        {
+          "type": "predict",
+          "concept": "tomasulo",
+          "skill": "Apply",
+          "question": "In the run you are about to see (div r1; add r4,r1,r5; sub r6,r7,r8), which of add and sub finishes first?",
+          "options": [
+            "sub: it does not depend on the div",
+            "add: it was issued earlier",
+            "They finish together",
+            "The div finishes last"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The add waits for r1 from the divide (cycle 10) and finishes in cycle 12. The independent sub finishes in cycle **5**, out of program order.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Watch the tag DIV travel on the CDB to the waiting add."
+        },
+        {
+          "type": "concept",
+          "concept": "tomasulo",
+          "title": "Follow div, add and sub",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Tomasulo: one run (scenario)",
+              "width": 960,
+              "height": 484,
+              "nodes": [
+                {
+                  "id": "q",
+                  "label": "Instruction\nqueue",
+                  "kind": "mem",
+                  "x": 20,
+                  "y": 144,
+                  "w": 120,
+                  "h": 180
+                },
+                {
+                  "id": "rsadd",
+                  "label": "Add / sub\nreservation stations",
+                  "kind": "unit",
+                  "x": 250,
+                  "y": 84,
+                  "w": 170,
+                  "h": 100
+                },
+                {
+                  "id": "addfu",
+                  "label": "Adder",
+                  "kind": "alu",
+                  "x": 490,
+                  "y": 94,
+                  "w": 90,
+                  "h": 80
+                },
+                {
+                  "id": "rsmul",
+                  "label": "Mul / div\nreservation stations",
+                  "kind": "unit",
+                  "x": 250,
+                  "y": 244,
+                  "w": 170,
+                  "h": 100
+                },
+                {
+                  "id": "mulfu",
+                  "label": "Mul /\nDiv",
+                  "kind": "alu",
+                  "x": 490,
+                  "y": 254,
+                  "w": 90,
+                  "h": 80
+                },
+                {
+                  "id": "cdb",
+                  "label": "CDB",
+                  "kind": "ctrl",
+                  "x": 636,
+                  "y": 84,
+                  "w": 44,
+                  "h": 330
+                },
+                {
+                  "id": "regs",
+                  "label": "Registers\n(value or tag)",
+                  "kind": "reg",
+                  "x": 730,
+                  "y": 164,
+                  "w": 170,
+                  "h": 130
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_q_add",
+                  "points": [
+                    [
+                      140,
+                      164
+                    ],
+                    [
+                      250,
+                      164
+                    ]
+                  ],
+                  "label": "issue",
+                  "labelAt": [
+                    195,
+                    158
+                  ]
+                },
+                {
+                  "id": "e_q_mul",
+                  "points": [
+                    [
+                      140,
+                      304
+                    ],
+                    [
+                      250,
+                      304
+                    ]
+                  ],
+                  "label": "issue",
+                  "labelAt": [
+                    195,
+                    298
+                  ]
+                },
+                {
+                  "id": "e_add_fu",
+                  "points": [
+                    [
+                      420,
+                      134
+                    ],
+                    [
+                      490,
+                      134
+                    ]
+                  ],
+                  "label": "ready",
+                  "labelAt": [
+                    455,
+                    128
+                  ]
+                },
+                {
+                  "id": "e_mul_fu",
+                  "points": [
+                    [
+                      420,
+                      294
+                    ],
+                    [
+                      490,
+                      294
+                    ]
+                  ],
+                  "label": "ready",
+                  "labelAt": [
+                    455,
+                    288
+                  ]
+                },
+                {
+                  "id": "e_addfu_cdb",
+                  "points": [
+                    [
+                      580,
+                      134
+                    ],
+                    [
+                      636,
+                      134
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_mulfu_cdb",
+                  "points": [
+                    [
+                      580,
+                      294
+                    ],
+                    [
+                      636,
+                      294
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_cdb_regs",
+                  "points": [
+                    [
+                      680,
+                      229
+                    ],
+                    [
+                      730,
+                      229
+                    ]
+                  ],
+                  "label": "result",
+                  "labelAt": [
+                    705,
+                    223
+                  ]
+                },
+                {
+                  "id": "e_cdb_rsadd",
+                  "points": [
+                    [
+                      658,
+                      84
+                    ],
+                    [
+                      658,
+                      50
+                    ],
+                    [
+                      335,
+                      50
+                    ],
+                    [
+                      335,
+                      84
+                    ]
+                  ],
+                  "label": "broadcast: tag + value",
+                  "labelAt": [
+                    490,
+                    44
+                  ],
+                  "kind": "control"
+                },
+                {
+                  "id": "e_cdb_rsmul",
+                  "points": [
+                    [
+                      658,
+                      414
+                    ],
+                    [
+                      658,
+                      450
+                    ],
+                    [
+                      335,
+                      450
+                    ],
+                    [
+                      335,
+                      344
+                    ]
+                  ],
+                  "label": "broadcast: tag + value",
+                  "labelAt": [
+                    490,
+                    444
+                  ],
+                  "kind": "control"
+                }
+              ],
+              "labels": [
+                {
+                  "x": 100,
+                  "y": 136,
+                  "text": "program order",
+                  "anchor": "middle"
+                }
+              ],
+              "steps": [
+                {
+                  "show": [
+                    "q",
+                    "rsadd",
+                    "addfu",
+                    "rsmul",
+                    "mulfu",
+                    "cdb",
+                    "regs",
+                    "e_q_add",
+                    "e_q_mul",
+                    "e_add_fu",
+                    "e_mul_fu",
+                    "e_addfu_cdb",
+                    "e_mulfu_cdb",
+                    "e_cdb_regs",
+                    "e_cdb_rsadd",
+                    "e_cdb_rsmul"
+                  ],
+                  "text": "The complete organisation. Press Play or Step to follow div, add and sub."
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "div, dependent add, independent sub",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "q",
+                        "e_q_mul",
+                        "rsmul"
+                      ],
+                      "text": "**Cycle 1: issue div r1,r2,r3.** Its operands are ready, so it waits in a Mul/Div station.",
+                      "values": {
+                        "rsmul": "div r1 = r2 / r3",
+                        "q": "div, add, sub"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "rsmul",
+                        "e_mul_fu",
+                        "mulfu"
+                      ],
+                      "text": "**Cycles 2 to 9: the div executes** (it takes 8 cycles). The register r1 is marked \"result coming from the divider\".",
+                      "values": {
+                        "mulfu": "dividing...",
+                        "regs": "r1 = tag DIV"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "q",
+                        "e_q_add",
+                        "rsadd"
+                      ],
+                      "text": "**Cycle 2: issue add r4,r1,r5.** r1 is not ready: the station stores the **tag DIV** instead of a value and waits.",
+                      "values": {
+                        "rsadd": "add r4 = [DIV] + r5"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "q",
+                        "e_q_add",
+                        "rsadd",
+                        "e_add_fu",
+                        "addfu",
+                        "e_addfu_cdb",
+                        "cdb",
+                        "e_cdb_regs",
+                        "regs"
+                      ],
+                      "text": "**Cycle 3: issue sub r6,r7,r8.** Its operands are ready, so it runs in the adder **ahead of the waiting add**: this is out-of-order execution. It writes its result in cycle 5.",
+                      "values": {
+                        "addfu": "r7 - r8",
+                        "regs": "r6 = result"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "mulfu",
+                        "e_mulfu_cdb",
+                        "cdb",
+                        "e_cdb_rsadd",
+                        "rsadd",
+                        "e_cdb_regs",
+                        "regs"
+                      ],
+                      "text": "**Cycle 10: the div writes r1 on the CDB.** The waiting add captures the value (it was listening for the tag DIV).",
+                      "values": {
+                        "cdb": "DIV: r1",
+                        "rsadd": "add r4 = r1 + r5 (ready)"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "rsadd",
+                        "e_add_fu",
+                        "addfu",
+                        "e_addfu_cdb",
+                        "cdb",
+                        "e_cdb_regs",
+                        "regs"
+                      ],
+                      "text": "**Cycles 11 and 12: the add executes and writes r4.** Total 12 cycles; an in-order machine would have taken 14.",
+                      "values": {
+                        "regs": "r4 = result"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "Step through all six events: the sub overtakes the waiting add, and the add starts only when the CDB carries the div result."
+        },
+        {
+          "type": "mcq",
+          "concept": "tomasulo",
+          "question": "What does the common data bus carry?",
+          "options": [
+            "A result together with its tag",
+            "Only the instruction",
+            "Only the program counter",
+            "The memory address"
+          ],
+          "answer": 0,
+          "why": "It broadcasts the result and the tag of the station that produced it.",
+          "feedback": [
+            "",
+            "Instructions travel from the queue to the stations.",
+            "The PC is not involved.",
+            "Memory is not part of this simplified model."
+          ]
+        },
+        {
+          "type": "mcq",
+          "concept": "tomasulo",
+          "question": "In which step are instructions still handled in program order?",
+          "options": [
+            "Issue",
+            "Execute",
+            "Write result",
+            "None"
+          ],
+          "answer": 0,
+          "why": "Issue is in order; execute and write result are not.",
+          "feedback": [
+            "",
+            "Execute starts when operands are ready.",
+            "Write result happens when a unit finishes.",
+            "Issue keeps program order."
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What does a reservation station hold when an operand is not ready?",
+              "a": "The tag of the station that will produce it.",
+              "concept": "tomasulo"
+            },
+            {
+              "q": "How does a waiting instruction get its operand?",
+              "a": "By listening to the CDB for its tag.",
+              "concept": "tomasulo"
+            },
+            {
+              "q": "Which Tomasulo step is in program order?",
+              "a": "Issue.",
+              "concept": "tomasulo"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rename",
+      "label": "Register renaming",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "rename",
+          "title": "Name dependences",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "Problem"
+              ],
+              "rows": [
+                [
+                  "1. div r1,r2,r3",
+                  "Writes r1"
+                ],
+                [
+                  "2. add r4,r1,r5",
+                  "Reads r1 (true RAW) and r5"
+                ],
+                [
+                  "3. sub r5,r6,r7",
+                  "Writes r5, which instruction 2 reads (WAR)"
+                ],
+                [
+                  "4. or r1,r8,r9",
+                  "Writes r1 again (WAW with instruction 1)"
+                ],
+                [
+                  "5. and r10,r5,r1",
+                  "Reads r5 from 3 and r1 from 4 (true RAW)"
+                ]
+              ]
+            }
+          ],
+          "why": "Instructions 3 and 4 do not use any value from the earlier instructions, they only reuse their register names. Without renaming they must wait.",
+          "real": "A compiler has only 32 registers to name thousands of values, so names are reused constantly.",
+          "mistake": {
+            "wrong": "WAR and WAW are real data flow and cannot be avoided.",
+            "right": "They are only name clashes. Giving each result a new name removes them."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "rename",
+          "title": "Renaming gives every result a new name",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Before renaming",
+                "items": [
+                  "`div r1,r2,r3`",
+                  "`add r4,r1,r5`",
+                  "`sub r5,r6,r7`",
+                  "`or r1,r8,r9`",
+                  "`and r10,r5,r1`"
+                ]
+              },
+              "right": {
+                "title": "After renaming (every result gets a new name)",
+                "items": [
+                  "`div T1,r2,r3`",
+                  "`add T2,T1,r5`",
+                  "`sub T3,r6,r7`",
+                  "`or T4,r8,r9`",
+                  "`and T5,T3,T4`"
+                ]
+              }
+            }
+          ],
+          "why": "Only the **true** dependences remain: add needs T1, and needs T3 and T4. The WAR and WAW dependences are gone.",
+          "real": "Real processors have far more physical registers (100 or more) than the 32 architectural ones in the instruction set."
+        },
+        {
+          "type": "concept",
+          "concept": "rename",
+          "title": "Try it: renaming on and off",
+          "blocks": [
+            {
+              "type": "scheduler",
+              "title": "div, add, sub, or, and (name dependences)",
+              "instructions": [
+                {
+                  "t": "div r1,r2,r3",
+                  "dest": "r1",
+                  "srcs": [
+                    "r2",
+                    "r3"
+                  ],
+                  "lat": 8
+                },
+                {
+                  "t": "add r4,r1,r5",
+                  "dest": "r4",
+                  "srcs": [
+                    "r1",
+                    "r5"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "sub r5,r6,r7",
+                  "dest": "r5",
+                  "srcs": [
+                    "r6",
+                    "r7"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "or r1,r8,r9",
+                  "dest": "r1",
+                  "srcs": [
+                    "r8",
+                    "r9"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "and r10,r5,r1",
+                  "dest": "r10",
+                  "srcs": [
+                    "r5",
+                    "r1"
+                  ],
+                  "lat": 1
+                }
+              ],
+              "controls": [
+                "mode",
+                "rename"
+              ],
+              "options": {
+                "mode": "ooo",
+                "width": 1,
+                "rename": false
+              },
+              "hint": "Compare In order, Out of order without renaming and Out of order with renaming."
+            }
+          ],
+          "why": "In order: 16 cycles. Out of order without renaming: 14 (the sub and or must wait for the older instructions to read and write r5 and r1). Out of order with renaming: 12."
+        },
+        {
+          "type": "predict",
+          "concept": "rename",
+          "skill": "Apply",
+          "question": "Out of order on a 1-wide machine, how many cycles does renaming save in this example (without renaming it takes 14)?",
+          "options": [
+            "2",
+            "0",
+            "4",
+            "6"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Without renaming: 14 cycles. With renaming: **12** cycles. The sub and or no longer wait for the earlier instructions to finish reading and writing the old names.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "In order the same code needs 16."
+        },
+        {
+          "type": "concept",
+          "concept": "rename",
+          "title": "Committing in order (idea only)",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Results may finish out of order, but they become **visible** in program order",
+                "A **reorder buffer** holds finished results until all older instructions have finished",
+                "If an older instruction faults or a branch was mispredicted, the younger results are simply **discarded**",
+                "This gives precise exceptions: the program looks as if it stopped exactly at the faulting instruction"
+              ]
+            }
+          ],
+          "why": "Out-of-order execution and in-order commit together give speed with the right answer.",
+          "real": "This is how a CPU can run past a branch before knowing the direction (Class 16)."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Why do processors have more physical registers than the 32 the instruction set can name?",
+          "think": 20,
+          "pair": 40,
+          "answer": "The extra physical registers are the new names used by renaming: each in-flight result gets its own register, which removes WAR and WAW dependences. The instruction set still names only 32 registers (code size and compatibility), while the hardware maps them to many physical registers."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "rename",
+          "question": "Out-of-order execution speeds programs up but costs hardware and power. When is it worth it?",
+          "seconds": 60,
+          "ideas": [
+            "Programs with unpredictable delays (cache misses) gain a lot.",
+            "Programs full of dependent chains gain little: the chain sets the time.",
+            "Low-power chips (watches, sensors) often keep simple in-order cores to save energy.",
+            "Servers and laptops usually choose out-of-order for single-thread speed."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "dynamic",
+          "question": "What is a reservation station?",
+          "answer": "A buffer that holds an instruction and its operands (or tags) until all operands are ready.",
+          "solution": "It lets instructions wait for operands without blocking the ones behind them.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "why",
+          "question": "div r1 (8 cycles), add r4,r1,r5, sub r6,r7,r8, and r9,r10,r11 on a 1-wide machine: how many cycles in order and out of order?",
+          "answer": "14 cycles in order; 12 out of order.",
+          "solution": "In order the sub and and wait behind the add. Out of order they finish in cycles 5 and 6 and the add (cycle 12) finishes last.",
+          "hint": "The longest chain is div then add.",
+          "think": 45
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "tomasulo",
+          "question": "In the Tomasulo run, in which cycle does the add start executing, and why not earlier?",
+          "answer": "Cycle 11: it needs r1, which the div writes on the CDB in cycle 10.",
+          "solution": "The add's station holds the tag DIV until the broadcast arrives, so it cannot start before cycle 11.",
+          "hint": "When does the divide write its result?",
+          "mistake": "Saying the add starts as soon as it is issued.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "rename",
+          "question": "Sequence: div r1,r2,r3 (8 cycles); add r4,r1,r5; sub r5,r6,r7; or r1,r8,r9; and r10,r5,r1. Give the cycles in order, out of order without renaming, and out of order with renaming (1-wide).",
+          "answer": "In order 16; out of order without renaming 14; with renaming 12.",
+          "solution": "In order everything is serialised behind the divide. Without renaming the sub and or have to respect the WAR and WAW name dependences; with renaming only true dependences remain.",
+          "mistake": "Believing renaming removes the true dependences too.",
+          "title": "Exam practice: cycle counting",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "dynamic",
+          "question": "lw r1 (6 cycles, a miss); add r2,r1,r3; sub r4,r5,r6; or r7,r8,r9; xor r11,r12,r13. Give the cycles in order and out of order on a 1-wide machine.",
+          "answer": "In order 13; out of order 10.",
+          "solution": "Out of order the three independent instructions run during the miss, so the total is set by the load and its dependent add.",
+          "mistake": "Counting only instructions, not latencies.",
+          "title": "Exam practice: cache miss",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "tomasulo",
+          "question": "Write the three Tomasulo steps and say which are in program order.",
+          "answer": "Issue (in order): put the instruction in a station, copy operands or tags. Execute (out of order): start when operands are ready. Write result: broadcast tag and value on the CDB so waiting stations and registers capture it.",
+          "solution": "Only issue keeps program order.",
+          "mistake": "Saying execution also follows program order.",
+          "title": "Exam practice: tracing",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "why",
+          "question": "Explain why out-of-order execution does not change the result of a program.",
+          "answer": "Instructions that depend on each other are never reordered past the dependence (true dependences are tracked with tags), the instructions that are reordered are independent, and the results are committed in program order, so the visible state is always as if the program ran in order.",
+          "solution": "A strong answer names true dependences and in-order commit.",
+          "mistake": "Saying the processor just guesses and fixes errors later without mentioning dependences.",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Dynamic scheduling",
+          "branches": [
+            {
+              "label": "Why out of order",
+              "example": "independent work during waits",
+              "section": "why"
+            },
+            {
+              "label": "Dynamic scheduling",
+              "example": "hardware reorders",
+              "section": "dynamic"
+            },
+            {
+              "label": "Tomasulo",
+              "example": "issue, execute, CDB",
+              "section": "tomasulo"
+            },
+            {
+              "label": "Renaming",
+              "example": "removes name dependences",
+              "section": "rename"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "In-order execution makes independent instructions wait behind a slow one.",
+            "Dynamic scheduling lets the hardware start instructions when their operands are ready.",
+            "Reservation stations hold instructions with operand values or tags.",
+            "Tomasulo: issue (in order), execute (out of order), write result on the CDB (tag + value).",
+            "Register renaming gives each result a new name, which removes WAR and WAW dependences.",
+            "Results are committed in program order, so the answer never changes."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "Out-of-order execution can change the result.",
+              "right": "Dependences are respected and results are committed in order."
+            },
+            {
+              "wrong": "WAR and WAW are real data flow.",
+              "right": "They are name clashes that renaming removes."
+            },
+            {
+              "wrong": "Every stage is out of order.",
+              "right": "Issue is in program order."
+            },
+            {
+              "wrong": "Out-of-order always helps.",
+              "right": "A dependent chain sets the time; gains depend on independent work."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Dynamic scheduling lets hardware run independent instructions while a slow one waits. Instructions sit in reservation stations until their operands (values or tags) arrive on the common data bus. Issue is in order, execution and write result are out of order, and renaming removes name dependences. Results are committed in program order, so the program still behaves as written."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "dynamic",
+              "question": "What does a reservation station hold?",
+              "options": [
+                "An instruction and its operands or tags",
+                "A cache block",
+                "The PC",
+                "A page table"
+              ],
+              "answer": 0,
+              "why": "It buffers an instruction until its operands are ready.",
+              "misconception": "Tags name the stations that will produce missing operands."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "why",
+              "statement": "An out-of-order processor may give a different result from an in-order one.",
+              "answer": false,
+              "why": "It must give the same result.",
+              "misconception": "Results are committed in program order."
+            },
+            {
+              "level": "easy",
+              "concept": "dynamic",
+              "question": "Who reorders instructions in dynamic scheduling?",
+              "options": [
+                "The hardware at run time",
+                "The compiler",
+                "The user",
+                "The operating system at boot"
+              ],
+              "answer": 0,
+              "why": "The hardware decides while the program runs.",
+              "misconception": "The compiler does static scheduling."
+            },
+            {
+              "level": "medium",
+              "concept": "why",
+              "question": "div (8 cycles), dependent add, two independent instructions on a 1-wide machine. In order takes 14. Out of order takes:",
+              "options": [
+                "12",
+                "14",
+                "10",
+                "9"
+              ],
+              "answer": 0,
+              "why": "The div-then-add chain finishes in cycle 12.",
+              "misconception": "The independent instructions finish earlier."
+            },
+            {
+              "level": "medium",
+              "concept": "tomasulo",
+              "question": "What travels on the CDB?",
+              "options": [
+                "A tag and a result value",
+                "An instruction",
+                "A memory address",
+                "A branch outcome"
+              ],
+              "answer": 0,
+              "why": "It broadcasts the result and its tag.",
+              "misconception": "Waiting stations capture it by tag."
+            },
+            {
+              "level": "medium",
+              "concept": "rename",
+              "question": "Which dependences does register renaming remove?",
+              "options": [
+                "WAR and WAW",
+                "RAW",
+                "Control",
+                "All of them"
+              ],
+              "answer": 0,
+              "why": "It removes the name dependences.",
+              "misconception": "True (RAW) dependences remain."
+            },
+            {
+              "level": "hard",
+              "concept": "rename",
+              "question": "div, add, sub, or, and (name dependences): out of order without renaming takes 14 cycles. With renaming (1-wide) it takes:",
+              "options": [
+                "12",
+                "14",
+                "16",
+                "10"
+              ],
+              "answer": 0,
+              "why": "12 cycles; in order takes 16.",
+              "misconception": "Renaming removes the WAR and WAW waits."
+            },
+            {
+              "level": "hard",
+              "concept": "dynamic",
+              "question": "lw (6 cycles) miss, dependent add, three independent instructions, 1-wide. In order: 13. Out of order:",
+              "options": [
+                "10",
+                "13",
+                "8",
+                "6"
+              ],
+              "answer": 0,
+              "why": "The independent instructions overlap with the miss: 10 cycles.",
+              "misconception": "The load and its dependent add set the minimum."
+            },
+            {
+              "level": "challenge",
+              "concept": "tomasulo",
+              "question": "In the div/add/sub run, in which cycle does the add start executing?",
+              "options": [
+                "11",
+                "3",
+                "5",
+                "10"
+              ],
+              "answer": 0,
+              "why": "The div writes r1 on the CDB in cycle 10; the add then starts in cycle 11.",
+              "misconception": "The add holds the tag DIV until the broadcast."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "Why can an out-of-order CPU run C before B?",
+              "a": "If C is independent of B (and of any slow instruction), it can run while B waits.",
+              "concept": "why"
+            },
+            {
+              "q": "What is a reservation station?",
+              "a": "A buffer holding an instruction and its operands or tags.",
+              "concept": "dynamic"
+            },
+            {
+              "q": "Name the three Tomasulo steps.",
+              "a": "Issue, execute, write result.",
+              "concept": "tomasulo"
+            },
+            {
+              "q": "What does renaming remove?",
+              "a": "WAR and WAW (name) dependences.",
+              "concept": "rename"
+            },
+            {
+              "q": "How does the CPU keep results correct?",
+              "a": "It respects true dependences and commits in program order.",
+              "concept": "why"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

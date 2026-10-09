@@ -1,0 +1,1251 @@
+{
+  "id": "ca-07-instruction-encoding",
+  "title": "Instruction Encoding and Assembly Programming",
+  "subtitle": "From assembly text to the 32 bits the processor reads.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "2",
+      "title": "Instructions: Language of the Computer",
+      "topics": "Representing instructions in the computer: MIPS instruction formats (R, I, J), fields, encoding and decoding; translating and starting a program"
+    }
+  ],
+  "objectives": [
+    "Explain the three MIPS instruction formats (R, I, J) and their fields",
+    "Encode an assembly instruction into 32-bit binary and hex",
+    "Decode a 32-bit word back into assembly",
+    "Read a machine-code listing, including branch offsets",
+    "Write and run a small assembly program"
+  ],
+  "concepts": [
+    {
+      "id": "formats",
+      "label": "Instruction formats",
+      "section": "formats"
+    },
+    {
+      "id": "encode",
+      "label": "Encoding",
+      "section": "encode"
+    },
+    {
+      "id": "decode",
+      "label": "Decoding",
+      "section": "decode"
+    },
+    {
+      "id": "program",
+      "label": "Assembly programming",
+      "section": "program"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "Your processor never sees the text `add $s0, $s1, $s2`. What does it actually receive, and how does 32 bits say all of that?",
+          "clues": [
+            "The instruction is **one 32-bit number**.",
+            "Groups of bits (fields) name the operation and each register.",
+            "Turning text into those bits is called **encoding**; reading them back is **decoding**."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "formats",
+      "label": "Formats",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "formats",
+          "title": "Assembly to machine code",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Assembly",
+                  "sub": "readable text",
+                  "note": "`add $s0, $s1, $s2`"
+                },
+                {
+                  "label": "Instruction format",
+                  "sub": "choose R, I or J",
+                  "note": "The operation decides which fields exist."
+                },
+                {
+                  "label": "Binary machine code",
+                  "sub": "32 bits",
+                  "note": "`0000 0010 0011 0010 1000 0000 0010 0000`"
+                },
+                {
+                  "label": "Hex",
+                  "sub": "shorthand",
+                  "note": "`0x02328020`"
+                }
+              ],
+              "zoom": true
+            }
+          ],
+          "why": "This is the translation an assembler does for every instruction of your program.",
+          "real": "The executable file on your computer is a long list of such 32-bit words.",
+          "explainAgain": {
+            "beginner": "Think of a form with boxes: the format says how many boxes there are and how wide each one is."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "formats",
+          "title": "R-type: register instructions",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Field",
+                "op",
+                "rs",
+                "rt",
+                "rd",
+                "shamt",
+                "funct"
+              ],
+              "rows": [
+                [
+                  "Bits",
+                  "6",
+                  "5",
+                  "5",
+                  "5",
+                  "5",
+                  "6"
+                ],
+                [
+                  "Meaning",
+                  "0 for R-type",
+                  "first source",
+                  "second source",
+                  "destination",
+                  "shift amount",
+                  "selects the operation"
+                ]
+              ]
+            }
+          ],
+          "why": "R-type arithmetic, logical and shift instructions all share one layout; `funct` tells them apart.",
+          "mistake": {
+            "wrong": "rd is the first register in the machine code word.",
+            "right": "In the word the order is rs, rt, rd, but the assembly writes the destination first."
+          },
+          "notes": {
+            "explain": "Show `add $s0,$s1,$s2`: assembly order is rd, rs, rt; the word order is rs, rt, rd.",
+            "terms": [
+              "**op**",
+              "**funct**",
+              "**shamt**"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "formats",
+          "title": "I-type: immediates, loads, stores, branches",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Field",
+                "op",
+                "rs",
+                "rt",
+                "immediate"
+              ],
+              "rows": [
+                [
+                  "Bits",
+                  "6",
+                  "5",
+                  "5",
+                  "16"
+                ],
+                [
+                  "addi",
+                  "8",
+                  "source",
+                  "destination",
+                  "constant"
+                ],
+                [
+                  "lw / sw",
+                  "35 / 43",
+                  "base register",
+                  "loaded / stored register",
+                  "byte offset"
+                ],
+                [
+                  "beq",
+                  "4",
+                  "compared register",
+                  "compared register",
+                  "offset in instructions"
+                ]
+              ]
+            }
+          ],
+          "why": "The 16-bit field holds a constant, a memory offset or a branch offset, depending on the opcode."
+        },
+        {
+          "type": "concept",
+          "concept": "formats",
+          "title": "J-type: jumps",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Field",
+                "op",
+                "target address"
+              ],
+              "rows": [
+                [
+                  "Bits",
+                  "6",
+                  "26"
+                ],
+                [
+                  "j",
+                  "2",
+                  "word address of the target"
+                ],
+                [
+                  "jal",
+                  "3",
+                  "word address of the target"
+                ]
+              ]
+            }
+          ],
+          "why": "A jump gives up the register fields to get 26 bits of address.",
+          "deeper": {
+            "text": "The 26-bit field is the target address shifted right by 2, because every instruction address is a multiple of 4."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "formats",
+          "title": "Look at the fields",
+          "blocks": [
+            {
+              "type": "encoder",
+              "title": "The three formats",
+              "mode": "encode",
+              "initial": "add $s0, $s1, $s2",
+              "presets": [
+                "add $s0, $s1, $s2",
+                "lw $t0, 32($s3)",
+                "j 0x00400040"
+              ],
+              "hint": "Pick an R-type, an I-type and a J-type example and compare the colored fields."
+            }
+          ],
+          "why": "Notice that op, rs and rt sit in the same bit positions for R-type and I-type, which simplifies the hardware."
+        },
+        {
+          "type": "mcq",
+          "concept": "formats",
+          "question": "Which format does `lw $t0, 8($s1)` use?",
+          "options": [
+            "R-type",
+            "I-type",
+            "J-type",
+            "None: it is a pseudo-instruction"
+          ],
+          "answer": 1,
+          "why": "Loads use the I-format: op, rs (base), rt (destination) and a 16-bit offset.",
+          "feedback": [
+            "R-type instructions have a funct field and use three registers.",
+            "",
+            "J-type has only an opcode and a 26-bit target.",
+            "lw is a real instruction."
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "formats",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each format with what its 16 or 26 low bits hold.",
+          "pairs": [
+            {
+              "a": "R-type",
+              "b": "rd, shamt and funct"
+            },
+            {
+              "a": "I-type",
+              "b": "A 16-bit immediate or offset"
+            },
+            {
+              "a": "J-type",
+              "b": "A 26-bit jump target"
+            },
+            {
+              "a": "opcode",
+              "b": "The first 6 bits of every format"
+            }
+          ],
+          "why": "Each format reuses the 32 bits in the way the instruction needs."
+        }
+      ]
+    },
+    {
+      "id": "encode",
+      "label": "Encoding",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "encode",
+          "title": "Encoding step by step",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**1.** Choose the format from the instruction (R, I or J)",
+                "**2.** Look up the opcode (and funct for R-type)",
+                "**3.** Convert each register name to its number",
+                "**4.** Place every value in its field, padded to the field width",
+                "**5.** Join the fields into 32 bits",
+                "**6.** Group the bits in fours to write hex"
+              ],
+              "numbered": true
+            }
+          ],
+          "why": "This is exactly what an assembler does, billions of times over a large program.",
+          "real": "A compiler produces assembly; an assembler produces these words."
+        },
+        {
+          "type": "concept",
+          "concept": "encode",
+          "title": "Lookup tables",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "Format",
+                "op",
+                "funct"
+              ],
+              "rows": [
+                [
+                  "add",
+                  "R",
+                  "0",
+                  "32 (0x20)"
+                ],
+                [
+                  "sub",
+                  "R",
+                  "0",
+                  "34 (0x22)"
+                ],
+                [
+                  "and / or",
+                  "R",
+                  "0",
+                  "36 / 37"
+                ],
+                [
+                  "slt",
+                  "R",
+                  "0",
+                  "42"
+                ],
+                [
+                  "sll",
+                  "R",
+                  "0",
+                  "0"
+                ],
+                [
+                  "addi",
+                  "I",
+                  "8",
+                  "-"
+                ],
+                [
+                  "ori",
+                  "I",
+                  "13",
+                  "-"
+                ],
+                [
+                  "lw / sw",
+                  "I",
+                  "35 / 43",
+                  "-"
+                ],
+                [
+                  "beq / bne",
+                  "I",
+                  "4 / 5",
+                  "-"
+                ],
+                [
+                  "j / jal",
+                  "J",
+                  "2 / 3",
+                  "-"
+                ]
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Registers",
+                "Numbers"
+              ],
+              "rows": [
+                [
+                  "$zero",
+                  "0"
+                ],
+                [
+                  "$t0 - $t7",
+                  "8 - 15"
+                ],
+                [
+                  "$s0 - $s7",
+                  "16 - 23"
+                ],
+                [
+                  "$t8 - $t9",
+                  "24 - 25"
+                ],
+                [
+                  "$sp, $ra",
+                  "29, 31"
+                ]
+              ]
+            }
+          ],
+          "why": "With these two tables you can encode every instruction in this class by hand."
+        },
+        {
+          "type": "predict",
+          "concept": "encode",
+          "skill": "Apply",
+          "question": "Encode `add $s0, $s1, $s2`. Which hexadecimal word is it?",
+          "options": [
+            "0x02328020",
+            "0x02328022",
+            "0x00000020",
+            "0x12328020"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "Field",
+                "Value",
+                "Bits"
+              ],
+              "rows": [
+                [
+                  "op",
+                  "0",
+                  "000000"
+                ],
+                [
+                  "rs ($s1)",
+                  "17",
+                  "10001"
+                ],
+                [
+                  "rt ($s2)",
+                  "18",
+                  "10010"
+                ],
+                [
+                  "rd ($s0)",
+                  "16",
+                  "10000"
+                ],
+                [
+                  "shamt",
+                  "0",
+                  "00000"
+                ],
+                [
+                  "funct (add)",
+                  "32",
+                  "100000"
+                ]
+              ]
+            },
+            {
+              "type": "text",
+              "text": "Joined: `000000 10001 10010 10000 00000 100000` = **0x02328020**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The destination $s0 is rd, but it is written first in assembly."
+        },
+        {
+          "type": "concept",
+          "concept": "encode",
+          "title": "Try it: the instruction builder",
+          "blocks": [
+            {
+              "type": "encoder",
+              "title": "Encode anything",
+              "mode": "encode",
+              "initial": "lw $t0, 32($s3)",
+              "presets": [
+                "add $s0, $s1, $s2",
+                "sub $t0, $t1, $t2",
+                "lw $t0, 32($s3)",
+                "sw $t0, 32($s3)",
+                "addi $t0, $s1, -5",
+                "sll $t0, $t1, 4",
+                "beq $t0, $t1, 3",
+                "j 0x00400040"
+              ],
+              "hint": "Predict the hex before you press Encode."
+            }
+          ],
+          "why": "Check your hand encoding against the tool for each example."
+        },
+        {
+          "type": "mcq",
+          "concept": "encode",
+          "question": "What is the `funct` field of `sub`?",
+          "options": [
+            "32",
+            "34",
+            "36",
+            "0"
+          ],
+          "answer": 1,
+          "why": "sub has funct 34 (0x22); add has 32.",
+          "feedback": [
+            "32 is add.",
+            "",
+            "36 is and.",
+            "0 is sll."
+          ]
+        },
+        {
+          "type": "arrange",
+          "concept": "encode",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the encoding steps in order.",
+          "items": [
+            "Choose the instruction format",
+            "Look up the opcode and funct",
+            "Convert register names to numbers",
+            "Place the values in their fields",
+            "Join the fields into 32 bits and write hex"
+          ],
+          "why": "Each step needs the result of the one before it."
+        },
+        {
+          "type": "find",
+          "concept": "encode",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about encoding is wrong. Click it.",
+          "lines": [
+            "1. add, sub and slt are all R-type with opcode 0.",
+            "2. The funct field selects the operation inside R-type.",
+            "3. lw and sw have the same opcode.",
+            "4. The 16-bit immediate of an I-type instruction is sign-extended."
+          ],
+          "wrong": 2,
+          "explain": "lw has opcode 35 and sw has opcode 43.",
+          "fix": "lw uses opcode 35; sw uses opcode 43."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "How many fields does an R-type instruction have and what are they?",
+              "a": "Six: op, rs, rt, rd, shamt and funct (6, 5, 5, 5, 5, 6 bits).",
+              "concept": "formats"
+            },
+            {
+              "q": "Which bits hold a branch offset?",
+              "a": "The 16-bit immediate field of the I-format, counted in instructions.",
+              "concept": "encode"
+            },
+            {
+              "q": "What does funct do?",
+              "a": "It selects the operation among R-type instructions.",
+              "concept": "encode"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "decode",
+      "label": "Decoding",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "decode",
+          "title": "Decoding: read the opcode first",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Opcode",
+                  "sub": "the first 6 bits",
+                  "note": "Zero means R-type: look at funct. 2 or 3 means J-type. Anything else is I-type."
+                },
+                {
+                  "label": "Fields",
+                  "sub": "split the word",
+                  "note": "Cut the 32 bits at the format's boundaries."
+                },
+                {
+                  "label": "Numbers",
+                  "sub": "read each field",
+                  "note": "Register fields become register names."
+                },
+                {
+                  "label": "Assembly",
+                  "sub": "rebuild the text",
+                  "note": "Put the registers back in assembly order."
+                }
+              ],
+              "zoom": true
+            }
+          ],
+          "why": "The processor does this decoding in hardware in every single instruction cycle.",
+          "real": "A disassembler or debugger does the same job to show you assembly for a program that has none."
+        },
+        {
+          "type": "predict",
+          "concept": "decode",
+          "skill": "Apply",
+          "question": "Decode `0x01095020`. Which instruction is it?",
+          "options": [
+            "add $t2, $t0, $t1",
+            "sub $t2, $t0, $t1",
+            "add $t0, $t1, $t2",
+            "lw $t2, 0($t0)"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "Field",
+                "Bits",
+                "Value"
+              ],
+              "rows": [
+                [
+                  "op",
+                  "000000",
+                  "0 (R-type)"
+                ],
+                [
+                  "rs",
+                  "01000",
+                  "8 = $t0"
+                ],
+                [
+                  "rt",
+                  "01001",
+                  "9 = $t1"
+                ],
+                [
+                  "rd",
+                  "01010",
+                  "10 = $t2"
+                ],
+                [
+                  "shamt",
+                  "00000",
+                  "0"
+                ],
+                [
+                  "funct",
+                  "100000",
+                  "32 = add"
+                ]
+              ]
+            }
+          ],
+          "result": "The destination is rd = $t2, printed first."
+        },
+        {
+          "type": "concept",
+          "concept": "decode",
+          "title": "Try it: decode a word",
+          "blocks": [
+            {
+              "type": "encoder",
+              "title": "Decode",
+              "mode": "decode",
+              "presets": [
+                "add $s0, $s1, $s2"
+              ],
+              "hint": "Try 0x01095020, 0x8D090004, 0xAD2A0008, 0x2129FFFF and 0x00A63820."
+            }
+          ],
+          "why": "Decoding is encoding run backwards."
+        },
+        {
+          "type": "mcq",
+          "concept": "decode",
+          "question": "Decode `0x8D090004`.",
+          "options": [
+            "lw $t1, 4($t0)",
+            "sw $t1, 4($t0)",
+            "lw $t0, 4($t1)",
+            "addi $t1, $t0, 4"
+          ],
+          "answer": 0,
+          "why": "Opcode 35 is lw; rs = 8 ($t0) is the base, rt = 9 ($t1) is the destination, offset 4.",
+          "feedback": [
+            "",
+            "sw would have opcode 43.",
+            "rs and rt are swapped here: rs is the base.",
+            "addi has opcode 8."
+          ]
+        },
+        {
+          "type": "mcq",
+          "concept": "decode",
+          "question": "The 16-bit immediate field of an instruction is `1111 1111 1111 1111`. As a signed number what is it?",
+          "options": [
+            "-1",
+            "65,535",
+            "-32,768",
+            "0"
+          ],
+          "answer": 0,
+          "why": "All ones in two's complement is −1.",
+          "feedback": [
+            "",
+            "65,535 is the unsigned reading; the immediate is sign-extended.",
+            "−32,768 is 1000 0000 0000 0000.",
+            "All zeros would be 0."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "decode",
+          "statement": "Two different instructions can have the same opcode but different funct fields.",
+          "answer": true,
+          "why": "All R-type instructions have opcode 0 and are told apart by funct."
+        }
+      ]
+    },
+    {
+      "id": "program",
+      "label": "Programming",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "program",
+          "title": "From program to machine-code listing",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Address",
+                "Assembly",
+                "Machine code (hex)"
+              ],
+              "rows": [
+                [
+                  "0x00400000",
+                  "addi $t0, $zero, 0",
+                  "0x20080000"
+                ],
+                [
+                  "0x00400004",
+                  "addi $t1, $zero, 5",
+                  "0x20090005"
+                ],
+                [
+                  "0x00400008",
+                  "add $t0, $t0, $t1",
+                  "0x01094020"
+                ],
+                [
+                  "0x0040000C",
+                  "addi $t1, $t1, -1",
+                  "0x2129FFFF"
+                ],
+                [
+                  "0x00400010",
+                  "bne $t1, $zero, loop",
+                  "0x1520FFFD"
+                ]
+              ]
+            }
+          ],
+          "why": "The assembler gives each instruction an address, and branch offsets count instructions from the next address.",
+          "real": "This table is what a disassembler shows when you look at a program.",
+          "mistake": {
+            "wrong": "The loop label is stored in the branch instruction.",
+            "right": "Labels disappear. The branch holds an offset: here −3 instructions."
+          },
+          "notes": {
+            "explain": "Point at the bne word 0x1520FFFD: the low 16 bits 0xFFFD are −3. The label loop is at 0x00400008; bne is at 0x00400010."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "program",
+          "title": "Run it: the same program",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Sum 5 + 4 + 3 + 2 + 1",
+              "program": "addi $t0, $zero, 0\naddi $t1, $zero, 5\nloop: add $t0, $t0, $t1\naddi $t1, $t1, -1\nbne $t1, $zero, loop",
+              "watch": [
+                "$t0",
+                "$t1"
+              ],
+              "hint": "Step through. $t0 collects the sum while $t1 counts down.",
+              "editable": true
+            }
+          ],
+          "why": "The listing above is exactly what the processor fetches and executes."
+        },
+        {
+          "type": "predict",
+          "concept": "program",
+          "skill": "Apply",
+          "question": "What will `$t0` hold when the loop above finishes?",
+          "options": [
+            "5",
+            "10",
+            "15",
+            "25"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "5 + 4 + 3 + 2 + 1 = **15**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The loop adds the counter to the sum until the counter reaches 0."
+        },
+        {
+          "type": "concept",
+          "concept": "program",
+          "title": "Write your own",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Edit and run",
+              "program": "addi $t0, $zero, 6\naddi $t1, $zero, 7\nadd $t2, $t0, $t1\nsll $t3, $t2, 1",
+              "watch": [
+                "$t0",
+                "$t1",
+                "$t2",
+                "$t3"
+              ],
+              "hint": "Change the numbers, add instructions, then use the instruction builder to encode them.",
+              "editable": true
+            }
+          ],
+          "why": "Writing, running and encoding your own instructions is the fastest way to learn the formats."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Why do all MIPS instructions have the same length (32 bits) even though some need fewer fields?",
+          "think": 20,
+          "pair": 40,
+          "answer": "A fixed length makes fetching and decoding simple and fast: the next instruction is always 4 bytes ahead, and the fields are always in the same place. The price is some unused bits, which is a deliberate compromise."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "formats",
+          "question": "MIPS uses three formats. What would you gain and lose with one format only, or with ten?",
+          "seconds": 60,
+          "ideas": [
+            "One format is simplest for the hardware but wastes bits (no room for 26-bit jump targets and 16-bit immediates).",
+            "Ten formats would use every bit well, but decoding becomes slower and more complex.",
+            "Three formats keep the opcode, rs and rt in similar places.",
+            "Good design demands good compromises."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "formats",
+          "question": "List the fields of the R-type format with their widths.",
+          "answer": "op 6, rs 5, rt 5, rd 5, shamt 5, funct 6 bits.",
+          "solution": "They total 32 bits: 6 + 5 + 5 + 5 + 5 + 6.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "encode",
+          "question": "Encode `add $t2, $s0, $s1` in hex.",
+          "answer": "0x02115020.",
+          "solution": "op 0; rs = $s0 = 16; rt = $s1 = 17; rd = $t2 = 10; shamt 0; funct 32. Fields: 000000 10000 10001 01010 00000 100000.",
+          "hint": "Remember the word order is rs, rt, rd.",
+          "mistake": "Putting the destination first in the machine word.",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "decode",
+          "question": "Decode `0x00A63820`.",
+          "answer": "add $a3, $a1, $a2.",
+          "solution": "op 0 means R-type. rs = 5 ($a1), rt = 6 ($a2), rd = 7 ($a3), funct 0x20 = add.",
+          "hint": "Write the word in binary and cut it at 6, 5, 5, 5, 5, 6 bits.",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "encode",
+          "question": "Encode `lw $s1, 16($t0)` and say which register is rs.",
+          "answer": "0x8D110010; rs = $t0 (the base register).",
+          "solution": "op 35; rs = $t0 = 8; rt = $s1 = 17; immediate 16.",
+          "hint": "In the I-format rs is the base and rt is the register loaded.",
+          "mistake": "Treating $s1 as rs.",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "decode",
+          "question": "The 32 bits are 100011 01001 01000 0000000000001100. Write the instruction.",
+          "answer": "lw $t0, 12($t1).",
+          "solution": "Opcode 100011 = 35 = lw. rs = 01001 = 9 = $t1 (base), rt = 01000 = 8 = $t0 (destination), immediate = 12.",
+          "mistake": "Swapping the base and destination registers.",
+          "title": "Exam practice: diagram interpretation",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "encode",
+          "question": "The program has `bne $t1, $zero, loop` at address 0x00400010 and `loop` at 0x00400008. What is the 16-bit immediate field in hex?",
+          "answer": "0xFFFD (the offset −3).",
+          "solution": "PC + 4 = 0x00400014. (0x00400008 − 0x00400014) ÷ 4 = −12 ÷ 4 = −3. As 16-bit two's complement: 0xFFFD.",
+          "mistake": "Writing 3 or −12 instead of −3.",
+          "title": "Exam practice: numerical",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "encode",
+          "question": "Encode `j 0x00400040`: give the 26-bit target field and the full word in hex.",
+          "answer": "Target field 0x100010; word 0x08100010.",
+          "solution": "0x00400040 ÷ 4 = 0x100010. Opcode 2 = 000010, so the word is 0x08000000 + 0x100010 = 0x08100010.",
+          "mistake": "Putting the byte address into the field without dividing by 4.",
+          "title": "Exam practice: jump",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "formats",
+          "question": "Explain why MIPS has R, I and J formats instead of one format.",
+          "answer": "One format cannot give each instruction what it needs: R-type needs three registers and a function code, I-type needs a 16-bit constant or offset, and jumps need a 26-bit address. Three formats keep every instruction 32 bits and keep the first fields in the same place, balancing simplicity against the bits each instruction needs.",
+          "solution": "A strong answer names the fields each format needs and the fixed-length compromise.",
+          "mistake": "Saying the formats exist only for speed.",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Instruction encoding",
+          "branches": [
+            {
+              "label": "Formats",
+              "example": "R, I, J",
+              "section": "formats"
+            },
+            {
+              "label": "Encoding",
+              "example": "Fields to 32 bits",
+              "section": "encode"
+            },
+            {
+              "label": "Decoding",
+              "example": "Bits back to assembly",
+              "section": "decode"
+            },
+            {
+              "label": "Programs",
+              "example": "Listing and branch offsets",
+              "section": "program"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Every MIPS instruction is one 32-bit word.",
+            "R-type: op, rs, rt, rd, shamt, funct (6, 5, 5, 5, 5, 6 bits); opcode 0, funct picks the operation.",
+            "I-type: op, rs, rt, 16-bit immediate (constant, offset or branch offset).",
+            "J-type: op and a 26-bit word address (byte address divided by 4).",
+            "Encode: pick format, look up op/funct, convert registers, fill fields, join, write hex.",
+            "Decode by reading the opcode first, then splitting the word."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "The destination register comes first in the machine word.",
+              "right": "The word order is rs, rt, rd; assembly writes the destination first."
+            },
+            {
+              "wrong": "The branch instruction stores the label.",
+              "right": "It stores an offset in instructions from PC + 4."
+            },
+            {
+              "wrong": "Jump targets store the full byte address.",
+              "right": "They store the address divided by 4."
+            },
+            {
+              "wrong": "All R-type instructions have different opcodes.",
+              "right": "They all have opcode 0 and differ in funct."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "An assembler turns each instruction into one 32-bit word using one of three formats. R-type holds three registers and a function code, I-type holds two registers and a 16-bit immediate, J-type holds a 26-bit address. Encoding fills those fields from lookup tables, decoding reads the opcode first, and branch offsets count instructions from the next one."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "formats",
+              "question": "How many bits is a MIPS instruction?",
+              "options": [
+                "16",
+                "32",
+                "64",
+                "It varies"
+              ],
+              "answer": 1,
+              "why": "Every MIPS instruction is 32 bits.",
+              "misconception": "Fixed length is one of the RISC design choices."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "formats",
+              "statement": "In R-type instructions the opcode is always 0.",
+              "answer": true,
+              "why": "The funct field selects the operation.",
+              "misconception": "Opcode 0 only tells you to look at funct."
+            },
+            {
+              "level": "easy",
+              "concept": "encode",
+              "question": "Which register number does $s0 have?",
+              "options": [
+                "8",
+                "16",
+                "17",
+                "24"
+              ],
+              "answer": 1,
+              "why": "$s0 is register 16.",
+              "misconception": "$t0 is 8, $s1 is 17."
+            },
+            {
+              "level": "medium",
+              "concept": "encode",
+              "question": "What is the hex word for `add $s0, $s1, $s2`?",
+              "options": [
+                "0x02328020",
+                "0x02328022",
+                "0x0232802A",
+                "0x00000020"
+              ],
+              "answer": 0,
+              "why": "rs 17, rt 18, rd 16, funct 32 give 0x02328020.",
+              "misconception": "The funct for add is 32 (0x20)."
+            },
+            {
+              "level": "medium",
+              "concept": "decode",
+              "question": "What does `0x2129FFFF` decode to?",
+              "options": [
+                "addi $t1, $t1, -1",
+                "addi $t1, $t1, 65535",
+                "lw $t1, -1($t1)",
+                "sub $t1, $t1, $t1"
+              ],
+              "answer": 0,
+              "why": "Opcode 8 is addi; both registers are $t1 (9); the immediate 0xFFFF is −1.",
+              "misconception": "The immediate is sign-extended, so all ones means −1."
+            },
+            {
+              "level": "medium",
+              "concept": "program",
+              "question": "A `beq` at 0x00400020 targets 0x00400030. What offset is stored?",
+              "options": [
+                "3",
+                "4",
+                "2",
+                "16"
+              ],
+              "answer": 0,
+              "why": "PC + 4 = 0x24; (0x30 − 0x24) ÷ 4 = 3.",
+              "misconception": "Count from the next instruction in instructions, not bytes."
+            },
+            {
+              "level": "hard",
+              "concept": "encode",
+              "question": "What is the 26-bit target field when `j` goes to 0x00400100?",
+              "options": [
+                "0x100040",
+                "0x400100",
+                "0x1000100",
+                "0x00400100"
+              ],
+              "answer": 0,
+              "why": "0x00400100 ÷ 4 = 0x100040.",
+              "misconception": "Divide the byte address by 4."
+            },
+            {
+              "level": "hard",
+              "concept": "decode",
+              "question": "Which instruction has opcode 43?",
+              "options": [
+                "sw",
+                "lw",
+                "sub",
+                "j"
+              ],
+              "answer": 0,
+              "why": "43 is the opcode of sw (lw is 35).",
+              "misconception": "Stores and loads have different opcodes."
+            },
+            {
+              "level": "challenge",
+              "concept": "program",
+              "question": "In the listing, `bne $t1,$zero,loop` sits at 0x00400010 and `loop` is at 0x00400008. Which statement is true?",
+              "options": [
+                "The immediate field is −3 instructions from PC + 4",
+                "The immediate field stores the label name",
+                "The immediate field is +3",
+                "The immediate field stores the byte address of the label"
+              ],
+              "answer": 0,
+              "why": "The target is 2 instructions before the bne’s own position, i.e. 3 before PC + 4, so the offset is −3.",
+              "misconception": "The offset is relative to PC + 4 and signed."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "Name the three MIPS formats.",
+              "a": "R-type, I-type and J-type.",
+              "concept": "formats"
+            },
+            {
+              "q": "List the R-type fields and widths.",
+              "a": "op 6, rs 5, rt 5, rd 5, shamt 5, funct 6.",
+              "concept": "formats"
+            },
+            {
+              "q": "What do you read first when decoding?",
+              "a": "The 6-bit opcode.",
+              "concept": "decode"
+            },
+            {
+              "q": "How is a jump target stored?",
+              "a": "As the 26-bit word address (byte address divided by 4).",
+              "concept": "encode"
+            },
+            {
+              "q": "What does a branch offset count?",
+              "a": "Instructions, from the instruction after the branch.",
+              "concept": "program"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

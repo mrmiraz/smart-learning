@@ -1,0 +1,3013 @@
+{
+  "id": "ca-10-datapath-single-cycle",
+  "title": "CPU Datapath and the Single-Cycle Processor",
+  "subtitle": "What really happens inside the CPU when an instruction executes.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "4",
+      "title": "The Processor",
+      "topics": "Introduction; logic design conventions; building a datapath; a simple implementation scheme (ALU control, main control unit, operation of the datapath)"
+    }
+  ],
+  "objectives": [
+    "Name the datapath components and what each one does",
+    "Build the single-cycle datapath step by step",
+    "Follow add, lw, sw and beq through the datapath",
+    "Read the control signals for each instruction type",
+    "Calculate the clock cycle time of a single-cycle processor"
+  ],
+  "concepts": [
+    {
+      "id": "comp",
+      "label": "Datapath components",
+      "section": "comp"
+    },
+    {
+      "id": "instr",
+      "label": "Executing instructions",
+      "section": "instr"
+    },
+    {
+      "id": "control",
+      "label": "Control signals",
+      "section": "control"
+    },
+    {
+      "id": "timing",
+      "label": "Clock cycle time",
+      "section": "timing"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "You wrote `lw $t0, 8($s1)`. Which wires carry which bits, and who tells each wire what to do?",
+          "clues": [
+            "The instruction travels through a **datapath** of memories, registers and an ALU.",
+            "A **control unit** decides which paths are used.",
+            "In the simplest design **one whole instruction finishes in one clock cycle**."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "comp",
+      "label": "Datapath components",
+      "minutes": 12,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "comp",
+          "title": "Datapath and control",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Datapath",
+                "items": [
+                  "The hardware that **holds and moves data**",
+                  "Registers, ALU, memories, multiplexers, adders"
+                ]
+              },
+              "right": {
+                "title": "Control",
+                "items": [
+                  "The logic that **tells** the datapath what to do",
+                  "A control unit that reads the instruction and sets signals"
+                ]
+              }
+            }
+          ],
+          "why": "Every processor is split in two: parts that do the work, and parts that direct it.",
+          "real": "The same idea applies to a car: the engine and wheels are the datapath; the driver and pedals are the control.",
+          "explainAgain": {
+            "beginner": "Think of an orchestra: the instruments are the datapath, the conductor is the control."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "comp",
+          "title": "The components, one at a time",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Component",
+                "What it does",
+                "Why it is needed",
+                "Goes in",
+                "Comes out"
+              ],
+              "rows": [
+                [
+                  "PC",
+                  "Holds the address of the current instruction",
+                  "The processor must know which instruction runs next",
+                  "Next address",
+                  "Address for instruction memory"
+                ],
+                [
+                  "Instruction memory",
+                  "Stores the program",
+                  "Instructions have to come from somewhere",
+                  "Address",
+                  "32-bit instruction"
+                ],
+                [
+                  "Register file",
+                  "32 registers; two read ports, one write port",
+                  "Operands and results live in registers",
+                  "Register numbers, write data, RegWrite",
+                  "Two register values"
+                ],
+                [
+                  "Sign extend",
+                  "Turns a 16-bit immediate into 32 bits",
+                  "The ALU works on 32 bits",
+                  "16-bit immediate",
+                  "32-bit value"
+                ],
+                [
+                  "ALU",
+                  "Adds, subtracts, ANDs, ORs, compares (Zero output)",
+                  "All the arithmetic",
+                  "Two operands, ALU control",
+                  "Result, Zero flag"
+                ],
+                [
+                  "Data memory",
+                  "Reads (lw) or writes (sw) a word",
+                  "Loads and stores",
+                  "Address, write data, MemRead / MemWrite",
+                  "Read data"
+                ],
+                [
+                  "Multiplexer",
+                  "Picks one of two inputs",
+                  "Different instructions need different sources",
+                  "Two inputs and a select",
+                  "One output"
+                ],
+                [
+                  "Adders",
+                  "PC + 4 and the branch target",
+                  "Compute the next address without using the ALU",
+                  "Two numbers",
+                  "Sum"
+                ],
+                [
+                  "Control unit",
+                  "Decodes the opcode and sets every control signal",
+                  "Chooses the correct path for each instruction",
+                  "6-bit opcode",
+                  "Control signals"
+                ]
+              ]
+            }
+          ],
+          "why": "These nine parts are everything a basic MIPS processor needs.",
+          "real": "Each of these shows up as a physical block in a CPU die photograph.",
+          "mistake": {
+            "wrong": "The control unit does the arithmetic.",
+            "right": "The ALU computes; the control unit only sets signals."
+          },
+          "notes": {
+            "explain": "Reveal one row at a time. Ask the class why we need two adders and an ALU.",
+            "terms": [
+              "**datapath**",
+              "**control unit**",
+              "**multiplexer**"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "comp",
+          "title": "Build it up",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Build the single-cycle datapath",
+              "width": 960,
+              "height": 560,
+              "nodes": [
+                {
+                  "id": "pc",
+                  "label": "PC",
+                  "kind": "reg",
+                  "x": 25,
+                  "y": 250,
+                  "w": 50,
+                  "h": 70
+                },
+                {
+                  "id": "add4",
+                  "label": "+4",
+                  "kind": "adder",
+                  "x": 95,
+                  "y": 75,
+                  "w": 56,
+                  "h": 44
+                },
+                {
+                  "id": "im",
+                  "label": "Instruction\nmemory",
+                  "kind": "mem",
+                  "x": 120,
+                  "y": 250,
+                  "w": 100,
+                  "h": 100
+                },
+                {
+                  "id": "regdst",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 250,
+                  "y": 335,
+                  "w": 26,
+                  "h": 60
+                },
+                {
+                  "id": "rf",
+                  "label": "Register\nfile",
+                  "kind": "reg",
+                  "x": 310,
+                  "y": 235,
+                  "w": 110,
+                  "h": 140
+                },
+                {
+                  "id": "signext",
+                  "label": "Sign\nextend",
+                  "kind": "unit",
+                  "x": 290,
+                  "y": 430,
+                  "w": 90,
+                  "h": 44
+                },
+                {
+                  "id": "shift",
+                  "label": "Shift\nleft 2",
+                  "kind": "unit",
+                  "x": 420,
+                  "y": 130,
+                  "w": 70,
+                  "h": 40
+                },
+                {
+                  "id": "badd",
+                  "label": "Add",
+                  "kind": "adder",
+                  "x": 540,
+                  "y": 75,
+                  "w": 56,
+                  "h": 44
+                },
+                {
+                  "id": "pcsrc",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 700,
+                  "y": 85,
+                  "w": 26,
+                  "h": 80
+                },
+                {
+                  "id": "alusrc",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 470,
+                  "y": 300,
+                  "w": 26,
+                  "h": 70
+                },
+                {
+                  "id": "alu",
+                  "label": "ALU",
+                  "kind": "alu",
+                  "x": 550,
+                  "y": 250,
+                  "w": 90,
+                  "h": 120
+                },
+                {
+                  "id": "dm",
+                  "label": "Data\nmemory",
+                  "kind": "mem",
+                  "x": 700,
+                  "y": 250,
+                  "w": 110,
+                  "h": 130
+                },
+                {
+                  "id": "memtoreg",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 850,
+                  "y": 290,
+                  "w": 26,
+                  "h": 70
+                },
+                {
+                  "id": "ctrl",
+                  "label": "Control",
+                  "kind": "ctrl",
+                  "x": 330,
+                  "y": 12,
+                  "w": 150,
+                  "h": 40
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_pc_im",
+                  "points": [
+                    [
+                      75,
+                      285
+                    ],
+                    [
+                      120,
+                      285
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_pc_add4",
+                  "points": [
+                    [
+                      50,
+                      250
+                    ],
+                    [
+                      50,
+                      97
+                    ],
+                    [
+                      95,
+                      97
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_add4_pcsrc",
+                  "points": [
+                    [
+                      151,
+                      97
+                    ],
+                    [
+                      175,
+                      97
+                    ],
+                    [
+                      175,
+                      60
+                    ],
+                    [
+                      670,
+                      60
+                    ],
+                    [
+                      670,
+                      100
+                    ],
+                    [
+                      700,
+                      100
+                    ]
+                  ],
+                  "label": "PC + 4",
+                  "labelAt": [
+                    420,
+                    54
+                  ]
+                },
+                {
+                  "id": "e_add4_badd",
+                  "points": [
+                    [
+                      500,
+                      60
+                    ],
+                    [
+                      500,
+                      88
+                    ],
+                    [
+                      540,
+                      88
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_shift_badd",
+                  "points": [
+                    [
+                      490,
+                      150
+                    ],
+                    [
+                      515,
+                      150
+                    ],
+                    [
+                      515,
+                      106
+                    ],
+                    [
+                      540,
+                      106
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_badd_pcsrc",
+                  "points": [
+                    [
+                      596,
+                      97
+                    ],
+                    [
+                      640,
+                      97
+                    ],
+                    [
+                      640,
+                      150
+                    ],
+                    [
+                      700,
+                      150
+                    ]
+                  ],
+                  "label": "branch target",
+                  "labelAt": [
+                    650,
+                    92
+                  ]
+                },
+                {
+                  "id": "e_pcsrc_pc",
+                  "points": [
+                    [
+                      726,
+                      125
+                    ],
+                    [
+                      930,
+                      125
+                    ],
+                    [
+                      930,
+                      530
+                    ],
+                    [
+                      10,
+                      530
+                    ],
+                    [
+                      10,
+                      310
+                    ],
+                    [
+                      25,
+                      310
+                    ]
+                  ],
+                  "label": "next PC",
+                  "labelAt": [
+                    470,
+                    524
+                  ]
+                },
+                {
+                  "id": "e_im_rs",
+                  "points": [
+                    [
+                      220,
+                      270
+                    ],
+                    [
+                      310,
+                      270
+                    ]
+                  ],
+                  "label": "rs",
+                  "labelAt": [
+                    265,
+                    264
+                  ]
+                },
+                {
+                  "id": "e_im_rt",
+                  "points": [
+                    [
+                      220,
+                      300
+                    ],
+                    [
+                      310,
+                      300
+                    ]
+                  ],
+                  "label": "rt",
+                  "labelAt": [
+                    265,
+                    294
+                  ]
+                },
+                {
+                  "id": "e_im_regdst",
+                  "points": [
+                    [
+                      220,
+                      330
+                    ],
+                    [
+                      235,
+                      330
+                    ],
+                    [
+                      235,
+                      350
+                    ],
+                    [
+                      250,
+                      350
+                    ]
+                  ],
+                  "label": "rt / rd",
+                  "labelAt": [
+                    216,
+                    326
+                  ]
+                },
+                {
+                  "id": "e_regdst_rf",
+                  "points": [
+                    [
+                      276,
+                      365
+                    ],
+                    [
+                      293,
+                      365
+                    ],
+                    [
+                      293,
+                      355
+                    ],
+                    [
+                      310,
+                      355
+                    ]
+                  ],
+                  "label": "write reg",
+                  "labelAt": [
+                    296,
+                    380
+                  ]
+                },
+                {
+                  "id": "e_im_signext",
+                  "points": [
+                    [
+                      190,
+                      350
+                    ],
+                    [
+                      190,
+                      452
+                    ],
+                    [
+                      290,
+                      452
+                    ]
+                  ],
+                  "label": "immediate",
+                  "labelAt": [
+                    240,
+                    446
+                  ]
+                },
+                {
+                  "id": "e_signext_alusrc",
+                  "points": [
+                    [
+                      380,
+                      452
+                    ],
+                    [
+                      452,
+                      452
+                    ],
+                    [
+                      452,
+                      355
+                    ],
+                    [
+                      470,
+                      355
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_signext_shift",
+                  "points": [
+                    [
+                      452,
+                      355
+                    ],
+                    [
+                      452,
+                      150
+                    ],
+                    [
+                      420,
+                      150
+                    ]
+                  ],
+                  "arrow": false
+                },
+                {
+                  "id": "e_rf_alu",
+                  "points": [
+                    [
+                      420,
+                      275
+                    ],
+                    [
+                      550,
+                      275
+                    ]
+                  ],
+                  "label": "read data 1",
+                  "labelAt": [
+                    485,
+                    269
+                  ]
+                },
+                {
+                  "id": "e_rf_alusrc",
+                  "points": [
+                    [
+                      420,
+                      335
+                    ],
+                    [
+                      435,
+                      335
+                    ],
+                    [
+                      435,
+                      315
+                    ],
+                    [
+                      470,
+                      315
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_rf_dm",
+                  "points": [
+                    [
+                      435,
+                      335
+                    ],
+                    [
+                      435,
+                      400
+                    ],
+                    [
+                      680,
+                      400
+                    ],
+                    [
+                      680,
+                      355
+                    ],
+                    [
+                      700,
+                      355
+                    ]
+                  ],
+                  "label": "read data 2",
+                  "labelAt": [
+                    560,
+                    394
+                  ]
+                },
+                {
+                  "id": "e_alusrc_alu",
+                  "points": [
+                    [
+                      496,
+                      335
+                    ],
+                    [
+                      550,
+                      335
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_alu_dm",
+                  "points": [
+                    [
+                      640,
+                      310
+                    ],
+                    [
+                      700,
+                      310
+                    ]
+                  ],
+                  "label": "address",
+                  "labelAt": [
+                    670,
+                    304
+                  ]
+                },
+                {
+                  "id": "e_alu_memtoreg",
+                  "points": [
+                    [
+                      665,
+                      310
+                    ],
+                    [
+                      665,
+                      425
+                    ],
+                    [
+                      830,
+                      425
+                    ],
+                    [
+                      830,
+                      305
+                    ],
+                    [
+                      850,
+                      305
+                    ]
+                  ],
+                  "arrow": true
+                },
+                {
+                  "id": "e_dm_memtoreg",
+                  "points": [
+                    [
+                      810,
+                      330
+                    ],
+                    [
+                      830,
+                      330
+                    ],
+                    [
+                      830,
+                      345
+                    ],
+                    [
+                      850,
+                      345
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_memtoreg_rf",
+                  "points": [
+                    [
+                      876,
+                      325
+                    ],
+                    [
+                      900,
+                      325
+                    ],
+                    [
+                      900,
+                      548
+                    ],
+                    [
+                      290,
+                      548
+                    ],
+                    [
+                      290,
+                      370
+                    ],
+                    [
+                      310,
+                      370
+                    ]
+                  ],
+                  "label": "write data",
+                  "labelAt": [
+                    600,
+                    542
+                  ]
+                },
+                {
+                  "id": "e_im_ctrl",
+                  "points": [
+                    [
+                      170,
+                      250
+                    ],
+                    [
+                      170,
+                      32
+                    ],
+                    [
+                      330,
+                      32
+                    ]
+                  ],
+                  "kind": "control",
+                  "label": "opcode",
+                  "labelAt": [
+                    250,
+                    26
+                  ]
+                },
+                {
+                  "id": "e_zero",
+                  "points": [
+                    [
+                      600,
+                      250
+                    ],
+                    [
+                      600,
+                      215
+                    ],
+                    [
+                      713,
+                      215
+                    ],
+                    [
+                      713,
+                      165
+                    ]
+                  ],
+                  "kind": "control",
+                  "label": "Zero",
+                  "labelAt": [
+                    640,
+                    209
+                  ]
+                }
+              ],
+              "labels": [
+                {
+                  "x": 260,
+                  "y": 322,
+                  "text": "RegDst",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 483,
+                  "y": 293,
+                  "text": "ALUSrc",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 863,
+                  "y": 283,
+                  "text": "MemtoReg",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 713,
+                  "y": 78,
+                  "text": "PCSrc",
+                  "anchor": "middle"
+                }
+              ],
+              "steps": [
+                {
+                  "show": [
+                    "pc",
+                    "im",
+                    "e_pc_im"
+                  ],
+                  "text": "The **program counter** holds the address of the instruction. It addresses the **instruction memory**."
+                },
+                {
+                  "show": [
+                    "rf",
+                    "e_im_rs",
+                    "e_im_rt",
+                    "regdst",
+                    "e_im_regdst",
+                    "e_regdst_rf"
+                  ],
+                  "text": "Fields of the instruction name the registers to read in the **register file**; a multiplexer picks the destination register."
+                },
+                {
+                  "show": [
+                    "alu",
+                    "alusrc",
+                    "e_rf_alu",
+                    "e_rf_alusrc",
+                    "e_alusrc_alu"
+                  ],
+                  "text": "The **ALU** operates on register data, or on register data and an immediate chosen by a multiplexer."
+                },
+                {
+                  "show": [
+                    "signext",
+                    "e_im_signext",
+                    "e_signext_alusrc"
+                  ],
+                  "text": "The 16-bit immediate is **sign-extended** to 32 bits so it can be an ALU input."
+                },
+                {
+                  "show": [
+                    "dm",
+                    "e_alu_dm",
+                    "e_rf_dm",
+                    "memtoreg",
+                    "e_alu_memtoreg",
+                    "e_dm_memtoreg",
+                    "e_memtoreg_rf"
+                  ],
+                  "text": "**Data memory** is read or written for loads and stores; a multiplexer chooses what is written back to the register file."
+                },
+                {
+                  "show": [
+                    "add4",
+                    "e_pc_add4",
+                    "e_add4_pcsrc",
+                    "pcsrc",
+                    "e_pcsrc_pc"
+                  ],
+                  "text": "The PC normally advances by 4 to the next instruction."
+                },
+                {
+                  "show": [
+                    "shift",
+                    "badd",
+                    "e_add4_badd",
+                    "e_shift_badd",
+                    "e_badd_pcsrc",
+                    "e_signext_shift",
+                    "e_zero"
+                  ],
+                  "text": "For branches, a second adder computes the **branch target** and the ALU's Zero output helps choose the next PC."
+                },
+                {
+                  "show": [
+                    "ctrl",
+                    "e_im_ctrl"
+                  ],
+                  "text": "The **control unit** reads the opcode and sets every multiplexer and memory control signal."
+                }
+              ]
+            }
+          ],
+          "why": "Each click adds one group of components. The complete datapath is never given at once."
+        },
+        {
+          "type": "mcq",
+          "concept": "comp",
+          "question": "Which component holds the address of the instruction being executed?",
+          "options": [
+            "PC",
+            "Register file",
+            "ALU",
+            "Data memory"
+          ],
+          "answer": 0,
+          "why": "The program counter (PC) holds that address.",
+          "feedback": [
+            "",
+            "The register file holds data, not the instruction address.",
+            "The ALU computes values.",
+            "Data memory is for loads and stores."
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "comp",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each component with its job.",
+          "pairs": [
+            {
+              "a": "PC",
+              "b": "Holds the address of the current instruction"
+            },
+            {
+              "a": "ALU",
+              "b": "Does the arithmetic and the comparisons"
+            },
+            {
+              "a": "Sign extend",
+              "b": "Widens a 16-bit immediate to 32 bits"
+            },
+            {
+              "a": "Multiplexer",
+              "b": "Chooses between two inputs"
+            }
+          ],
+          "why": "Each component has one clear role."
+        },
+        {
+          "type": "mcq",
+          "concept": "comp",
+          "question": "Why does the single-cycle design need separate instruction memory and data memory?",
+          "options": [
+            "One instruction needs to fetch itself and also read or write data in the same cycle",
+            "Instructions are 16 bits and data is 32 bits",
+            "Memory cannot store instructions and data together",
+            "To make the processor cheaper"
+          ],
+          "answer": 0,
+          "why": "In one cycle both the instruction fetch and a load or store happen, so two memories are needed.",
+          "feedback": [
+            "",
+            "Both are 32 bits wide in MIPS.",
+            "A real memory can hold both; the problem is using it twice in one cycle.",
+            "Two memories cost more, not less."
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What is the difference between datapath and control?",
+              "a": "The datapath holds and moves data; control decides what the datapath does.",
+              "concept": "comp"
+            },
+            {
+              "q": "What does the sign-extend unit do?",
+              "a": "Extends the 16-bit immediate to 32 bits, keeping its sign.",
+              "concept": "comp"
+            },
+            {
+              "q": "Why is there a multiplexer in front of the ALU?",
+              "a": "To choose between a register value and the immediate.",
+              "concept": "comp"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "instr",
+      "label": "Executing instructions",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "instr",
+          "title": "Four steps for every instruction",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Fetch",
+                  "sub": "PC → instruction memory",
+                  "note": "The instruction is read and PC + 4 is computed."
+                },
+                {
+                  "label": "Decode",
+                  "sub": "registers and control",
+                  "note": "Register fields select registers; the control unit sets signals."
+                },
+                {
+                  "label": "Execute",
+                  "sub": "the ALU",
+                  "note": "Compute a result, an address or a comparison."
+                },
+                {
+                  "label": "Memory and write back",
+                  "sub": "data memory, register file",
+                  "note": "Loads read memory, stores write it; results go to a register."
+                }
+              ],
+              "zoom": true
+            }
+          ],
+          "why": "All instructions share fetch and decode; they differ in what happens afterwards.",
+          "real": "Debuggers that \"step\" through code show these same stages."
+        },
+        {
+          "type": "concept",
+          "concept": "instr",
+          "title": "Instruction, data, ALU, result",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**Instruction** moves from instruction memory to the register file, sign extender and control unit",
+                "**Data** moves from the registers (and memory) toward the ALU",
+                "The **ALU** produces a result, an address or a Zero flag",
+                "The **result** goes back to a register, to memory, or to the PC"
+              ]
+            }
+          ],
+          "why": "Following these four flows tells you what any instruction does."
+        },
+        {
+          "type": "predict",
+          "concept": "instr",
+          "skill": "Apply",
+          "question": "For `lw $t0, 8($s1)`, which component computes the memory address?",
+          "options": [
+            "The ALU: $s1 + 8",
+            "The sign extender",
+            "Data memory itself",
+            "The PC adder"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The ALU adds the base register $s1 and the sign-extended offset 8. The result is the address sent to data memory.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The ALU is used for addresses as well as arithmetic."
+        },
+        {
+          "type": "concept",
+          "concept": "instr",
+          "title": "Follow an instruction",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Follow one instruction through the datapath",
+              "width": 960,
+              "height": 560,
+              "nodes": [
+                {
+                  "id": "pc",
+                  "label": "PC",
+                  "kind": "reg",
+                  "x": 25,
+                  "y": 250,
+                  "w": 50,
+                  "h": 70
+                },
+                {
+                  "id": "add4",
+                  "label": "+4",
+                  "kind": "adder",
+                  "x": 95,
+                  "y": 75,
+                  "w": 56,
+                  "h": 44
+                },
+                {
+                  "id": "im",
+                  "label": "Instruction\nmemory",
+                  "kind": "mem",
+                  "x": 120,
+                  "y": 250,
+                  "w": 100,
+                  "h": 100
+                },
+                {
+                  "id": "regdst",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 250,
+                  "y": 335,
+                  "w": 26,
+                  "h": 60
+                },
+                {
+                  "id": "rf",
+                  "label": "Register\nfile",
+                  "kind": "reg",
+                  "x": 310,
+                  "y": 235,
+                  "w": 110,
+                  "h": 140
+                },
+                {
+                  "id": "signext",
+                  "label": "Sign\nextend",
+                  "kind": "unit",
+                  "x": 290,
+                  "y": 430,
+                  "w": 90,
+                  "h": 44
+                },
+                {
+                  "id": "shift",
+                  "label": "Shift\nleft 2",
+                  "kind": "unit",
+                  "x": 420,
+                  "y": 130,
+                  "w": 70,
+                  "h": 40
+                },
+                {
+                  "id": "badd",
+                  "label": "Add",
+                  "kind": "adder",
+                  "x": 540,
+                  "y": 75,
+                  "w": 56,
+                  "h": 44
+                },
+                {
+                  "id": "pcsrc",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 700,
+                  "y": 85,
+                  "w": 26,
+                  "h": 80
+                },
+                {
+                  "id": "alusrc",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 470,
+                  "y": 300,
+                  "w": 26,
+                  "h": 70
+                },
+                {
+                  "id": "alu",
+                  "label": "ALU",
+                  "kind": "alu",
+                  "x": 550,
+                  "y": 250,
+                  "w": 90,
+                  "h": 120
+                },
+                {
+                  "id": "dm",
+                  "label": "Data\nmemory",
+                  "kind": "mem",
+                  "x": 700,
+                  "y": 250,
+                  "w": 110,
+                  "h": 130
+                },
+                {
+                  "id": "memtoreg",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 850,
+                  "y": 290,
+                  "w": 26,
+                  "h": 70
+                },
+                {
+                  "id": "ctrl",
+                  "label": "Control",
+                  "kind": "ctrl",
+                  "x": 330,
+                  "y": 12,
+                  "w": 150,
+                  "h": 40
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_pc_im",
+                  "points": [
+                    [
+                      75,
+                      285
+                    ],
+                    [
+                      120,
+                      285
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_pc_add4",
+                  "points": [
+                    [
+                      50,
+                      250
+                    ],
+                    [
+                      50,
+                      97
+                    ],
+                    [
+                      95,
+                      97
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_add4_pcsrc",
+                  "points": [
+                    [
+                      151,
+                      97
+                    ],
+                    [
+                      175,
+                      97
+                    ],
+                    [
+                      175,
+                      60
+                    ],
+                    [
+                      670,
+                      60
+                    ],
+                    [
+                      670,
+                      100
+                    ],
+                    [
+                      700,
+                      100
+                    ]
+                  ],
+                  "label": "PC + 4",
+                  "labelAt": [
+                    420,
+                    54
+                  ]
+                },
+                {
+                  "id": "e_add4_badd",
+                  "points": [
+                    [
+                      500,
+                      60
+                    ],
+                    [
+                      500,
+                      88
+                    ],
+                    [
+                      540,
+                      88
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_shift_badd",
+                  "points": [
+                    [
+                      490,
+                      150
+                    ],
+                    [
+                      515,
+                      150
+                    ],
+                    [
+                      515,
+                      106
+                    ],
+                    [
+                      540,
+                      106
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_badd_pcsrc",
+                  "points": [
+                    [
+                      596,
+                      97
+                    ],
+                    [
+                      640,
+                      97
+                    ],
+                    [
+                      640,
+                      150
+                    ],
+                    [
+                      700,
+                      150
+                    ]
+                  ],
+                  "label": "branch target",
+                  "labelAt": [
+                    650,
+                    92
+                  ]
+                },
+                {
+                  "id": "e_pcsrc_pc",
+                  "points": [
+                    [
+                      726,
+                      125
+                    ],
+                    [
+                      930,
+                      125
+                    ],
+                    [
+                      930,
+                      530
+                    ],
+                    [
+                      10,
+                      530
+                    ],
+                    [
+                      10,
+                      310
+                    ],
+                    [
+                      25,
+                      310
+                    ]
+                  ],
+                  "label": "next PC",
+                  "labelAt": [
+                    470,
+                    524
+                  ]
+                },
+                {
+                  "id": "e_im_rs",
+                  "points": [
+                    [
+                      220,
+                      270
+                    ],
+                    [
+                      310,
+                      270
+                    ]
+                  ],
+                  "label": "rs",
+                  "labelAt": [
+                    265,
+                    264
+                  ]
+                },
+                {
+                  "id": "e_im_rt",
+                  "points": [
+                    [
+                      220,
+                      300
+                    ],
+                    [
+                      310,
+                      300
+                    ]
+                  ],
+                  "label": "rt",
+                  "labelAt": [
+                    265,
+                    294
+                  ]
+                },
+                {
+                  "id": "e_im_regdst",
+                  "points": [
+                    [
+                      220,
+                      330
+                    ],
+                    [
+                      235,
+                      330
+                    ],
+                    [
+                      235,
+                      350
+                    ],
+                    [
+                      250,
+                      350
+                    ]
+                  ],
+                  "label": "rt / rd",
+                  "labelAt": [
+                    216,
+                    326
+                  ]
+                },
+                {
+                  "id": "e_regdst_rf",
+                  "points": [
+                    [
+                      276,
+                      365
+                    ],
+                    [
+                      293,
+                      365
+                    ],
+                    [
+                      293,
+                      355
+                    ],
+                    [
+                      310,
+                      355
+                    ]
+                  ],
+                  "label": "write reg",
+                  "labelAt": [
+                    296,
+                    380
+                  ]
+                },
+                {
+                  "id": "e_im_signext",
+                  "points": [
+                    [
+                      190,
+                      350
+                    ],
+                    [
+                      190,
+                      452
+                    ],
+                    [
+                      290,
+                      452
+                    ]
+                  ],
+                  "label": "immediate",
+                  "labelAt": [
+                    240,
+                    446
+                  ]
+                },
+                {
+                  "id": "e_signext_alusrc",
+                  "points": [
+                    [
+                      380,
+                      452
+                    ],
+                    [
+                      452,
+                      452
+                    ],
+                    [
+                      452,
+                      355
+                    ],
+                    [
+                      470,
+                      355
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_signext_shift",
+                  "points": [
+                    [
+                      452,
+                      355
+                    ],
+                    [
+                      452,
+                      150
+                    ],
+                    [
+                      420,
+                      150
+                    ]
+                  ],
+                  "arrow": false
+                },
+                {
+                  "id": "e_rf_alu",
+                  "points": [
+                    [
+                      420,
+                      275
+                    ],
+                    [
+                      550,
+                      275
+                    ]
+                  ],
+                  "label": "read data 1",
+                  "labelAt": [
+                    485,
+                    269
+                  ]
+                },
+                {
+                  "id": "e_rf_alusrc",
+                  "points": [
+                    [
+                      420,
+                      335
+                    ],
+                    [
+                      435,
+                      335
+                    ],
+                    [
+                      435,
+                      315
+                    ],
+                    [
+                      470,
+                      315
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_rf_dm",
+                  "points": [
+                    [
+                      435,
+                      335
+                    ],
+                    [
+                      435,
+                      400
+                    ],
+                    [
+                      680,
+                      400
+                    ],
+                    [
+                      680,
+                      355
+                    ],
+                    [
+                      700,
+                      355
+                    ]
+                  ],
+                  "label": "read data 2",
+                  "labelAt": [
+                    560,
+                    394
+                  ]
+                },
+                {
+                  "id": "e_alusrc_alu",
+                  "points": [
+                    [
+                      496,
+                      335
+                    ],
+                    [
+                      550,
+                      335
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_alu_dm",
+                  "points": [
+                    [
+                      640,
+                      310
+                    ],
+                    [
+                      700,
+                      310
+                    ]
+                  ],
+                  "label": "address",
+                  "labelAt": [
+                    670,
+                    304
+                  ]
+                },
+                {
+                  "id": "e_alu_memtoreg",
+                  "points": [
+                    [
+                      665,
+                      310
+                    ],
+                    [
+                      665,
+                      425
+                    ],
+                    [
+                      830,
+                      425
+                    ],
+                    [
+                      830,
+                      305
+                    ],
+                    [
+                      850,
+                      305
+                    ]
+                  ],
+                  "arrow": true
+                },
+                {
+                  "id": "e_dm_memtoreg",
+                  "points": [
+                    [
+                      810,
+                      330
+                    ],
+                    [
+                      830,
+                      330
+                    ],
+                    [
+                      830,
+                      345
+                    ],
+                    [
+                      850,
+                      345
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_memtoreg_rf",
+                  "points": [
+                    [
+                      876,
+                      325
+                    ],
+                    [
+                      900,
+                      325
+                    ],
+                    [
+                      900,
+                      548
+                    ],
+                    [
+                      290,
+                      548
+                    ],
+                    [
+                      290,
+                      370
+                    ],
+                    [
+                      310,
+                      370
+                    ]
+                  ],
+                  "label": "write data",
+                  "labelAt": [
+                    600,
+                    542
+                  ]
+                },
+                {
+                  "id": "e_im_ctrl",
+                  "points": [
+                    [
+                      170,
+                      250
+                    ],
+                    [
+                      170,
+                      32
+                    ],
+                    [
+                      330,
+                      32
+                    ]
+                  ],
+                  "kind": "control",
+                  "label": "opcode",
+                  "labelAt": [
+                    250,
+                    26
+                  ]
+                },
+                {
+                  "id": "e_zero",
+                  "points": [
+                    [
+                      600,
+                      250
+                    ],
+                    [
+                      600,
+                      215
+                    ],
+                    [
+                      713,
+                      215
+                    ],
+                    [
+                      713,
+                      165
+                    ]
+                  ],
+                  "kind": "control",
+                  "label": "Zero",
+                  "labelAt": [
+                    640,
+                    209
+                  ]
+                }
+              ],
+              "labels": [
+                {
+                  "x": 260,
+                  "y": 322,
+                  "text": "RegDst",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 483,
+                  "y": 293,
+                  "text": "ALUSrc",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 863,
+                  "y": 283,
+                  "text": "MemtoReg",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 713,
+                  "y": 78,
+                  "text": "PCSrc",
+                  "anchor": "middle"
+                }
+              ],
+              "steps": [
+                {
+                  "show": [
+                    "pc",
+                    "add4",
+                    "im",
+                    "regdst",
+                    "rf",
+                    "signext",
+                    "shift",
+                    "badd",
+                    "pcsrc",
+                    "alusrc",
+                    "alu",
+                    "dm",
+                    "memtoreg",
+                    "ctrl",
+                    "e_pc_im",
+                    "e_pc_add4",
+                    "e_add4_pcsrc",
+                    "e_add4_badd",
+                    "e_shift_badd",
+                    "e_badd_pcsrc",
+                    "e_pcsrc_pc",
+                    "e_im_rs",
+                    "e_im_rt",
+                    "e_im_regdst",
+                    "e_regdst_rf",
+                    "e_im_signext",
+                    "e_signext_alusrc",
+                    "e_signext_shift",
+                    "e_rf_alu",
+                    "e_rf_alusrc",
+                    "e_rf_dm",
+                    "e_alusrc_alu",
+                    "e_alu_dm",
+                    "e_alu_memtoreg",
+                    "e_dm_memtoreg",
+                    "e_memtoreg_rf",
+                    "e_im_ctrl",
+                    "e_zero"
+                  ],
+                  "text": "The complete single-cycle datapath. Pick an instruction scenario and press Play or Step."
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "add $t0, $s1, $s2",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "pc",
+                        "e_pc_im",
+                        "im"
+                      ],
+                      "text": "**Fetch**: the PC addresses the instruction memory and the instruction is read.",
+                      "values": {
+                        "pc": "0x00400000",
+                        "im": "add $t0,$s1,$s2"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "im",
+                        "e_im_rs",
+                        "e_im_rt",
+                        "rf",
+                        "e_im_ctrl",
+                        "ctrl"
+                      ],
+                      "text": "**Decode**: the control unit sets the signals for an R-type instruction; registers $s1 and $s2 are read.",
+                      "values": {
+                        "rf": "$s1=5  $s2=7",
+                        "ctrl": "RegDst=1 ALUSrc=0 RegWrite=1"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "rf",
+                        "e_rf_alu",
+                        "e_rf_alusrc",
+                        "alusrc",
+                        "e_alusrc_alu",
+                        "alu"
+                      ],
+                      "text": "**Execute**: the ALU adds the two register values.",
+                      "values": {
+                        "alu": "5 + 7 = 12",
+                        "alusrc": "ALUSrc=0"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "alu",
+                        "e_alu_memtoreg",
+                        "memtoreg",
+                        "e_memtoreg_rf",
+                        "rf",
+                        "regdst",
+                        "e_regdst_rf"
+                      ],
+                      "text": "**Write back**: the ALU result (not memory data) goes to the destination register $t0.",
+                      "values": {
+                        "memtoreg": "MemtoReg=0",
+                        "rf": "$t0 = 12"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "pc",
+                        "add4",
+                        "e_pc_add4",
+                        "e_add4_pcsrc",
+                        "pcsrc",
+                        "e_pcsrc_pc"
+                      ],
+                      "text": "**Next instruction**: PC + 4 becomes the new PC.",
+                      "values": {
+                        "pc": "0x00400004"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "lw $t0, 8($s1)",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "pc",
+                        "e_pc_im",
+                        "im"
+                      ],
+                      "text": "**Fetch** the load instruction.",
+                      "values": {
+                        "im": "lw $t0,8($s1)"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "im",
+                        "e_im_rs",
+                        "rf",
+                        "e_im_signext",
+                        "signext",
+                        "e_im_ctrl",
+                        "ctrl"
+                      ],
+                      "text": "**Decode**: read the base register $s1; sign-extend the offset 8.",
+                      "values": {
+                        "rf": "$s1=0x1000",
+                        "signext": "8",
+                        "ctrl": "ALUSrc=1 MemRead=1 RegWrite=1"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "rf",
+                        "e_rf_alu",
+                        "signext",
+                        "e_signext_alusrc",
+                        "alusrc",
+                        "e_alusrc_alu",
+                        "alu"
+                      ],
+                      "text": "**Execute**: the ALU adds the base and the offset to form the **address**.",
+                      "values": {
+                        "alu": "0x1000 + 8 = 0x1008"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "alu",
+                        "e_alu_dm",
+                        "dm"
+                      ],
+                      "text": "**Memory access**: data memory is read at that address.",
+                      "values": {
+                        "dm": "Mem[0x1008] = 42"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "dm",
+                        "e_dm_memtoreg",
+                        "memtoreg",
+                        "e_memtoreg_rf",
+                        "rf",
+                        "e_im_regdst",
+                        "regdst",
+                        "e_regdst_rf"
+                      ],
+                      "text": "**Write back**: the loaded value goes to $t0 (here MemtoReg = 1, RegDst = 0).",
+                      "values": {
+                        "memtoreg": "MemtoReg=1",
+                        "rf": "$t0 = 42"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "sw $t0, 8($s1)",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "pc",
+                        "e_pc_im",
+                        "im"
+                      ],
+                      "text": "**Fetch** the store instruction.",
+                      "values": {
+                        "im": "sw $t0,8($s1)"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "im",
+                        "e_im_rs",
+                        "e_im_rt",
+                        "rf",
+                        "signext",
+                        "e_im_signext",
+                        "e_im_ctrl",
+                        "ctrl"
+                      ],
+                      "text": "**Decode**: read $s1 (base) and $t0 (the value to store); sign-extend the offset.",
+                      "values": {
+                        "ctrl": "ALUSrc=1 MemWrite=1 RegWrite=0"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "rf",
+                        "e_rf_alu",
+                        "signext",
+                        "e_signext_alusrc",
+                        "alusrc",
+                        "e_alusrc_alu",
+                        "alu"
+                      ],
+                      "text": "**Execute**: compute the address base + offset.",
+                      "values": {
+                        "alu": "0x1000 + 8 = 0x1008"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "alu",
+                        "e_alu_dm",
+                        "e_rf_dm",
+                        "dm"
+                      ],
+                      "text": "**Memory access**: the register value is **written** to data memory. Nothing is written back to a register.",
+                      "values": {
+                        "dm": "Mem[0x1008] = $t0"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "beq $s1, $s2, L",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "pc",
+                        "e_pc_im",
+                        "im"
+                      ],
+                      "text": "**Fetch** the branch instruction.",
+                      "values": {
+                        "im": "beq $s1,$s2,L"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "im",
+                        "e_im_rs",
+                        "e_im_rt",
+                        "rf",
+                        "e_im_signext",
+                        "signext",
+                        "e_im_ctrl",
+                        "ctrl"
+                      ],
+                      "text": "**Decode**: read the two registers to compare; sign-extend the offset.",
+                      "values": {
+                        "ctrl": "Branch=1 ALUSrc=0 RegWrite=0"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "rf",
+                        "e_rf_alu",
+                        "e_rf_alusrc",
+                        "alusrc",
+                        "e_alusrc_alu",
+                        "alu",
+                        "e_zero"
+                      ],
+                      "text": "**Execute**: the ALU subtracts the registers. If they are equal the result is zero and the **Zero** output is 1.",
+                      "values": {
+                        "alu": "5 - 5 = 0, Zero = 1"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "signext",
+                        "e_signext_shift",
+                        "shift",
+                        "e_shift_badd",
+                        "add4",
+                        "e_add4_badd",
+                        "badd",
+                        "e_badd_pcsrc"
+                      ],
+                      "text": "At the same time the **branch adder** computes PC + 4 + (offset × 4).",
+                      "values": {
+                        "badd": "branch target"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "e_zero",
+                        "pcsrc",
+                        "e_badd_pcsrc",
+                        "e_pcsrc_pc",
+                        "pc"
+                      ],
+                      "text": "Branch AND Zero selects the branch target as the **next PC** (PCSrc = 1).",
+                      "values": {
+                        "pcsrc": "PCSrc=1"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "Run add, lw, sw and beq. For each one, watch which components light up and which stay idle."
+        },
+        {
+          "type": "concept",
+          "concept": "instr",
+          "title": "The same instructions in the simulator",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "lw, add, sw, beq",
+              "program": "lui $s1, 0x1001\nlw $t0, 8($s1)\nadd $t1, $t0, $t0\nsw $t1, 12($s1)\nbeq $t0, $t1, end\nend:",
+              "memory": {
+                "0x10010008": 21
+              },
+              "watch": [
+                "$s1",
+                "$t0",
+                "$t1"
+              ],
+              "hint": "lw reads 21 from address 0x10010008, add doubles it, sw stores 42 at 0x1001000C, and beq does not branch because 21 ≠ 42.",
+              "editable": true
+            }
+          ],
+          "why": "Every line here follows the datapath path you have just seen."
+        },
+        {
+          "type": "predict",
+          "concept": "instr",
+          "skill": "Apply",
+          "question": "`add $t0, $s1, $s2` runs through the datapath. Does it use the data memory?",
+          "options": [
+            "No: it skips data memory",
+            "Yes: it reads from memory",
+            "Yes: it writes to memory",
+            "Only if the result is negative"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "R-type instructions never touch data memory. Their result goes straight from the ALU back to the register file through the MemtoReg multiplexer.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Only lw and sw use data memory."
+        },
+        {
+          "type": "arrange",
+          "concept": "instr",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the steps of `lw` in order.",
+          "items": [
+            "Fetch the instruction using the PC",
+            "Read the base register and sign-extend the offset",
+            "The ALU adds base and offset",
+            "Data memory reads the word at that address",
+            "Write the word into the destination register"
+          ],
+          "why": "Each step needs the output of the one before it."
+        },
+        {
+          "type": "find",
+          "concept": "instr",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about instruction execution is wrong. Click it.",
+          "lines": [
+            "1. lw uses the ALU to compute an address.",
+            "2. sw writes a register value into data memory.",
+            "3. beq writes its result to a register.",
+            "4. add does not use data memory."
+          ],
+          "wrong": 2,
+          "explain": "beq compares two registers and may change the PC; it writes no register.",
+          "fix": "beq does not write a register."
+        }
+      ]
+    },
+    {
+      "id": "control",
+      "label": "Control signals",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "control",
+          "title": "Eight control signals",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Signal",
+                "Meaning when 1 (or the other value)"
+              ],
+              "rows": [
+                [
+                  "RegDst",
+                  "Destination register is rd (R-type); 0 means rt (lw, addi)"
+                ],
+                [
+                  "ALUSrc",
+                  "ALU second input is the immediate; 0 means a register"
+                ],
+                [
+                  "MemtoReg",
+                  "Write memory data to the register; 0 means the ALU result"
+                ],
+                [
+                  "RegWrite",
+                  "The register file is written"
+                ],
+                [
+                  "MemRead",
+                  "Data memory is read (lw)"
+                ],
+                [
+                  "MemWrite",
+                  "Data memory is written (sw)"
+                ],
+                [
+                  "Branch",
+                  "The instruction is a branch (used with Zero to choose the next PC)"
+                ],
+                [
+                  "ALUOp",
+                  "2 bits: tells the ALU control what operation to select"
+                ]
+              ]
+            }
+          ],
+          "why": "Each signal is one multiplexer select or one write-enable, so eight signals steer the whole datapath.",
+          "real": "Changing the instruction set means changing this table, not the datapath, in many designs."
+        },
+        {
+          "type": "concept",
+          "concept": "control",
+          "title": "Signal values per instruction",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "RegDst",
+                "ALUSrc",
+                "MemtoReg",
+                "RegWrite",
+                "MemRead",
+                "MemWrite",
+                "Branch",
+                "ALUOp"
+              ],
+              "rows": [
+                [
+                  "R-type (add, sub, ...)",
+                  "1",
+                  "0",
+                  "0",
+                  "1",
+                  "0",
+                  "0",
+                  "0",
+                  "10"
+                ],
+                [
+                  "lw",
+                  "0",
+                  "1",
+                  "1",
+                  "1",
+                  "1",
+                  "0",
+                  "0",
+                  "00"
+                ],
+                [
+                  "sw",
+                  "X",
+                  "1",
+                  "X",
+                  "0",
+                  "0",
+                  "1",
+                  "0",
+                  "00"
+                ],
+                [
+                  "beq",
+                  "X",
+                  "0",
+                  "X",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "01"
+                ]
+              ]
+            }
+          ],
+          "why": "X means \"don't care\": the value does not affect the result because nothing is written there.",
+          "real": "This table is stored as the logic of the control unit, usually a few dozen gates.",
+          "mistake": {
+            "wrong": "sw has RegWrite = 1 because it uses a register.",
+            "right": "sw only reads registers; it writes memory, so RegWrite = 0 and MemWrite = 1."
+          },
+          "deeper": {
+            "text": "The 2-bit ALUOp (00 add, 01 subtract, 10 look at funct) lets a small ALU control choose the final 4-bit ALU operation."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "control",
+          "title": "The branch decision",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "PCSrc = Branch AND Zero",
+                  "note": "take the branch only for a branch instruction whose comparison gave zero"
+                },
+                {
+                  "t": "target = (PC + 4) + (offset × 4)",
+                  "note": "the offset is shifted left 2 because instructions are 4 bytes"
+                }
+              ]
+            }
+          ],
+          "why": "beq subtracts its two registers; if the result is zero (Zero = 1) they are equal and the branch is taken.",
+          "real": "The same logic decides every if statement at the hardware level.",
+          "mistake": {
+            "wrong": "The branch target is PC plus the offset.",
+            "right": "It is PC + 4 plus the offset times 4."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "control",
+          "skill": "Apply",
+          "question": "Which control signals are 1 for `sw`?",
+          "options": [
+            "ALUSrc and MemWrite",
+            "RegWrite and MemRead",
+            "RegDst and MemtoReg",
+            "Branch and ALUSrc"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "sw adds a base and an offset (**ALUSrc = 1**) and writes data memory (**MemWrite = 1**). It writes no register (RegWrite = 0).",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "RegDst and MemtoReg are don't care for sw."
+        },
+        {
+          "type": "mcq",
+          "concept": "control",
+          "question": "`beq` is at 0x00400020 with offset 3 and the registers are equal. Where does the next instruction come from?",
+          "options": [
+            "0x00400030",
+            "0x00400024",
+            "0x0040002C",
+            "0x00400020"
+          ],
+          "answer": 0,
+          "why": "PC + 4 = 0x00400024; offset 3 × 4 = 12 = 0xC; 0x00400024 + 0xC = 0x00400030.",
+          "feedback": [
+            "",
+            "That is the not-taken address.",
+            "That uses PC + 12 instead of PC + 4 + 12.",
+            "That would loop forever."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "control",
+          "statement": "The control unit changes its signals depending on the opcode of the current instruction.",
+          "answer": true,
+          "why": "That is its whole job: opcode in, control signals out."
+        }
+      ]
+    },
+    {
+      "id": "timing",
+      "label": "Clock cycle time",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "timing",
+          "title": "The slowest instruction sets the clock",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Every instruction takes **one clock cycle**, so the cycle must be long enough for the slowest instruction",
+                "The slowest is usually **lw**: it uses every component in sequence",
+                "The longest sequence of components is the **critical path**"
+              ]
+            },
+            {
+              "type": "text",
+              "text": "The delays below are **illustrative**, chosen to make the arithmetic clear. Real values depend on the technology.",
+              "style": "muted"
+            }
+          ],
+          "why": "If the clock is too fast for lw, the load would not finish and the processor would produce wrong results.",
+          "real": "Processor designers shorten the critical path to raise the clock speed."
+        },
+        {
+          "type": "concept",
+          "concept": "timing",
+          "title": "Calculate the clock period",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Single-cycle clock period",
+              "equation": "Period = longest instruction path",
+              "inputs": [
+                {
+                  "id": "im",
+                  "label": "Instruction memory",
+                  "value": 200,
+                  "min": 50,
+                  "max": 500,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "rr",
+                  "label": "Register read",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "al",
+                  "label": "ALU",
+                  "value": 200,
+                  "min": 50,
+                  "max": 500,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "dm",
+                  "label": "Data memory",
+                  "value": 200,
+                  "min": 50,
+                  "max": 500,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "rw",
+                  "label": "Register write",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                }
+              ],
+              "results": [
+                {
+                  "label": "lw (all five)",
+                  "formula": "im+rr+al+dm+rw",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                },
+                {
+                  "label": "R-type (no data memory)",
+                  "formula": "im+rr+al+rw",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                },
+                {
+                  "label": "sw",
+                  "formula": "im+rr+al+dm",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                },
+                {
+                  "label": "beq",
+                  "formula": "im+rr+al",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                },
+                {
+                  "label": "Clock period",
+                  "formula": "max(im+rr+al+dm+rw, im+rr+al+rw, im+rr+al+dm, im+rr+al)",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                },
+                {
+                  "label": "Clock frequency",
+                  "formula": "1e6 / max(im+rr+al+dm+rw, im+rr+al+rw, im+rr+al+dm, im+rr+al)",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "MHz"
+                },
+                {
+                  "label": "Time wasted by an R-type instruction",
+                  "formula": "max(im+rr+al+dm+rw, im+rr+al+rw, im+rr+al+dm, im+rr+al) - (im+rr+al+rw)",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                }
+              ]
+            }
+          ],
+          "why": "With the default delays lw takes 800 ps, so the clock period is 800 ps (1,250 MHz). An R-type instruction needs only 600 ps, so 200 ps are wasted. Make the ALU slower and watch the period change."
+        },
+        {
+          "type": "predict",
+          "concept": "timing",
+          "skill": "Apply",
+          "question": "With these delays the clock period is 800 ps. If the data memory were made twice as fast (100 ps), what would the new period be?",
+          "options": [
+            "700 ps",
+            "800 ps",
+            "600 ps",
+            "400 ps"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "lw becomes 200 + 100 + 200 + 100 + 100 = **700 ps**, and it is still the slowest.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Check that lw is still the critical path: R-type is 600 ps and sw is 600 ps."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "If only 25% of instructions are lw, why must every instruction wait for the lw time?",
+          "think": 20,
+          "pair": 40,
+          "answer": "The clock period is the same for all instructions and the hardware cannot know in advance which instruction comes next, so the clock must be long enough for the slowest. That wastes time on faster instructions, which is the weakness the multi-cycle design (Class 11) and pipelining (Class 12) address."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "timing",
+          "question": "Single-cycle has CPI = 1. Why is it still not the fastest design?",
+          "seconds": 60,
+          "ideas": [
+            "The long clock period slows every instruction.",
+            "Hardware is duplicated: two memories and three adders cannot be shared.",
+            "Faster instructions waste time waiting for the slowest.",
+            "Shorter cycles with more of them can finish the average instruction sooner."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "comp",
+          "question": "Name the main components of the single-cycle datapath.",
+          "answer": "PC, instruction memory, register file, sign extender, ALU, data memory, multiplexers, adders and the control unit.",
+          "solution": "These nine are all in the diagram you built.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "instr",
+          "question": "Which components does `add $t0, $s1, $s2` use? Which does it skip?",
+          "answer": "Uses PC, instruction memory, register file (read and write), ALU and the control unit; skips data memory.",
+          "solution": "R-type results go straight from the ALU back to the register file.",
+          "hint": "Does add read or write memory?",
+          "think": 45
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "control",
+          "question": "Give the eight control signals for `lw`.",
+          "answer": "RegDst 0, ALUSrc 1, MemtoReg 1, RegWrite 1, MemRead 1, MemWrite 0, Branch 0, ALUOp 00.",
+          "solution": "lw writes rt (RegDst 0), uses the immediate (ALUSrc 1), takes data from memory (MemtoReg 1), writes a register (RegWrite 1), reads memory (MemRead 1) and adds (ALUOp 00).",
+          "hint": "What does lw read, and where does the result go?",
+          "mistake": "Setting RegDst to 1 because lw writes a register.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "timing",
+          "question": "The delays are IM 200, register read 100, ALU 300, DM 200, register write 100 ps. What is the clock period?",
+          "answer": "900 ps.",
+          "solution": "lw = 200 + 100 + 300 + 200 + 100 = 900 ps; R-type = 700 ps; the longest path is lw.",
+          "hint": "Add up the components on the lw path.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "control",
+          "question": "`addi $t0, $s1, 5` is added to the processor. Give the control signals.",
+          "answer": "RegDst 0, ALUSrc 1, MemtoReg 0, RegWrite 1, MemRead 0, MemWrite 0, Branch 0, ALUOp 00.",
+          "solution": "addi writes rt (RegDst 0), uses the immediate (ALUSrc 1), writes the ALU result (MemtoReg 0), writes a register (RegWrite 1), does not touch memory and does not branch. The ALU just adds (ALUOp 00).",
+          "mistake": "Setting MemtoReg to 1 (that is for lw).",
+          "title": "Exam practice: signal table",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "timing",
+          "question": "Delays: IM 250, register read 150, ALU 200, DM 300, register write 150 ps. Find the lw time, the R-type time, the clock period, and the time an R-type wastes.",
+          "answer": "lw 1050 ps; R-type 750 ps; clock period 1050 ps; R-type wastes 300 ps.",
+          "solution": "lw = 250 + 150 + 200 + 300 + 150 = 1050. R-type = 250 + 150 + 200 + 150 = 750. The clock is set by lw: 1050. Waste = 1050 − 750 = 300 ps.",
+          "mistake": "Using the R-type time as the clock period.",
+          "title": "Exam practice: numerical",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "control",
+          "question": "`beq` is at 0x00400020 and its offset is 3. The registers are equal. What is the next PC, and what is PCSrc?",
+          "answer": "0x00400030; PCSrc = 1.",
+          "solution": "Branch = 1 and Zero = 1 give PCSrc = 1. Target = 0x00400020 + 4 + 3 × 4 = 0x00400030.",
+          "mistake": "Leaving out the + 4 or the × 4.",
+          "title": "Exam practice: branch target",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "timing",
+          "question": "Explain why a single-cycle processor needs two memories and why its clock is set by lw.",
+          "answer": "In one cycle the processor must both fetch the instruction and, for lw or sw, access data, so it needs an instruction memory and a data memory (a single memory could be used once per cycle). The clock period must cover the slowest instruction: lw uses all five steps in sequence, so it defines the critical path, and faster instructions waste the difference.",
+          "solution": "A strong answer links one cycle per instruction to both the duplicated hardware and the long clock.",
+          "mistake": "Saying the clock is set by the average instruction.",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "The single-cycle processor",
+          "branches": [
+            {
+              "label": "Components",
+              "example": "PC, ALU, memories, ...",
+              "section": "comp"
+            },
+            {
+              "label": "Execution",
+              "example": "add, lw, sw, beq",
+              "section": "instr"
+            },
+            {
+              "label": "Control",
+              "example": "signals per instruction",
+              "section": "control"
+            },
+            {
+              "label": "Timing",
+              "example": "critical path",
+              "section": "timing"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "The datapath moves data; the control unit sets the signals that steer it.",
+            "Components: PC, instruction memory, register file, sign extend, ALU, data memory, multiplexers, adders.",
+            "Every instruction: fetch, decode, execute, then memory and write back as needed.",
+            "lw uses every component; add skips data memory; sw writes memory but no register; beq writes nothing.",
+            "Control signals: RegDst, ALUSrc, MemtoReg, RegWrite, MemRead, MemWrite, Branch, ALUOp.",
+            "PCSrc = Branch AND Zero; target = PC + 4 + offset × 4.",
+            "Clock period = the slowest instruction (lw); other instructions waste time."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "The control unit does the arithmetic.",
+              "right": "The ALU does; control sets signals."
+            },
+            {
+              "wrong": "sw writes a register.",
+              "right": "sw writes memory (RegWrite = 0)."
+            },
+            {
+              "wrong": "The clock is set by the average instruction.",
+              "right": "It is set by the slowest, usually lw."
+            },
+            {
+              "wrong": "The branch target is PC plus the offset.",
+              "right": "It is PC + 4 + offset × 4."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "A single-cycle processor finishes each instruction in one clock cycle through one datapath: PC, instruction memory, register file, ALU, data memory, multiplexers and adders. The control unit decodes the opcode into eight control signals. Because the clock must fit the slowest instruction (lw), simple instructions waste time and hardware is duplicated, which leads to the multi-cycle design."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "comp",
+              "question": "Which unit holds the address of the next instruction?",
+              "options": [
+                "PC",
+                "ALU",
+                "Control unit",
+                "Sign extender"
+              ],
+              "answer": 0,
+              "why": "The PC holds it.",
+              "misconception": "It is updated every cycle."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "comp",
+              "statement": "The control unit performs the arithmetic.",
+              "answer": false,
+              "why": "The ALU does the arithmetic.",
+              "misconception": "The control unit only decodes and sets signals."
+            },
+            {
+              "level": "easy",
+              "concept": "instr",
+              "question": "How many bytes does the PC normally advance by?",
+              "options": [
+                "4",
+                "1",
+                "2",
+                "8"
+              ],
+              "answer": 0,
+              "why": "Instructions are 4 bytes long.",
+              "misconception": "Branches add an offset to PC + 4."
+            },
+            {
+              "level": "medium",
+              "concept": "control",
+              "question": "Which signals are 1 for lw?",
+              "options": [
+                "ALUSrc, MemtoReg, RegWrite, MemRead",
+                "RegDst, MemWrite",
+                "Branch, ALUSrc",
+                "RegDst, RegWrite"
+              ],
+              "answer": 0,
+              "why": "lw uses the immediate, takes memory data, writes a register and reads memory.",
+              "misconception": "RegDst is 0 for lw (it writes rt)."
+            },
+            {
+              "level": "medium",
+              "concept": "control",
+              "question": "What does PCSrc = 1 mean?",
+              "options": [
+                "The branch is taken",
+                "The PC is incremented by 4",
+                "The ALU adds",
+                "A register is written"
+              ],
+              "answer": 0,
+              "why": "PCSrc = Branch AND Zero selects the branch target.",
+              "misconception": "PCSrc = 0 selects PC + 4."
+            },
+            {
+              "level": "medium",
+              "concept": "timing",
+              "question": "With IM 200, RR 100, ALU 200, DM 200, RW 100 ps, what does an R-type instruction need?",
+              "options": [
+                "600 ps",
+                "800 ps",
+                "500 ps",
+                "700 ps"
+              ],
+              "answer": 0,
+              "why": "200 + 100 + 200 + 100 = 600 ps (no data memory).",
+              "misconception": "R-type does not use data memory."
+            },
+            {
+              "level": "hard",
+              "concept": "timing",
+              "question": "Same delays: what clock period does a single-cycle processor need?",
+              "options": [
+                "800 ps",
+                "600 ps",
+                "700 ps",
+                "1,000 ps"
+              ],
+              "answer": 0,
+              "why": "The slowest path (lw) is 800 ps.",
+              "misconception": "All instructions get the same period."
+            },
+            {
+              "level": "hard",
+              "concept": "control",
+              "question": "Where does `beq` at 0x00400020 with offset 3 go when taken?",
+              "options": [
+                "0x00400030",
+                "0x0040002C",
+                "0x00400024",
+                "0x00400023"
+              ],
+              "answer": 0,
+              "why": "0x00400020 + 4 + 12 = 0x00400030.",
+              "misconception": "Remember PC + 4 and the × 4."
+            },
+            {
+              "level": "challenge",
+              "concept": "timing",
+              "question": "25% lw, 10% sw, 45% R-type, 20% beq with times 800, 700, 600, 500 ps. If each instruction took only its own time, what would the average be?",
+              "options": [
+                "640 ps",
+                "700 ps",
+                "600 ps",
+                "800 ps"
+              ],
+              "answer": 0,
+              "why": "0.25 × 800 + 0.10 × 700 + 0.45 × 600 + 0.20 × 500 = 640 ps.",
+              "misconception": "Weight each time by its frequency."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "What is the datapath?",
+              "a": "The hardware that holds and moves data.",
+              "concept": "comp"
+            },
+            {
+              "q": "What does the control unit do?",
+              "a": "Decodes the opcode and sets the control signals.",
+              "concept": "control"
+            },
+            {
+              "q": "Which instruction type uses data memory?",
+              "a": "Only lw and sw.",
+              "concept": "instr"
+            },
+            {
+              "q": "What defines the clock period?",
+              "a": "The slowest instruction: the critical path (lw).",
+              "concept": "timing"
+            },
+            {
+              "q": "How is the branch target computed?",
+              "a": "PC + 4 + offset × 4.",
+              "concept": "control"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

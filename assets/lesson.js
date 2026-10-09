@@ -279,6 +279,24 @@
       return { el, n: 0 };
     },
   };
+  /* ---------- interactive demo blocks (assets/demos-*.js) ---------- */
+  const EXPR_FN = { min: Math.min, max: Math.max, sqrt: Math.sqrt, log2: Math.log2, pow: Math.pow, floor: Math.floor, ceil: Math.ceil, round: Math.round, abs: Math.abs,
+    mod: (a, b) => ((a % b) + b) % b, xor: (a, b) => (a ^ b) >>> 0, and: (a, b) => (a & b) >>> 0, or: (a, b) => (a | b) >>> 0, shl: (a, b) => (a << b) >>> 0, shr: (a, b) => a >>> b };
+  const kit = {
+    h, md, esc, clamp, pad, mmss, cfg, sim: window.SLSIM, hl: highlight, fill,
+    later: (fn, ms) => { const t = setTimeout(fn, ms); timers.push(t); return t; },
+    every: (fn, ms) => { const t = setInterval(fn, ms); timers.push(t); return t; },
+    toast: (m) => toast(m),
+    expr: (expr, ids) => { // arithmetic over named inputs only; returns a function (values) => number
+      const names = Object.keys(EXPR_FN); const allowed = new Set([...ids, ...names]);
+      const bare = expr.replace(/(?<![\w.])\d+\.?\d*(?:e[+-]?\d+)?/gi, '');
+      if ((bare.match(/[A-Za-z_]\w*/g) || []).some((w) => !allowed.has(w)) || /[^\w\s+\-*/().,%^]/.test(expr) || /[A-Za-z_\d)]\s*\.\s*[A-Za-z_]/.test(expr)) throw new Error('unsupported expression');
+      const f = new Function(...ids, ...names, `return (${expr.replace(/\^/g, '**')});`);
+      return (vals) => f(...ids.map((i) => vals[i]), ...names.map((n) => EXPR_FN[n]));
+    },
+  };
+  (window.SLDEMO_PARTS || []).forEach((part) => Object.assign(BLOCKS, part(kit)));
+
   function makeBlocks(blocks) {
     const parts = []; let off = 0;
     for (const b of blocks) {
@@ -308,7 +326,7 @@
         step.skill && h('span', { class: 'chip', text: step.skill }), c && h('span', { class: 'chip', text: c.label })),
       step.title && h('h2', { class: 'title', html: md(step.title) }), ...kids);
   }
-  const codeEl = (code) => BLOCKS.code(code).el;
+  const codeEl = (code) => BLOCKS.code(typeof code === 'string' ? { code, lang: 'text' } : code).el; // a plain string is accepted too
   function feedbackBox() { return h('div', { class: 'feedback is-hidden', role: 'status', 'aria-live': 'polite' }); }
   function say(box, tone, head, text) { box.className = 'feedback ' + tone; box.replaceChildren(h('strong', { text: head }), ' ', h('span', { html: md(text || '') })); }
 
@@ -330,6 +348,14 @@
     }
     function reveal() { if (locked) return; mark(q.answer, true); lockAll(); say(fb, 'good', 'Answer:', q.why); o.onReveal && o.onReveal(); }
     return { el: h('div', { class: 'mcq' }, h('div', { class: 'opts', role: 'group', 'aria-label': 'Answer choices' }, opts), fb), reveal, opts, locked: () => locked };
+  }
+
+  /* ---------- textbook references (cover and report) ---------- */
+  const BOOKS = { CAQA: 'Hennessy & Patterson, Computer Architecture: A Quantitative Approach (2nd edition)', COD: 'Patterson & Hennessy, Computer Organization and Design: The Hardware/Software Interface (5th edition, MIPS Edition)' };
+  function refsEl(title, asDetails) {
+    const refs = L.references; if (!refs || !refs.length) return null;
+    const list = h('ul', { class: 'refs-list' }, refs.map((r) => h('li', {}, h('strong', { text: BOOKS[r.book] || r.book }), ` \u2014 Chapter ${r.chapter}${r.title ? ': ' + r.title : ''}${r.sections ? ' (' + r.sections + ')' : ''}`, r.topics && h('div', { class: 'muted', text: r.topics }))));
+    return asDetails ? h('details', { class: 'refs' }, h('summary', { text: title }), list) : h('div', { class: 'refs card' }, h('h3', { text: title }), list);
   }
 
   /* ---------- QR codes: open this lecture, or the quiz directly ---------- */
@@ -694,6 +720,7 @@
           h('div', { class: 'card' }, h('h3', { text: 'Strong areas' }), h('ul', {}, strong.length ? strong.map((c) => h('li', { class: 'tag ok', text: c.label })) : [h('li', { class: 'muted', text: 'Answer questions to build this list.' })])),
           h('div', { class: 'card' }, h('h3', { text: 'Needs review' }), h('ul', {}, weak.length ? weak.map(rec) : [h('li', { class: 'tag ok', text: 'Nothing flagged — well done!' })]), todo.length ? h('p', { class: 'muted', text: `Not checked yet: ${todo.map((c) => c.label).join(', ')}` }) : null)),
         S.badges.length ? h('div', {}, h('h3', { text: 'Badges' }), h('div', { class: 'badges' }, S.badges.map((b) => h('span', { class: 'chip', text: BADGES[b] })))) : null,
+        refsEl('Where to read more'),
         h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: () => window.print() }, 'Print my report'), h('button', { class: 'btn', type: 'button', onclick: () => { if (confirm('Restart the lesson and clear your progress?')) { store.set(KEY, null); location.reload(); } } }, '↻ Restart lesson'))),
       max: 0, set() {},
     };
@@ -981,7 +1008,7 @@
         h('button', { class: 'btn primary', type: 'button', onclick: () => begin('presentation') }, 'Start presentation'), h('button', { class: 'btn', type: 'button', onclick: () => begin('study') }, 'Study at my own pace'),
         resume ? h('button', { class: 'btn', type: 'button', onclick: () => { startAt = resume; begin('study'); } }, `Resume (screen ${resume + 1})`) : null,
         h('button', { class: 'btn', type: 'button', onclick: showHelp }, 'Keyboard shortcuts')),
-      hasQR() ? h('div', { class: 'cover-qr' }, window.SLQR.el(lectureUrl(), 'QR code for this lecture'), h('div', {}, h('strong', { text: 'Scan to open this lecture' }), h('p', { class: 'muted', text: 'Point a phone camera at the code. The quiz has its own code too.' }), h('button', { class: 'btn', type: 'button', onclick: openLinks }, 'Show larger QR codes'))) : null));
+      hasQR() ? h('div', { class: 'cover-qr' }, window.SLQR.el(lectureUrl(), 'QR code for this lecture'), h('div', {}, h('strong', { text: 'Scan to open this lecture' }), h('p', { class: 'muted', text: 'Point a phone camera at the code. The quiz has its own code too.' }), h('button', { class: 'btn', type: 'button', onclick: openLinks }, 'Show larger QR codes'))) : null, refsEl('Textbook reading', true)));
     if (total !== L.duration) console.warn('Section minutes (' + total + ') differ from lesson duration (' + L.duration + ').');
     app.append(cover); cover.querySelector('.btn').focus();
   }

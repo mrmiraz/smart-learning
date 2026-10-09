@@ -1,0 +1,1530 @@
+{
+  "id": "ca-14-ilp-advanced-pipelining",
+  "title": "Instruction-Level Parallelism and Advanced Pipelining",
+  "subtitle": "Doing more than one instruction per cycle, and what stops us.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "4",
+      "title": "The Processor",
+      "topics": "Parallelism via instructions: multiple issue, static and dynamic multiple-issue processors"
+    },
+    {
+      "book": "CAQA",
+      "chapter": "4",
+      "title": "Advanced Pipelining and Instruction-Level Parallelism",
+      "topics": "Concepts and challenges of ILP; multiple-issue processors; limits on ILP"
+    }
+  ],
+  "objectives": [
+    "Define instruction-level parallelism (ILP) and IPC",
+    "Explain how a superscalar processor issues several instructions per cycle",
+    "Compare static (compile-time) and dynamic (run-time) scheduling",
+    "Identify true, anti and output dependences and control dependences",
+    "Explain what limits ILP and why more issue width gives diminishing returns"
+  ],
+  "concepts": [
+    {
+      "id": "ilp",
+      "label": "What is ILP",
+      "section": "ilp"
+    },
+    {
+      "id": "super",
+      "label": "Superscalar processors",
+      "section": "super"
+    },
+    {
+      "id": "static",
+      "label": "Static vs dynamic scheduling",
+      "section": "static"
+    },
+    {
+      "id": "limits",
+      "label": "Limits of ILP",
+      "section": "limits"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "The pipeline of Class 12 finishes at best one instruction per cycle. How could a processor finish two, or four?",
+          "clues": [
+            "Find instructions that **do not depend on each other**.",
+            "Build **more than one** execution path and start several instructions per cycle.",
+            "But real programs have **dependences** that limit how much overlap is possible."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "ilp",
+      "label": "What is ILP",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "ilp",
+          "title": "Instruction-level parallelism",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**ILP**: instructions in the same program that can be executed **at the same time** because they do not depend on each other",
+                "A pipeline already overlaps instructions, but at best 1 instruction **per cycle**",
+                "To go beyond, issue **several** instructions in the same cycle",
+                "**IPC** (instructions per cycle) = 1 / CPI"
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "IPC = instructions ÷ cycles",
+                  "note": "higher is better"
+                },
+                {
+                  "t": "CPI = cycles ÷ instructions",
+                  "note": "the inverse"
+                },
+                {
+                  "t": "time = IC × CPI ÷ clock rate",
+                  "note": "from Class 3"
+                }
+              ]
+            }
+          ],
+          "why": "Once the clock rate stopped rising (Class 2), designers looked for parallelism inside a single program.",
+          "real": "Phones and laptops execute several instructions in each clock cycle.",
+          "explainAgain": {
+            "beginner": "A single cook can only do one thing at a time; two cooks can chop and boil at the same time, but only if the tasks do not depend on each other."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "ilp",
+          "title": "Independent vs dependent instructions",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Independent (can overlap)",
+                "items": [
+                  "`add r1,r2,r3`",
+                  "`sub r4,r5,r6`",
+                  "`mul r7,r8,r9`",
+                  "No instruction uses a result of another"
+                ]
+              },
+              "right": {
+                "title": "Dependent (must wait)",
+                "items": [
+                  "`add r1,r2,r3`",
+                  "`add r4,r1,r5`",
+                  "`add r6,r4,r7`",
+                  "Each one needs the previous result"
+                ]
+              }
+            }
+          ],
+          "why": "Independent instructions are the raw material of ILP; a chain of dependences has none.",
+          "real": "Compilers and hardware search for independent instructions all the time."
+        },
+        {
+          "type": "concept",
+          "concept": "ilp",
+          "title": "Try it: independent instructions",
+          "blocks": [
+            {
+              "type": "scheduler",
+              "title": "Six independent instructions (mul takes 3 cycles)",
+              "instructions": [
+                {
+                  "t": "add r1,r2,r3",
+                  "dest": "r1",
+                  "srcs": [
+                    "r2",
+                    "r3"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "sub r4,r5,r6",
+                  "dest": "r4",
+                  "srcs": [
+                    "r5",
+                    "r6"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "mul r7,r8,r9",
+                  "dest": "r7",
+                  "srcs": [
+                    "r8",
+                    "r9"
+                  ],
+                  "lat": 3
+                },
+                {
+                  "t": "and r10,r11,r12",
+                  "dest": "r10",
+                  "srcs": [
+                    "r11",
+                    "r12"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "or r13,r14,r15",
+                  "dest": "r13",
+                  "srcs": [
+                    "r14",
+                    "r15"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "xor r16,r17,r18",
+                  "dest": "r16",
+                  "srcs": [
+                    "r17",
+                    "r18"
+                  ],
+                  "lat": 1
+                }
+              ],
+              "controls": [
+                "width"
+              ],
+              "options": {
+                "mode": "inorder",
+                "width": 1,
+                "rename": true
+              },
+              "hint": "Change **Instructions issued per cycle** from 1 to 2 to 4 and compare the cycles and the IPC."
+            }
+          ],
+          "why": "With 1 per cycle: 8 cycles (IPC 0.75). With 2: 6 cycles (IPC 1.0). With 4: 5 cycles (IPC 1.2)."
+        },
+        {
+          "type": "predict",
+          "concept": "ilp",
+          "skill": "Apply",
+          "question": "The six independent instructions run in 6 cycles on a 2-wide machine. What is the IPC?",
+          "options": [
+            "1.0",
+            "2.0",
+            "0.5",
+            "6.0"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "IPC = 6 instructions ÷ 6 cycles = **1.0**. The machine could in theory do 2 per cycle, but the first cycles are spent filling the pipeline.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Real IPC is always below the peak (the issue width)."
+        },
+        {
+          "type": "concept",
+          "concept": "ilp",
+          "title": "Calculate: IPC and CPI",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "IPC and CPI",
+              "equation": "IPC = instructions ÷ cycles",
+              "inputs": [
+                {
+                  "id": "n",
+                  "label": "Instructions",
+                  "value": 6,
+                  "min": 1,
+                  "max": 100,
+                  "step": 1
+                },
+                {
+                  "id": "c",
+                  "label": "Cycles",
+                  "value": 5,
+                  "min": 1,
+                  "max": 200,
+                  "step": 1
+                },
+                {
+                  "id": "w",
+                  "label": "Issue width",
+                  "value": 4,
+                  "min": 1,
+                  "max": 8,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "IPC",
+                  "formula": "n/c",
+                  "format": "num",
+                  "digits": 2
+                },
+                {
+                  "label": "CPI",
+                  "formula": "c/n",
+                  "format": "num",
+                  "digits": 2
+                },
+                {
+                  "label": "Percent of peak IPC (issue width)",
+                  "formula": "100 * (n/c) / w",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "%"
+                }
+              ]
+            }
+          ],
+          "why": "The width-4 run above gave 6 instructions in 5 cycles: IPC 1.2, only 30% of the peak of 4."
+        },
+        {
+          "type": "mcq",
+          "concept": "ilp",
+          "question": "What is IPC?",
+          "options": [
+            "Instructions completed per clock cycle",
+            "Instructions per cache",
+            "Input per clock",
+            "Interrupts per cycle"
+          ],
+          "answer": 0,
+          "why": "IPC = instructions divided by cycles; it is the inverse of CPI.",
+          "feedback": [
+            "",
+            "There is no such quantity.",
+            "No.",
+            "No."
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "ilp",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each term with its meaning.",
+          "pairs": [
+            {
+              "a": "ILP",
+              "b": "Instructions that can run at the same time"
+            },
+            {
+              "a": "IPC",
+              "b": "Instructions completed per cycle"
+            },
+            {
+              "a": "CPI",
+              "b": "Cycles per instruction"
+            },
+            {
+              "a": "Issue width",
+              "b": "Maximum instructions started per cycle"
+            }
+          ],
+          "why": "These four terms recur in every later class."
+        }
+      ]
+    },
+    {
+      "id": "super",
+      "label": "Superscalar processors",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "super",
+          "title": "Issuing several instructions per cycle",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "A **superscalar** processor starts **more than one instruction per cycle**",
+                "The **issue width** is the maximum number started together (2-wide, 4-wide, ...)",
+                "It needs duplicated hardware: several ALUs, more register ports, more cache ports",
+                "Extra logic checks which instructions in the window are independent"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Issue width",
+                "Peak IPC",
+                "Cycles for 6 independent instructions"
+              ],
+              "rows": [
+                [
+                  "1",
+                  "1",
+                  "8"
+                ],
+                [
+                  "2",
+                  "2",
+                  "6"
+                ],
+                [
+                  "4",
+                  "4",
+                  "5"
+                ]
+              ]
+            }
+          ],
+          "why": "More width raises the ceiling, but the real speed depends on how much independent work the program contains.",
+          "real": "Typical laptop cores issue 4 to 8 instructions per cycle at peak.",
+          "mistake": {
+            "wrong": "A 4-wide processor is 4 times faster.",
+            "right": "The peak is 4 times higher; real programs have dependences and reach far less."
+          },
+          "explainAgain": {
+            "beginner": "A four-lane road is useless if the cars in front of you are all queuing for the same exit."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "super",
+          "title": "Try it: a dependence chain",
+          "blocks": [
+            {
+              "type": "scheduler",
+              "title": "Four dependent adds",
+              "instructions": [
+                {
+                  "t": "add r1,r2,r3",
+                  "dest": "r1",
+                  "srcs": [
+                    "r2",
+                    "r3"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "add r4,r1,r5",
+                  "dest": "r4",
+                  "srcs": [
+                    "r1",
+                    "r5"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "add r6,r4,r7",
+                  "dest": "r6",
+                  "srcs": [
+                    "r4",
+                    "r7"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "add r8,r6,r9",
+                  "dest": "r8",
+                  "srcs": [
+                    "r6",
+                    "r9"
+                  ],
+                  "lat": 1
+                }
+              ],
+              "controls": [
+                "width"
+              ],
+              "options": {
+                "mode": "inorder",
+                "width": 1,
+                "rename": true
+              },
+              "hint": "Change the issue width: does anything improve?"
+            }
+          ],
+          "why": "Every add needs the result of the one before: widths 1, 2 and 4 all take 9 cycles."
+        },
+        {
+          "type": "predict",
+          "concept": "super",
+          "skill": "Apply",
+          "question": "How many cycles do the four dependent adds take on a 4-wide machine?",
+          "options": [
+            "9",
+            "3",
+            "5",
+            "2"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The chain forces the instructions to run one after the other, so the extra width does not help: **9 cycles**, the same as width 1.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "ILP is a property of the program as well as the machine."
+        },
+        {
+          "type": "concept",
+          "concept": "super",
+          "title": "Diminishing returns",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Issue width",
+                "Cycles",
+                "IPC"
+              ],
+              "rows": [
+                [
+                  "1",
+                  "8",
+                  "0.75"
+                ],
+                [
+                  "2",
+                  "6",
+                  "1.00"
+                ],
+                [
+                  "4",
+                  "5",
+                  "1.20"
+                ]
+              ]
+            }
+          ],
+          "why": "Going from 1 to 2 saved 2 cycles; going from 2 to 4 saved only 1. Each extra unit of width adds less.",
+          "real": "This is why designers do not build 32-wide cores: the hardware cost and power grow faster than the speed."
+        },
+        {
+          "type": "tf",
+          "concept": "super",
+          "statement": "A wider superscalar processor always runs a program proportionally faster.",
+          "answer": false,
+          "why": "The speed-up is limited by the dependences in the program."
+        },
+        {
+          "type": "mcq",
+          "concept": "super",
+          "question": "Which resource does a 4-wide superscalar need more of?",
+          "options": [
+            "Execution units and register-file ports",
+            "Only a faster clock",
+            "Only more memory",
+            "Nothing: width is free"
+          ],
+          "answer": 0,
+          "why": "Several instructions are started at once, so several units and ports are needed.",
+          "feedback": [
+            "",
+            "Clock speed is separate.",
+            "Memory capacity is unrelated.",
+            "Width has a real hardware and power cost."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "static",
+      "label": "Static vs dynamic scheduling",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "static",
+          "title": "Who finds the parallelism?",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "",
+                "Static (compile time)",
+                "Dynamic (run time)"
+              ],
+              "rows": [
+                [
+                  "Who decides",
+                  "The compiler orders the instructions",
+                  "The hardware reorders instructions as they run"
+                ],
+                [
+                  "Hardware cost",
+                  "Simple",
+                  "Complex (Class 15)"
+                ],
+                [
+                  "Knows",
+                  "The whole program text",
+                  "The actual run-time values and delays"
+                ],
+                [
+                  "Needs recompiling",
+                  "Yes, for each machine",
+                  "No: old binaries speed up"
+                ]
+              ]
+            }
+          ],
+          "why": "Both aim at the same thing: put independent instructions close together so they can overlap.",
+          "real": "Embedded processors lean on the compiler; high-end laptop and server cores rely on dynamic hardware too."
+        },
+        {
+          "type": "concept",
+          "concept": "static",
+          "title": "Static scheduling: reorder to hide a delay",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Original (loads stall their users)",
+                "items": [
+                  "`lw r1,0(r10)`",
+                  "`add r2,r1,r3`",
+                  "`lw r4,4(r10)`",
+                  "`sub r5,r4,r6`"
+                ]
+              },
+              "right": {
+                "title": "Scheduled by the compiler",
+                "items": [
+                  "`lw r1,0(r10)`",
+                  "`lw r4,4(r10)`",
+                  "`add r2,r1,r3`",
+                  "`sub r5,r4,r6`"
+                ]
+              }
+            }
+          ],
+          "why": "Starting both loads first hides each load's delay behind the other: the same result in fewer cycles.",
+          "real": "Compilers do this routinely when they target a pipelined or superscalar machine."
+        },
+        {
+          "type": "concept",
+          "concept": "static",
+          "title": "Run the reordering",
+          "blocks": [
+            {
+              "type": "scheduler",
+              "title": "Original order (loads take 2 cycles)",
+              "instructions": [
+                {
+                  "t": "lw r1,0(r10)",
+                  "dest": "r1",
+                  "srcs": [
+                    "r10"
+                  ],
+                  "lat": 2
+                },
+                {
+                  "t": "add r2,r1,r3",
+                  "dest": "r2",
+                  "srcs": [
+                    "r1",
+                    "r3"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "lw r4,4(r10)",
+                  "dest": "r4",
+                  "srcs": [
+                    "r10"
+                  ],
+                  "lat": 2
+                },
+                {
+                  "t": "sub r5,r4,r6",
+                  "dest": "r5",
+                  "srcs": [
+                    "r4",
+                    "r6"
+                  ],
+                  "lat": 1
+                }
+              ],
+              "controls": [
+                "width"
+              ],
+              "options": {
+                "mode": "inorder",
+                "width": 1,
+                "rename": true
+              },
+              "hint": "1-wide: 10 cycles; 2-wide: 9 cycles."
+            },
+            {
+              "type": "scheduler",
+              "title": "Reordered by the compiler",
+              "instructions": [
+                {
+                  "t": "lw r1,0(r10)",
+                  "dest": "r1",
+                  "srcs": [
+                    "r10"
+                  ],
+                  "lat": 2
+                },
+                {
+                  "t": "lw r4,4(r10)",
+                  "dest": "r4",
+                  "srcs": [
+                    "r10"
+                  ],
+                  "lat": 2
+                },
+                {
+                  "t": "add r2,r1,r3",
+                  "dest": "r2",
+                  "srcs": [
+                    "r1",
+                    "r3"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "sub r5,r4,r6",
+                  "dest": "r5",
+                  "srcs": [
+                    "r4",
+                    "r6"
+                  ],
+                  "lat": 1
+                }
+              ],
+              "controls": [
+                "width"
+              ],
+              "options": {
+                "mode": "inorder",
+                "width": 1,
+                "rename": true
+              },
+              "hint": "1-wide: 7 cycles; 2-wide: 6 cycles."
+            }
+          ],
+          "why": "Same four instructions, same results: 10 cycles become 7 on a scalar machine and 9 become 6 on a 2-wide one."
+        },
+        {
+          "type": "concept",
+          "concept": "static",
+          "title": "Loop unrolling",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "A loop body of load, add, store has little ILP. **Unrolling** copies the body several times so the compiler can **interleave** independent iterations."
+            },
+            {
+              "type": "code",
+              "lang": "java",
+              "code": "for (i = 0; i < 4; i++)\n    b[i] = a[i] + c;      // each iteration is independent"
+            },
+            {
+              "type": "table",
+              "head": [
+                "Version (in-order machine)",
+                "Width 1",
+                "Width 2",
+                "Width 4"
+              ],
+              "rows": [
+                [
+                  "Unrolled 4×, not interleaved",
+                  "26",
+                  "23",
+                  "23"
+                ],
+                [
+                  "Unrolled 4× and interleaved by the compiler",
+                  "14",
+                  "9",
+                  "8"
+                ]
+              ]
+            }
+          ],
+          "why": "Unrolling by itself helps little: the instructions must also be scheduled so that independent ones sit side by side.",
+          "real": "Optimizing compilers unroll hot loops and schedule them; the result is much faster on wide processors.",
+          "mistake": {
+            "wrong": "Unrolling alone makes the loop faster.",
+            "right": "The gain comes from the interleaving it enables."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "static",
+          "title": "Run the unrolled loop",
+          "blocks": [
+            {
+              "type": "scheduler",
+              "title": "Unrolled 4×, original order",
+              "instructions": [
+                {
+                  "t": "lw r1,0(r10)",
+                  "dest": "r1",
+                  "srcs": [
+                    "r10"
+                  ],
+                  "lat": 2
+                },
+                {
+                  "t": "add r2,r1,r20",
+                  "dest": "r2",
+                  "srcs": [
+                    "r1",
+                    "r20"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "sw r2,0(r11)",
+                  "dest": null,
+                  "srcs": [
+                    "r2",
+                    "r11"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "lw r3,4(r10)",
+                  "dest": "r3",
+                  "srcs": [
+                    "r10"
+                  ],
+                  "lat": 2
+                },
+                {
+                  "t": "add r4,r3,r20",
+                  "dest": "r4",
+                  "srcs": [
+                    "r3",
+                    "r20"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "sw r4,4(r11)",
+                  "dest": null,
+                  "srcs": [
+                    "r4",
+                    "r11"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "lw r5,8(r10)",
+                  "dest": "r5",
+                  "srcs": [
+                    "r10"
+                  ],
+                  "lat": 2
+                },
+                {
+                  "t": "add r6,r5,r20",
+                  "dest": "r6",
+                  "srcs": [
+                    "r5",
+                    "r20"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "sw r6,8(r11)",
+                  "dest": null,
+                  "srcs": [
+                    "r6",
+                    "r11"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "lw r7,12(r10)",
+                  "dest": "r7",
+                  "srcs": [
+                    "r10"
+                  ],
+                  "lat": 2
+                },
+                {
+                  "t": "add r8,r7,r20",
+                  "dest": "r8",
+                  "srcs": [
+                    "r7",
+                    "r20"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "sw r8,12(r11)",
+                  "dest": null,
+                  "srcs": [
+                    "r8",
+                    "r11"
+                  ],
+                  "lat": 1
+                }
+              ],
+              "controls": [
+                "width"
+              ],
+              "options": {
+                "mode": "inorder",
+                "width": 1,
+                "rename": true
+              },
+              "hint": "Width 1: 26 cycles; widths 2 and 4: 23."
+            },
+            {
+              "type": "scheduler",
+              "title": "Unrolled 4×, interleaved by the compiler",
+              "instructions": [
+                {
+                  "t": "lw r1,0(r10)",
+                  "dest": "r1",
+                  "srcs": [
+                    "r10"
+                  ],
+                  "lat": 2
+                },
+                {
+                  "t": "lw r3,4(r10)",
+                  "dest": "r3",
+                  "srcs": [
+                    "r10"
+                  ],
+                  "lat": 2
+                },
+                {
+                  "t": "lw r5,8(r10)",
+                  "dest": "r5",
+                  "srcs": [
+                    "r10"
+                  ],
+                  "lat": 2
+                },
+                {
+                  "t": "lw r7,12(r10)",
+                  "dest": "r7",
+                  "srcs": [
+                    "r10"
+                  ],
+                  "lat": 2
+                },
+                {
+                  "t": "add r2,r1,r20",
+                  "dest": "r2",
+                  "srcs": [
+                    "r1",
+                    "r20"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "add r4,r3,r20",
+                  "dest": "r4",
+                  "srcs": [
+                    "r3",
+                    "r20"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "add r6,r5,r20",
+                  "dest": "r6",
+                  "srcs": [
+                    "r5",
+                    "r20"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "add r8,r7,r20",
+                  "dest": "r8",
+                  "srcs": [
+                    "r7",
+                    "r20"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "sw r2,0(r11)",
+                  "dest": null,
+                  "srcs": [
+                    "r2",
+                    "r11"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "sw r4,4(r11)",
+                  "dest": null,
+                  "srcs": [
+                    "r4",
+                    "r11"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "sw r6,8(r11)",
+                  "dest": null,
+                  "srcs": [
+                    "r6",
+                    "r11"
+                  ],
+                  "lat": 1
+                },
+                {
+                  "t": "sw r8,12(r11)",
+                  "dest": null,
+                  "srcs": [
+                    "r8",
+                    "r11"
+                  ],
+                  "lat": 1
+                }
+              ],
+              "controls": [
+                "width"
+              ],
+              "options": {
+                "mode": "inorder",
+                "width": 1,
+                "rename": true
+              },
+              "hint": "Width 1: 14 cycles; width 2: 9; width 4: 8."
+            }
+          ],
+          "why": "Compare the two schedules at width 4: 23 cycles against 8."
+        },
+        {
+          "type": "predict",
+          "concept": "static",
+          "skill": "Apply",
+          "question": "After the compiler interleaves the unrolled loop, how many cycles does it need on a 2-wide in-order machine?",
+          "options": [
+            "9",
+            "23",
+            "14",
+            "26"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Interleaved: **9 cycles** at width 2 (14 at width 1, 8 at width 4). The original order took 23.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Notice how little a wide machine helps until the code is rescheduled."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Why might a processor designer prefer dynamic scheduling even though it is more complex?",
+          "think": 20,
+          "pair": 40,
+          "answer": "Dynamic scheduling works on the code as it runs, so it adapts to delays the compiler cannot know (such as a cache miss) and it speeds up old binaries without recompiling. The cost is complex hardware and extra power. Static scheduling is simple but cannot react to run-time events."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "Who performs static scheduling?",
+              "a": "The compiler, before the program runs.",
+              "concept": "static"
+            },
+            {
+              "q": "Why does unrolling help?",
+              "a": "It exposes independent iterations that can be interleaved.",
+              "concept": "static"
+            },
+            {
+              "q": "What is the main benefit of dynamic scheduling?",
+              "a": "It adapts to run-time delays and works with old code.",
+              "concept": "static"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "limits",
+      "label": "Dependences and limits",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "limits",
+          "title": "Kinds of dependences",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Type",
+                "Meaning",
+                "Example"
+              ],
+              "rows": [
+                [
+                  "True (data) dependence",
+                  "A later instruction needs the value an earlier one produces (RAW)",
+                  "add r1,r2,r3 then sub r4,r1,r5"
+                ],
+                [
+                  "Anti-dependence (name)",
+                  "A later instruction writes a register an earlier one reads (WAR)",
+                  "sub r4,r1,r5 then add r1,r6,r7"
+                ],
+                [
+                  "Output dependence (name)",
+                  "Two instructions write the same register (WAW)",
+                  "add r1,r2,r3 then mul r1,r6,r7"
+                ],
+                [
+                  "Control dependence",
+                  "An instruction's execution depends on a branch",
+                  "Instructions after a beq"
+                ]
+              ]
+            }
+          ],
+          "why": "True dependences are real limits. Name dependences are only about reusing a register name and can often be removed by renaming (Class 15). Control dependences are limited by branch prediction (Class 16).",
+          "real": "Compilers analyse these dependences to decide which instructions may be reordered.",
+          "mistake": {
+            "wrong": "All dependences limit ILP equally.",
+            "right": "Only true dependences are fundamental; name dependences can be removed by renaming."
+          },
+          "deeper": {
+            "text": "Dependences through memory (a store followed by a load of the same address) are also true dependences."
+          }
+        },
+        {
+          "type": "find",
+          "concept": "limits",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "Three instructions: 1) add r1,r2,r3  2) sub r4,r1,r5  3) mul r1,r6,r7. Which statement is wrong?",
+          "lines": [
+            "1. Instruction 2 has a true dependence on instruction 1 (RAW on r1).",
+            "2. Instruction 3 has an anti-dependence with instruction 2 (WAR on r1).",
+            "3. Instruction 3 has an output dependence with instruction 1 (WAW on r1).",
+            "4. Instruction 3 has a true dependence on instruction 1."
+          ],
+          "wrong": 3,
+          "explain": "Instruction 3 writes r1 but does not read the r1 of instruction 1: that is only an output (name) dependence.",
+          "fix": "Instruction 3 does not read r1."
+        },
+        {
+          "type": "concept",
+          "concept": "limits",
+          "title": "What limits ILP?",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**True data dependences**: the chain of results cannot be shortened",
+                "**Control dependences**: about one instruction in five is a branch, so the processor can look only a few instructions ahead before a branch",
+                "**A finite window**: hardware can examine only a limited number of instructions",
+                "**A finite number of registers and execution units**",
+                "**Memory latency**: a cache miss stalls everything that depends on the load",
+                "**Cost and power**: wider machines cost more silicon and energy for less gain"
+              ]
+            }
+          ],
+          "why": "Studies on real programs find that ILP often stays below about 2 to 4 for realistic hardware, even though code in some loops has far more.",
+          "real": "This is the reason industry turned to multiple cores (Class 23).",
+          "explainAgain": {
+            "beginner": "Even with unlimited cooks, a recipe whose steps all depend on the previous one can only go step by step."
+          }
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "limits",
+          "question": "Why did processor designers move from ever-wider cores to many cores?",
+          "seconds": 60,
+          "ideas": [
+            "ILP in a single program is limited by dependences and branches.",
+            "Wider issue and bigger windows cost power and area for diminishing gains.",
+            "Several threads supply independent work for several cores (thread-level parallelism).",
+            "The programmer must then expose the parallelism (Class 23)."
+          ]
+        },
+        {
+          "type": "mcq",
+          "concept": "limits",
+          "question": "Which dependence is a fundamental limit that renaming cannot remove?",
+          "options": [
+            "True (RAW) dependence",
+            "Anti (WAR) dependence",
+            "Output (WAW) dependence",
+            "None of them"
+          ],
+          "answer": 0,
+          "why": "A value that must be computed before it is used cannot be avoided.",
+          "feedback": [
+            "",
+            "Renaming removes this one.",
+            "Renaming removes this one too.",
+            "True dependences remain."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "ilp",
+          "question": "Define ILP in one sentence.",
+          "answer": "The amount of independent instructions in a program that can execute at the same time.",
+          "solution": "Instructions with no dependence on each other can overlap.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "super",
+          "question": "Six independent instructions run in 5 cycles. What are the IPC and the CPI?",
+          "answer": "IPC = 1.2; CPI ≈ 0.83.",
+          "solution": "IPC = 6 ÷ 5 = 1.2; CPI = 5 ÷ 6 ≈ 0.83.",
+          "hint": "IPC = instructions ÷ cycles.",
+          "think": 40
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "super",
+          "question": "Four dependent adds run on a 4-wide machine. How many cycles, and why is the width not useful?",
+          "answer": "9 cycles; each add needs the previous result, so they cannot overlap.",
+          "solution": "Dependent instructions run in sequence regardless of the issue width.",
+          "hint": "Look at the chain of results.",
+          "mistake": "Expecting a 4-fold speed-up.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "limits",
+          "question": "For 1) add r1,r2,r3 2) sub r4,r1,r5 3) mul r1,r6,r7 name each dependence (RAW, WAR or WAW) and the instructions involved.",
+          "answer": "1→2 RAW on r1; 2→3 WAR on r1; 1→3 WAW on r1.",
+          "solution": "Instruction 2 reads the r1 written by 1 (RAW). Instruction 3 writes r1 after 2 reads it (WAR) and after 1 wrote it (WAW).",
+          "mistake": "Calling WAR and WAW \"true\" dependences.",
+          "title": "Exam practice: dependences",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "static",
+          "question": "lw r1,0(r10); add r2,r1,r3; lw r4,4(r10); sub r5,r4,r6 (loads take 2 cycles). Reorder to improve the in-order 2-wide schedule and give the cycles before and after.",
+          "answer": "Reorder to lw r1; lw r4; add r2; sub r5. Before: 9 cycles. After: 6 cycles.",
+          "solution": "Starting both loads first lets the load delays overlap, and each add/sub then finds its operand ready.",
+          "mistake": "Moving an add before the load it uses.",
+          "title": "Exam practice: scheduling",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "super",
+          "question": "The six independent instructions take 8, 6 and 5 cycles at widths 1, 2 and 4. Give the IPC for each and say why going from width 2 to 4 helps less than from 1 to 2.",
+          "answer": "IPC 0.75, 1.0 and 1.2. Width 1→2 saves 2 cycles, 2→4 only saves 1.",
+          "solution": "The pipeline fill and the mul's 3-cycle latency are fixed costs; once most of the independent work overlaps, extra width has little left to overlap.",
+          "mistake": "Believing IPC equals the issue width.",
+          "title": "Exam practice: calculation",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "limits",
+          "question": "Explain why true dependences limit ILP but name dependences (WAR, WAW) usually do not.",
+          "answer": "A true dependence is an actual flow of a value, so the consumer must wait for the producer. A name dependence only arises because two instructions reuse the same register name; giving them different registers (renaming) removes it without changing the result, so it need not limit parallelism.",
+          "solution": "A strong answer states that renaming removes name dependences.",
+          "mistake": "Saying name dependences are impossible to remove.",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "ILP and advanced pipelining",
+          "branches": [
+            {
+              "label": "ILP",
+              "example": "independent instructions",
+              "section": "ilp"
+            },
+            {
+              "label": "Superscalar",
+              "example": "issue width, IPC",
+              "section": "super"
+            },
+            {
+              "label": "Scheduling",
+              "example": "static vs dynamic",
+              "section": "static"
+            },
+            {
+              "label": "Limits",
+              "example": "dependences, branches",
+              "section": "limits"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "ILP is the parallelism between independent instructions of one program.",
+            "IPC = instructions ÷ cycles; CPI is its inverse.",
+            "A superscalar issues several instructions per cycle (the issue width), but the real IPC is far below the peak.",
+            "A chain of true dependences cannot run in parallel whatever the width.",
+            "Static scheduling: the compiler reorders and unrolls loops. Dynamic scheduling: the hardware reorders at run time.",
+            "Dependences: true (RAW), anti (WAR), output (WAW), and control; ILP is limited by data, branches, window size and cost."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "A 4-wide processor is 4 times faster.",
+              "right": "Its peak is 4 times higher; dependences limit the real gain."
+            },
+            {
+              "wrong": "Unrolling alone speeds up a loop.",
+              "right": "The compiler must also interleave the independent iterations."
+            },
+            {
+              "wrong": "All dependences are equally limiting.",
+              "right": "Name dependences can be removed by renaming; true dependences cannot."
+            },
+            {
+              "wrong": "IPC can never be above 1.",
+              "right": "A superscalar processor can exceed 1."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Instruction-level parallelism lets a processor start several independent instructions in the same cycle. Superscalar designs have several execution units, but the achieved IPC depends on dependences in the program, branches, window size and hardware cost. The compiler (static scheduling) or the hardware (dynamic scheduling) tries to bring independent instructions together; true dependences remain a hard limit."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "ilp",
+              "question": "What does ILP stand for?",
+              "options": [
+                "Instruction-level parallelism",
+                "Internal logic path",
+                "Input-line processing",
+                "Integer load pipeline"
+              ],
+              "answer": 0,
+              "why": "Instruction-level parallelism.",
+              "misconception": "It is parallelism among instructions of one program."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "super",
+              "statement": "A superscalar processor can start more than one instruction per cycle.",
+              "answer": true,
+              "why": "That is its definition.",
+              "misconception": "The issue width states how many."
+            },
+            {
+              "level": "easy",
+              "concept": "ilp",
+              "question": "IPC is equal to:",
+              "options": [
+                "1 ÷ CPI",
+                "CPI × clock",
+                "cycles × instructions",
+                "1 ÷ clock"
+              ],
+              "answer": 0,
+              "why": "IPC and CPI are inverses.",
+              "misconception": "IPC = instructions ÷ cycles."
+            },
+            {
+              "level": "medium",
+              "concept": "super",
+              "question": "Six independent instructions on a 2-wide in-order machine take:",
+              "options": [
+                "6 cycles",
+                "8 cycles",
+                "5 cycles",
+                "12 cycles"
+              ],
+              "answer": 0,
+              "why": "2-wide: 6 cycles (IPC 1.0).",
+              "misconception": "1-wide takes 8 and 4-wide takes 5."
+            },
+            {
+              "level": "medium",
+              "concept": "super",
+              "question": "Four dependent adds on a 4-wide machine take:",
+              "options": [
+                "9 cycles, the same as 1-wide",
+                "3 cycles",
+                "5 cycles",
+                "4 cycles"
+              ],
+              "answer": 0,
+              "why": "The dependence chain removes any gain from width.",
+              "misconception": "Each add waits for the previous result."
+            },
+            {
+              "level": "medium",
+              "concept": "static",
+              "question": "Who performs static scheduling?",
+              "options": [
+                "The compiler",
+                "The hardware at run time",
+                "The operating system at boot",
+                "The user"
+              ],
+              "answer": 0,
+              "why": "Static means decided at compile time.",
+              "misconception": "Dynamic scheduling is done by the hardware."
+            },
+            {
+              "level": "hard",
+              "concept": "static",
+              "question": "The original lw/add/lw/sub sequence takes 10 cycles on a 1-wide machine. After the compiler moves the second load up, it takes:",
+              "options": [
+                "7 cycles",
+                "8 cycles",
+                "10 cycles",
+                "5 cycles"
+              ],
+              "answer": 0,
+              "why": "Two overlapping loads remove most of the delay: 7 cycles.",
+              "misconception": "Ideal for 4 instructions with 2-cycle loads is more than 4."
+            },
+            {
+              "level": "hard",
+              "concept": "limits",
+              "question": "add r1,r2,r3 followed later by mul r1,r6,r7 is which dependence?",
+              "options": [
+                "Output (WAW)",
+                "True (RAW)",
+                "Anti (WAR)",
+                "Control"
+              ],
+              "answer": 0,
+              "why": "Both write r1: an output dependence.",
+              "misconception": "No value flows from one to the other."
+            },
+            {
+              "level": "challenge",
+              "concept": "static",
+              "question": "The loop unrolled 4× and interleaved by the compiler takes how many cycles on a 4-wide in-order machine (the naive order takes 23)?",
+              "options": [
+                "8",
+                "9",
+                "14",
+                "23"
+              ],
+              "answer": 0,
+              "why": "Interleaving brings it to 8 cycles at width 4.",
+              "misconception": "Width 1 takes 14 and width 2 takes 9."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "What is ILP?",
+              "a": "Independent instructions that can execute at the same time.",
+              "concept": "ilp"
+            },
+            {
+              "q": "What is a superscalar processor?",
+              "a": "One that issues several instructions per cycle.",
+              "concept": "super"
+            },
+            {
+              "q": "Name static and dynamic scheduling.",
+              "a": "Compiler reordering and hardware reordering.",
+              "concept": "static"
+            },
+            {
+              "q": "Which dependences limit ILP most?",
+              "a": "True data and control dependences.",
+              "concept": "limits"
+            },
+            {
+              "q": "Why does more width give diminishing returns?",
+              "a": "Dependences and fixed delays limit the overlap available.",
+              "concept": "super"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

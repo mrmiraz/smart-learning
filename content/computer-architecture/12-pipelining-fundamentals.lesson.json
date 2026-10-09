@@ -1,0 +1,2188 @@
+{
+  "id": "ca-12-pipelining-fundamentals",
+  "title": "Pipelining Fundamentals",
+  "subtitle": "Why finish one instruction before starting the next? Overlap them, one stage at a time.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "4",
+      "title": "The Processor",
+      "topics": "An overview of pipelining; the five stages of the MIPS pipeline; pipeline registers; pipeline performance, latency, throughput and speedup; pipelined timing diagrams"
+    }
+  ],
+  "objectives": [
+    "Explain why finishing one instruction before starting the next wastes hardware",
+    "Name the five classic stages IF, ID, EX, MEM and WB and say what each does",
+    "Explain what pipeline registers are for",
+    "Draw and read a pipeline timing diagram, cycle by cycle, for real MIPS instructions",
+    "Distinguish latency from throughput and compute ideal speedup"
+  ],
+  "concepts": [
+    {
+      "id": "problem",
+      "label": "Why overlap instructions",
+      "section": "problem"
+    },
+    {
+      "id": "stages",
+      "label": "The five stages IF ID EX MEM WB",
+      "section": "stages"
+    },
+    {
+      "id": "pipereg",
+      "label": "Pipeline registers",
+      "section": "stages"
+    },
+    {
+      "id": "timing",
+      "label": "Pipeline timing diagrams",
+      "section": "timing"
+    },
+    {
+      "id": "latency",
+      "label": "Latency versus throughput",
+      "section": "perf"
+    },
+    {
+      "id": "speedup",
+      "label": "Ideal speedup",
+      "section": "perf"
+    },
+    {
+      "id": "balance",
+      "label": "Balanced and unbalanced stages",
+      "section": "perf"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "One MIPS load instruction needs five jobs: fetch it, decode it, compute an address, touch memory, write the result. Yet a modern processor can finish about one instruction every clock cycle. How can it finish one per cycle if each needs five?",
+          "clues": [
+            "Each of the five jobs uses different hardware.",
+            "While one instruction is being decoded, the fetch hardware could already be reading the next one.",
+            "That overlap is called **pipelining**."
+          ],
+          "notes": {
+            "explain": "Let students guess before any clue. Typical guesses: a faster clock, several CPUs. Both are not the answer. The answer is overlapping instructions.",
+            "ask": "Where have you seen overlapping in daily life? (assembly lines, a kitchen, a laundromat)",
+            "difficulty": "Easy. 3 minutes."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the five objectives. This class assumes the single-cycle and multi-cycle datapaths of Classes 10 and 11. All instructions here are independent; dependences and branches are Class 13."
+          }
+        }
+      ]
+    },
+    {
+      "id": "problem",
+      "label": "The Problem",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "problem",
+          "title": "One instruction at a time wastes hardware",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Cycle",
+                "IF unit",
+                "ID unit",
+                "EX unit",
+                "MEM unit",
+                "WB unit"
+              ],
+              "rows": [
+                [
+                  "1",
+                  "I1",
+                  "idle",
+                  "idle",
+                  "idle",
+                  "idle"
+                ],
+                [
+                  "2",
+                  "idle",
+                  "I1",
+                  "idle",
+                  "idle",
+                  "idle"
+                ],
+                [
+                  "3",
+                  "idle",
+                  "idle",
+                  "I1",
+                  "idle",
+                  "idle"
+                ],
+                [
+                  "4",
+                  "idle",
+                  "idle",
+                  "idle",
+                  "I1",
+                  "idle"
+                ],
+                [
+                  "5",
+                  "idle",
+                  "idle",
+                  "idle",
+                  "idle",
+                  "I1"
+                ],
+                [
+                  "6",
+                  "I2",
+                  "idle",
+                  "idle",
+                  "idle",
+                  "idle"
+                ]
+              ]
+            },
+            {
+              "type": "callout",
+              "tone": "warn",
+              "title": "Look at the table",
+              "text": "In any cycle only **one of five** hardware units is working. The other four are idle, so the hardware is about 20% busy.",
+              "reveal": true
+            }
+          ],
+          "why": "Hardware costs chip area and power whether it is used or not. Keeping all five units busy is where the extra speed comes from.",
+          "real": "Every processor from a phone chip to a server chip overlaps instructions. Almost no modern CPU runs one instruction at a time.",
+          "explainAgain": {
+            "beginner": "Imagine a five-person kitchen where only one cook may work at a time, because the next order may not start until the last one is served. Four cooks stand around.",
+            "technical": "A non-pipelined design (single-cycle, or multi-cycle with one instruction in flight) uses each stage's hardware for a fraction of the time. Pipelining adds state between stages so all stages work on different instructions concurrently."
+          },
+          "notes": {
+            "explain": "Click through the rows. Ask: which unit is busy in cycle 3? Which units are idle? Then the callout.",
+            "terms": [
+              "**Non-pipelined**: one instruction at a time",
+              "**Idle hardware**: built and powered, but not working"
+            ],
+            "misconceptions": [
+              "Students think the CPU 'must' finish an instruction first. It need not, as long as each instruction's own steps stay in order."
+            ],
+            "ask": "Why is the next instruction not allowed to start in cycle 2?",
+            "minutes": 3,
+            "difficulty": "Easy"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "problem",
+          "title": "The assembly-line idea",
+          "blocks": [
+            {
+              "type": "analogy",
+              "realTitle": "Assembly line",
+              "techTitle": "Processor",
+              "pairs": [
+                {
+                  "real": "Station on the line",
+                  "tech": "Pipeline stage",
+                  "note": "Each station does one job, with its own tools."
+                },
+                {
+                  "real": "Car",
+                  "tech": "Instruction",
+                  "note": "Every car passes through every station in order."
+                },
+                {
+                  "real": "One conveyor step: all cars move together",
+                  "tech": "Clock cycle",
+                  "note": "Everything advances at the same beat."
+                },
+                {
+                  "real": "Next car enters as soon as the first station is free",
+                  "tech": "Overlapped execution",
+                  "note": "All stations work on different cars at once."
+                }
+              ]
+            }
+          ],
+          "why": "Pipelining does not make any single step quicker. It keeps every step busy all the time.",
+          "mistake": {
+            "wrong": "Pipelining runs several steps of the same instruction at the same time.",
+            "right": "Pipelining overlaps different instructions: each one is in a different stage in the same cycle.",
+            "why": "The steps of one instruction still happen in order, one stage per cycle."
+          },
+          "notes": {
+            "explain": "Use the analogy only for the idea. Click Test me to hide the names.",
+            "terms": [
+              "**Pipeline**",
+              "**Stage**"
+            ],
+            "discuss": "What is one way the assembly line analogy is imperfect? (cars are independent; instructions may depend on each other, Class 13)"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "problem",
+          "skill": "Understand",
+          "question": "Without pipelining, instruction 1 is in its MEM stage. What is the instruction-fetch hardware doing?",
+          "options": [
+            "Fetching instruction 2",
+            "Nothing: it is idle",
+            "Fetching instruction 1 again",
+            "Decoding instruction 1"
+          ],
+          "answer": 1,
+          "why": "Without pipelining the next instruction waits until the current one is completely finished, so the fetch unit has no work.",
+          "feedback": [
+            "That is exactly what pipelining adds. Without it, instruction 2 cannot start yet.",
+            "",
+            "Instruction 1 was already fetched in its first cycle.",
+            "Decoding is done by the ID unit, not the fetch hardware."
+          ]
+        },
+        {
+          "type": "predict",
+          "concept": "problem",
+          "skill": "Apply",
+          "question": "Four independent instructions, five stages each, one stage per cycle. If the next instruction may enter the pipeline as soon as the previous one has moved on, how many clock cycles do all four take? (Without overlap they take 4 x 5 = 20.)",
+          "options": [
+            "20",
+            "16",
+            "8",
+            "5"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "Design",
+                "How the cycles add up",
+                "Cycles"
+              ],
+              "rows": [
+                [
+                  "Without pipelining",
+                  "4 x 5",
+                  "20"
+                ],
+                [
+                  "With pipelining",
+                  "5 cycles for the first, then 1 more cycle for each other instruction: 5 + 3",
+                  "8"
+                ],
+                [
+                  "Speedup",
+                  "20 / 8",
+                  "2.5 times"
+                ]
+              ]
+            }
+          ],
+          "result": "8 cycles. The first instruction needs 5 cycles; after that, one instruction completes every cycle. The next screens let you watch it happen.",
+          "notes": {
+            "explain": "Make students commit to a number before the reveal. Common wrong answers: 16 (4 x 4) and 5.",
+            "difficulty": "Easy."
+          }
+        }
+      ]
+    },
+    {
+      "id": "stages",
+      "label": "Stages",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "stages",
+          "title": "The classic five stages",
+          "blocks": [
+            {
+              "type": "flow",
+              "layout": "row",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "IF",
+                  "sub": "Instruction fetch",
+                  "note": "The PC addresses instruction memory and the instruction is read. The PC moves on to PC + 4.",
+                  "example": "lw $t0, 8($s1) is fetched."
+                },
+                {
+                  "label": "ID",
+                  "sub": "Decode and read registers",
+                  "note": "The control logic decodes the instruction and the register file is read.",
+                  "example": "$s1 is read. The offset 8 is sign-extended."
+                },
+                {
+                  "label": "EX",
+                  "sub": "Execute or address",
+                  "note": "The ALU computes the result, or the memory address for a load or store.",
+                  "example": "The ALU makes $s1 + 8."
+                },
+                {
+                  "label": "MEM",
+                  "sub": "Memory access",
+                  "note": "Loads read data memory and stores write it. Other instructions do nothing here.",
+                  "example": "The word at that address is read."
+                },
+                {
+                  "label": "WB",
+                  "sub": "Write back",
+                  "note": "The result is written into the register file.",
+                  "example": "The loaded word goes into $t0."
+                }
+              ]
+            }
+          ],
+          "why": "Each stage uses its own hardware, so five instructions can be in five different stages at once.",
+          "real": "MIPS was designed with this pipeline in mind: simple, fixed-length instructions and a load/store design. Small embedded cores still use short pipelines of about three to five stages, and high-performance cores use many more.",
+          "explainAgain": {
+            "beginner": "Think of the five stages as five stations: get the instruction, understand it, calculate, talk to memory, store the answer.",
+            "technical": "The single-cycle datapath of Class 10 is cut into five pieces, one per stage. Each piece takes about one clock cycle, and registers hold the values between the pieces."
+          },
+          "deeper": "Other pipelines use different stage counts. Five is the textbook MIPS pipeline because it matches the five jobs every MIPS instruction does.",
+          "notes": {
+            "explain": "Click each box and read its caption. Link back to Class 10: the same hardware, divided into five groups. Point out that stages have names.",
+            "terms": [
+              "**IF** instruction fetch",
+              "**ID** instruction decode and register read",
+              "**EX** execute or address calculation",
+              "**MEM** memory access",
+              "**WB** write back"
+            ],
+            "misconceptions": [
+              "Students mix up ID (read registers) and WB (write registers)."
+            ],
+            "ask": "In which stage is the register file read? In which stage is it written?",
+            "minutes": 3,
+            "difficulty": "Easy"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "stages",
+          "title": "What three real instructions do in each stage",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "IF",
+                "ID",
+                "EX",
+                "MEM",
+                "WB"
+              ],
+              "rows": [
+                [
+                  "add $t0,$s1,$s2",
+                  "fetch",
+                  "read $s1, $s2",
+                  "add",
+                  "idle",
+                  "write $t0"
+                ],
+                [
+                  "lw $t0,8($s1)",
+                  "fetch",
+                  "read $s1",
+                  "$s1 + 8",
+                  "read memory",
+                  "write $t0"
+                ],
+                [
+                  "sw $t0,8($s1)",
+                  "fetch",
+                  "read $s1, $t0",
+                  "$s1 + 8",
+                  "write memory",
+                  "idle"
+                ]
+              ]
+            },
+            {
+              "type": "callout",
+              "tone": "why",
+              "text": "Every instruction is given all five stages, even when a stage has nothing to do (add skips MEM, sw skips WB). That keeps the timing regular: one stage per cycle.",
+              "reveal": true
+            }
+          ],
+          "why": "A uniform schedule is what lets different instruction types share one pipeline without bumping into each other.",
+          "notes": {
+            "explain": "Reveal the rows one by one. Ask what the idle cells mean. Idle means the instruction passes through without doing work.",
+            "misconceptions": [
+              "Students think add finishes sooner than lw. In this pipeline it does not: all instructions take five cycles."
+            ]
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "stages",
+          "skill": "Apply",
+          "question": "Which stage does the store instruction `sw $t0, 8($s1)` leave idle?",
+          "options": [
+            "IF",
+            "EX",
+            "MEM",
+            "WB"
+          ],
+          "answer": 3,
+          "why": "A store writes memory in MEM and has no register to write, so WB has nothing to do.",
+          "feedback": [
+            "Every instruction must be fetched.",
+            "The ALU computes the address $s1 + 8.",
+            "Memory is written in MEM: this is the whole point of the store.",
+            ""
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "stages",
+          "skill": "Remember",
+          "title": "Mini challenge",
+          "prompt": "Match each stage to its job.",
+          "pairs": [
+            {
+              "a": "IF",
+              "b": "Read the instruction from memory"
+            },
+            {
+              "a": "ID",
+              "b": "Decode and read registers"
+            },
+            {
+              "a": "EX",
+              "b": "ALU computes result or address"
+            },
+            {
+              "a": "MEM",
+              "b": "Read or write data memory"
+            },
+            {
+              "a": "WB",
+              "b": "Write the result to a register"
+            }
+          ],
+          "why": "The stage names follow the order of the work: fetch, decode, execute, memory, write back."
+        },
+        {
+          "type": "concept",
+          "concept": "pipereg",
+          "title": "Pipeline registers",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Five stages separated by pipeline registers",
+              "width": 950,
+              "height": 350,
+              "nodes": [
+                {
+                  "id": "h_if",
+                  "label": "IF  Fetch",
+                  "kind": "state",
+                  "x": 20,
+                  "y": 14,
+                  "w": 120,
+                  "h": 34
+                },
+                {
+                  "id": "h_id",
+                  "label": "ID  Decode",
+                  "kind": "state",
+                  "x": 216,
+                  "y": 14,
+                  "w": 120,
+                  "h": 34
+                },
+                {
+                  "id": "h_ex",
+                  "label": "EX  Execute",
+                  "kind": "state",
+                  "x": 412,
+                  "y": 14,
+                  "w": 120,
+                  "h": 34
+                },
+                {
+                  "id": "h_mem",
+                  "label": "MEM  Memory",
+                  "kind": "state",
+                  "x": 608,
+                  "y": 14,
+                  "w": 120,
+                  "h": 34
+                },
+                {
+                  "id": "h_wb",
+                  "label": "WB  Write back",
+                  "kind": "state",
+                  "x": 804,
+                  "y": 14,
+                  "w": 120,
+                  "h": 34
+                },
+                {
+                  "id": "if",
+                  "label": "Instruction\nmemory",
+                  "sub": "and PC + 4",
+                  "kind": "mem",
+                  "x": 20,
+                  "y": 70,
+                  "w": 120,
+                  "h": 120
+                },
+                {
+                  "id": "id",
+                  "label": "Register\nfile",
+                  "sub": "read two regs",
+                  "kind": "reg",
+                  "x": 216,
+                  "y": 70,
+                  "w": 120,
+                  "h": 120
+                },
+                {
+                  "id": "ex",
+                  "label": "ALU",
+                  "sub": "compute",
+                  "kind": "alu",
+                  "x": 417,
+                  "y": 70,
+                  "w": 110,
+                  "h": 120
+                },
+                {
+                  "id": "mem",
+                  "label": "Data\nmemory",
+                  "sub": "lw and sw",
+                  "kind": "mem",
+                  "x": 608,
+                  "y": 70,
+                  "w": 120,
+                  "h": 120
+                },
+                {
+                  "id": "wb",
+                  "label": "Write\nback",
+                  "sub": "result to reg",
+                  "kind": "unit",
+                  "x": 804,
+                  "y": 70,
+                  "w": 120,
+                  "h": 120
+                },
+                {
+                  "id": "r1",
+                  "label": "IF/\nID",
+                  "kind": "reg",
+                  "x": 160,
+                  "y": 55,
+                  "w": 36,
+                  "h": 150
+                },
+                {
+                  "id": "r2",
+                  "label": "ID/\nEX",
+                  "kind": "reg",
+                  "x": 356,
+                  "y": 55,
+                  "w": 36,
+                  "h": 150
+                },
+                {
+                  "id": "r3",
+                  "label": "EX/\nMEM",
+                  "kind": "reg",
+                  "x": 552,
+                  "y": 55,
+                  "w": 36,
+                  "h": 150
+                },
+                {
+                  "id": "r4",
+                  "label": "MEM/\nWB",
+                  "kind": "reg",
+                  "x": 748,
+                  "y": 55,
+                  "w": 36,
+                  "h": 150
+                },
+                {
+                  "id": "clk",
+                  "label": "One clock: every pipeline register loads at the same moment",
+                  "kind": "ctrl",
+                  "x": 160,
+                  "y": 262,
+                  "w": 624,
+                  "h": 34
+                }
+              ],
+              "edges": [
+                {
+                  "id": "ea0",
+                  "points": [
+                    [
+                      140,
+                      130
+                    ],
+                    [
+                      160,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "eb0",
+                  "points": [
+                    [
+                      196,
+                      130
+                    ],
+                    [
+                      216,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "ec0",
+                  "kind": "control",
+                  "points": [
+                    [
+                      178,
+                      262
+                    ],
+                    [
+                      178,
+                      205
+                    ]
+                  ]
+                },
+                {
+                  "id": "ea1",
+                  "points": [
+                    [
+                      336,
+                      130
+                    ],
+                    [
+                      356,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "eb1",
+                  "points": [
+                    [
+                      392,
+                      130
+                    ],
+                    [
+                      412,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "ec1",
+                  "kind": "control",
+                  "points": [
+                    [
+                      374,
+                      262
+                    ],
+                    [
+                      374,
+                      205
+                    ]
+                  ]
+                },
+                {
+                  "id": "ea2",
+                  "points": [
+                    [
+                      532,
+                      130
+                    ],
+                    [
+                      552,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "eb2",
+                  "points": [
+                    [
+                      588,
+                      130
+                    ],
+                    [
+                      608,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "ec2",
+                  "kind": "control",
+                  "points": [
+                    [
+                      570,
+                      262
+                    ],
+                    [
+                      570,
+                      205
+                    ]
+                  ]
+                },
+                {
+                  "id": "ea3",
+                  "points": [
+                    [
+                      728,
+                      130
+                    ],
+                    [
+                      748,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "eb3",
+                  "points": [
+                    [
+                      784,
+                      130
+                    ],
+                    [
+                      804,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "ec3",
+                  "kind": "control",
+                  "points": [
+                    [
+                      766,
+                      262
+                    ],
+                    [
+                      766,
+                      205
+                    ]
+                  ]
+                }
+              ],
+              "labels": [
+                {
+                  "x": 475,
+                  "y": 332,
+                  "text": "Every instruction moves one box to the right on each clock cycle.",
+                  "anchor": "middle"
+                }
+              ],
+              "steps": [
+                {
+                  "show": [
+                    "h_if",
+                    "h_id",
+                    "h_ex",
+                    "h_mem",
+                    "h_wb",
+                    "if",
+                    "id",
+                    "ex",
+                    "mem",
+                    "wb"
+                  ],
+                  "text": "Five **stages**, each with its own hardware. Left to right is the order every instruction visits them."
+                },
+                {
+                  "show": [
+                    "r1",
+                    "r2",
+                    "r3",
+                    "r4",
+                    "ea0",
+                    "ea1",
+                    "ea2",
+                    "ea3",
+                    "eb0",
+                    "eb1",
+                    "eb2",
+                    "eb3"
+                  ],
+                  "text": "**Pipeline registers** sit between the stages. At the end of a cycle each one captures what the stage before it produced."
+                },
+                {
+                  "show": [
+                    "clk",
+                    "ec0",
+                    "ec1",
+                    "ec2",
+                    "ec3"
+                  ],
+                  "text": "One shared **clock** loads all pipeline registers together. Then every instruction advances one stage, and each stage starts on a new instruction."
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "One instruction: lw $t0, 8($s1)",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "h_if",
+                        "if",
+                        "ea0",
+                        "r1"
+                      ],
+                      "values": {
+                        "if": "lw $t0, 8($s1)"
+                      },
+                      "text": "**Cycle 1, IF.** The PC addresses instruction memory. The fetched `lw` is saved in the IF/ID register."
+                    },
+                    {
+                      "highlight": [
+                        "h_id",
+                        "id",
+                        "r1",
+                        "eb0",
+                        "ea1",
+                        "r2"
+                      ],
+                      "values": {
+                        "id": "read $s1"
+                      },
+                      "text": "**Cycle 2, ID.** The instruction comes out of IF/ID. The register file supplies `$s1`. ID/EX saves the register value and the offset 8."
+                    },
+                    {
+                      "highlight": [
+                        "h_ex",
+                        "ex",
+                        "r2",
+                        "eb1",
+                        "ea2",
+                        "r3"
+                      ],
+                      "values": {
+                        "ex": "$s1 + 8"
+                      },
+                      "text": "**Cycle 3, EX.** The ALU adds `$s1` and 8 to make the memory address. EX/MEM saves it."
+                    },
+                    {
+                      "highlight": [
+                        "h_mem",
+                        "mem",
+                        "r3",
+                        "eb2",
+                        "ea3",
+                        "r4"
+                      ],
+                      "values": {
+                        "mem": "read word"
+                      },
+                      "text": "**Cycle 4, MEM.** Data memory reads the word at that address. MEM/WB saves it."
+                    },
+                    {
+                      "highlight": [
+                        "h_wb",
+                        "wb",
+                        "r4",
+                        "eb3"
+                      ],
+                      "values": {
+                        "wb": "$t0 = word"
+                      },
+                      "text": "**Cycle 5, WB.** The loaded word is written into `$t0` in the register file. The instruction is complete."
+                    }
+                  ]
+                },
+                {
+                  "name": "Five instructions at once",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "h_if",
+                        "if"
+                      ],
+                      "values": {
+                        "if": "I1 lw"
+                      },
+                      "text": "**Cycle 1.** Only instruction 1 is in the pipeline."
+                    },
+                    {
+                      "highlight": [
+                        "h_if",
+                        "if",
+                        "h_id",
+                        "id"
+                      ],
+                      "values": {
+                        "if": "I2 add",
+                        "id": "I1 lw"
+                      },
+                      "text": "**Cycle 2.** I1 moves on to ID, and I2 is fetched at the same time."
+                    },
+                    {
+                      "highlight": [
+                        "h_if",
+                        "if",
+                        "h_id",
+                        "id",
+                        "h_ex",
+                        "ex"
+                      ],
+                      "values": {
+                        "if": "I3 sub",
+                        "id": "I2 add",
+                        "ex": "I1 lw"
+                      },
+                      "text": "**Cycle 3.** Three instructions are in flight."
+                    },
+                    {
+                      "highlight": [
+                        "h_if",
+                        "if",
+                        "h_id",
+                        "id",
+                        "h_ex",
+                        "ex",
+                        "h_mem",
+                        "mem"
+                      ],
+                      "values": {
+                        "if": "I4 and",
+                        "id": "I3 sub",
+                        "ex": "I2 add",
+                        "mem": "I1 lw"
+                      },
+                      "text": "**Cycle 4.** Four stages are busy."
+                    },
+                    {
+                      "highlight": [
+                        "h_if",
+                        "if",
+                        "h_id",
+                        "id",
+                        "h_ex",
+                        "ex",
+                        "h_mem",
+                        "mem",
+                        "h_wb",
+                        "wb"
+                      ],
+                      "values": {
+                        "if": "I5 or",
+                        "id": "I4 and",
+                        "ex": "I3 sub",
+                        "mem": "I2 add",
+                        "wb": "I1 lw"
+                      },
+                      "text": "**Cycle 5: the pipeline is full.** Five different instructions are being worked on, one in each stage. I1 finishes now."
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "Without registers between stages, a stage would overwrite values the next stage still needs. They keep each instruction's data separate.",
+          "real": "On a real chip these are banks of flip-flops (storage that loads on a clock edge). For example, IF/ID holds the fetched 32-bit instruction and the value PC + 4.",
+          "explainAgain": {
+            "beginner": "A pipeline register is a tray between two stations. A station puts its finished work on the tray; at the next beat the next station takes it, and the first station starts on a new item.",
+            "technical": "Each pipeline register captures the outputs of a stage on the clock edge, so the next stage sees stable inputs for the whole next cycle. Control signals travel along with the instruction through these registers."
+          },
+          "deeper": "The registers are named by the two stages they separate: IF/ID, ID/EX, EX/MEM and MEM/WB. Each one is wider than the one before it needs to be for a simple instruction, because it must carry whatever later stages could need.",
+          "notes": {
+            "explain": "Click through the three build steps first, then use the first scenario to follow lw through the pipeline, then the second to show five instructions at once. Use the diagram height 1100 setting if projected.",
+            "terms": [
+              "**Pipeline register**",
+              "**Clock edge**",
+              "**In flight**: started but not finished"
+            ],
+            "misconceptions": [
+              "Students think pipeline registers are architectural registers like $t0. They are internal and invisible to the programmer."
+            ],
+            "ask": "What would go wrong with no register between EX and MEM?",
+            "minutes": 4,
+            "difficulty": "Medium"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "pipereg",
+          "skill": "Understand",
+          "question": "What is the main job of the register between the ID and EX stages?",
+          "options": [
+            "Hold the values ID produced so EX can use them next cycle while ID starts on a new instruction",
+            "Store the program counter permanently",
+            "Make the clock run faster",
+            "Hold the contents of main memory"
+          ],
+          "answer": 0,
+          "why": "Pipeline registers separate the stages: each stage works on its own instruction, and the register carries that instruction's data forward.",
+          "feedback": [
+            "",
+            "The PC is a separate architectural register.",
+            "The clock rate is set by the slowest stage, not by these registers.",
+            "Memory is a different unit. Pipeline registers are small and internal."
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "Name the five classic pipeline stages in order.",
+              "a": "IF, ID, EX, MEM, WB: instruction fetch, decode and register read, execute or address calculation, memory access, write back.",
+              "concept": "stages"
+            },
+            {
+              "q": "Why does an add pass through the MEM stage even though it does nothing there?",
+              "a": "Giving every instruction all five stages keeps the timing uniform, so one instruction can enter each cycle without conflicts.",
+              "concept": "stages"
+            },
+            {
+              "q": "What do pipeline registers do?",
+              "a": "They sit between stages and hold each instruction's values for the next stage, so five different instructions can be in the five stages in the same cycle.",
+              "concept": "pipereg"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "timing",
+      "label": "Timing",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "timing",
+          "title": "Reading a timing diagram",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8"
+              ],
+              "rows": [
+                [
+                  "I1  add $t0,$s1,$s2",
+                  "IF",
+                  "ID",
+                  "EX",
+                  "MEM",
+                  "WB",
+                  "",
+                  "",
+                  ""
+                ],
+                [
+                  "I2  sub $t1,$s3,$s4",
+                  "",
+                  "IF",
+                  "ID",
+                  "EX",
+                  "MEM",
+                  "WB",
+                  "",
+                  ""
+                ],
+                [
+                  "I3  and $t2,$s5,$s6",
+                  "",
+                  "",
+                  "IF",
+                  "ID",
+                  "EX",
+                  "MEM",
+                  "WB",
+                  ""
+                ],
+                [
+                  "I4  or $t3,$s7,$t8",
+                  "",
+                  "",
+                  "",
+                  "IF",
+                  "ID",
+                  "EX",
+                  "MEM",
+                  "WB"
+                ]
+              ]
+            },
+            {
+              "type": "callout",
+              "tone": "why",
+              "title": "Two things to notice",
+              "text": "Each row is one instruction and each column is one clock cycle. Instructions form a staircase, and each one starts one cycle after the one before.",
+              "reveal": true
+            }
+          ],
+          "why": "A timing diagram is how architects see overlap. You will draw one in nearly every pipeline exercise.",
+          "real": "Performance tools report instructions per cycle (IPC). A pipeline that stays full gets close to one instruction finished every cycle, so a CPI close to 1.",
+          "mistake": {
+            "wrong": "Four pipelined instructions still take 4 x 5 = 20 cycles in total.",
+            "right": "They take 5 + 3 = 8 cycles. Only the first instruction pays the full 5 cycles.",
+            "why": "After the pipeline fills, one instruction completes every cycle."
+          },
+          "notes": {
+            "explain": "Reveal one row at a time. After row 3, ask: what are I1, I2 and I3 doing in cycle 3?",
+            "terms": [
+              "**Timing diagram**",
+              "**Fill**: the first cycles while the pipeline is not yet full",
+              "**CPI**: clock cycles per instruction"
+            ],
+            "ask": "In which cycle does I3 finish?",
+            "minutes": 3,
+            "difficulty": "Easy"
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "timing",
+          "skill": "Apply",
+          "question": "In the simulator you are about to use, run the scenario with 8 independent instructions. Without pipelining that takes 8 x 5 = 40 cycles. How many cycles do you expect with pipelining?",
+          "options": [
+            "12",
+            "8",
+            "10",
+            "40"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "bullets",
+              "items": [
+                "The first instruction finishes in cycle 5.",
+                "Seven more instructions finish, one per cycle: cycles 6 to 12.",
+                "Total: 5 + 7 = 12 cycles (that is 8 + 4)."
+              ]
+            }
+          ],
+          "result": "12 cycles. Now check it in the simulator.",
+          "notes": {
+            "explain": "Collect answers by show of hands, then press Reveal."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "timing",
+          "title": "Try it: the pipeline simulator",
+          "blocks": [
+            {
+              "type": "pipeline",
+              "title": "Pipeline timing: independent instructions",
+              "hint": "Press **Play** or **Step one clock cycle**. Use the View button to compare with and without pipelining. Pick another scenario with the tabs.",
+              "controls": [
+                "compare"
+              ],
+              "scenarios": [
+                {
+                  "name": "Four independent instructions",
+                  "instructions": [
+                    "add $t0,$s1,$s2",
+                    "sub $t1,$s3,$s4",
+                    "and $t2,$s5,$s6",
+                    "or $t3,$s7,$t8"
+                  ],
+                  "note": "No instruction needs a result from another. The first finishes in cycle 5, then one more finishes every cycle: 8 cycles instead of 20."
+                },
+                {
+                  "name": "Loads, stores and ALU",
+                  "instructions": [
+                    "lw $t0,0($s0)",
+                    "lw $t1,4($s0)",
+                    "add $t2,$s1,$s2",
+                    "sw $s3,8($s0)",
+                    "sub $t3,$s4,$s5"
+                  ],
+                  "note": "Different instruction types use the same five stages. All five are independent, so the pipeline never waits."
+                },
+                {
+                  "name": "Only two instructions",
+                  "instructions": [
+                    "add $t0,$s1,$s2",
+                    "sub $t1,$s3,$s4"
+                  ],
+                  "note": "With so few instructions most of the time is spent filling and emptying the pipeline: the gain is small."
+                },
+                {
+                  "name": "Eight instructions",
+                  "instructions": [
+                    "add $t0,$s0,$s1",
+                    "sub $t1,$s2,$s3",
+                    "and $t2,$s4,$s5",
+                    "or $t3,$s6,$s7",
+                    "slt $t4,$s0,$s2",
+                    "addi $t5,$s1,10",
+                    "andi $t6,$s3,255",
+                    "ori $t7,$s5,1"
+                  ],
+                  "note": "From cycle 5 to cycle 8 all five stages are busy at once. The longer the run, the closer the gain gets to the number of stages."
+                }
+              ]
+            }
+          ],
+          "why": "Watching the staircase grow is the quickest way to see where the speedup comes from, and what limits it.",
+          "real": "Chip designers use cycle-by-cycle simulators like this one long before any silicon is made.",
+          "notes": {
+            "explain": "Run the four-instruction scenario with Step one clock cycle. Then flip View to Without pipelining and compare the totals. Try the two-instruction scenario to show that short runs gain little.",
+            "ask": "Why is the speedup smaller for two instructions than for eight?",
+            "discuss": "In this simulator, without pipelining means five cycles per instruction at the same clock rate. Class 11's multi-cycle design behaves like this.",
+            "misconceptions": [
+              "Students think the Without pipelining view is the single-cycle machine. Both views use the same cycle time here."
+            ],
+            "minutes": 4,
+            "difficulty": "Medium"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "timing",
+          "skill": "Apply",
+          "question": "In the Eight instructions scenario, in which clock cycle does the 8th instruction complete its WB stage?",
+          "options": [
+            "8",
+            "12",
+            "13",
+            "40"
+          ],
+          "answer": 1,
+          "why": "Instruction i completes in cycle i + 4, so instruction 8 completes in cycle 12.",
+          "feedback": [
+            "Cycle 8 is when instruction 8 is fetched, not when it finishes.",
+            "",
+            "Counting 8 + 5 is off by one: the first instruction already finishes in cycle 5.",
+            "40 is the number of cycles without pipelining."
+          ]
+        },
+        {
+          "type": "arrange",
+          "concept": "stages",
+          "skill": "Remember",
+          "title": "Mini challenge",
+          "prompt": "Put the life of `lw $t0, 8($s1)` in order.",
+          "items": [
+            "Fetch the instruction from instruction memory",
+            "Decode it and read $s1",
+            "The ALU adds $s1 + 8",
+            "Read the word from data memory",
+            "Write the word into $t0"
+          ],
+          "why": "The stage order IF, ID, EX, MEM, WB follows the order of the work."
+        },
+        {
+          "type": "concept",
+          "concept": "timing",
+          "title": "Draw it yourself: the rule",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "Total cycles",
+                  "note": "Clock cycles from the first IF to the last WB."
+                },
+                {
+                  "t": "="
+                },
+                {
+                  "t": "n",
+                  "note": "The number of instructions. Each one needs a cycle to enter the pipeline."
+                },
+                {
+                  "t": "+"
+                },
+                {
+                  "t": "(k − 1)",
+                  "note": "The extra cycles to fill the pipeline: k is the number of stages. For five stages this is 4."
+                }
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "Instruction number i enters stage s in cycle i + s - 1 (stages numbered 1 to 5).",
+                "So instruction 3 is in MEM (stage 4) in cycle 3 + 4 - 1 = 6.",
+                "Six instructions finish in 6 + 4 = 10 cycles."
+              ]
+            }
+          ],
+          "why": "Two quick rules let you fill in any timing diagram without drawing every cell.",
+          "notes": {
+            "explain": "Check the rule against the earlier diagram: I3 EX should be cycle 5, I4 WB cycle 8. This rule applies only to independent instructions; stalls from dependences are Class 13.",
+            "terms": [
+              "**k**: the number of stages",
+              "**n**: the number of instructions"
+            ],
+            "difficulty": "Medium"
+          }
+        },
+        {
+          "type": "find",
+          "concept": "timing",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "A student describes a pipeline diagram for five independent instructions. One statement is wrong. Click it.",
+          "lines": [
+            "1. Instruction 1 completes in cycle 5.",
+            "2. Instruction 2 completes in cycle 6.",
+            "3. All five instructions together take 5 x 5 = 25 cycles.",
+            "4. In cycle 4, instruction 4 is in IF and instruction 1 is in MEM."
+          ],
+          "wrong": 2,
+          "explain": "Five independent instructions take 5 + 4 = 9 cycles when pipelined. 25 cycles is the time without pipelining.",
+          "fix": "All five instructions together take 5 + 4 = 9 cycles."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "How do you read a pipeline timing diagram?",
+              "a": "Each row is an instruction and each column is a clock cycle. A cell names the stage the instruction is in during that cycle.",
+              "concept": "timing"
+            },
+            {
+              "q": "How many cycles do n independent instructions take in a 5-stage pipeline?",
+              "a": "n + 4 cycles: 4 cycles to fill the pipeline, then one instruction finishes per cycle.",
+              "concept": "timing"
+            },
+            {
+              "q": "In which cycle is instruction 3 in its MEM stage?",
+              "a": "Cycle 6: instruction i is in stage s in cycle i + s - 1, so 3 + 4 - 1 = 6.",
+              "concept": "timing"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "perf",
+      "label": "Performance",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "latency",
+          "title": "Latency versus throughput",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Latency",
+                "items": [
+                  "Time for ONE instruction, start to finish",
+                  "Example: 5 cycles",
+                  "Pipelining does not shrink it"
+                ]
+              },
+              "right": {
+                "title": "Throughput",
+                "items": [
+                  "Instructions finished per unit of time",
+                  "Example: one every cycle",
+                  "Pipelining raises it"
+                ]
+              }
+            },
+            {
+              "type": "table",
+              "head": [
+                "Same five stages (500 ps of work)",
+                "Cycle",
+                "One instruction takes",
+                "An instruction finishes every"
+              ],
+              "rows": [
+                [
+                  "Not pipelined",
+                  "500 ps",
+                  "500 ps",
+                  "500 ps"
+                ],
+                [
+                  "Pipelined (slowest stage is 150 ps)",
+                  "150 ps",
+                  "5 x 150 = 750 ps",
+                  "150 ps"
+                ]
+              ]
+            }
+          ],
+          "why": "Programs run billions of instructions, so the rate at which they finish decides how fast the program is, not how long a single one takes.",
+          "real": "A phone playing a game or video cares about throughput: how many instructions finish per second. A user never perceives the time of one instruction.",
+          "mistake": [
+            {
+              "wrong": "Pipelining makes each instruction run faster.",
+              "right": "Each instruction takes as long as before, often slightly longer. Pipelining finishes more instructions per second.",
+              "why": "One instruction still passes through all five stages, and every stage gets the slowest stage's time."
+            },
+            {
+              "wrong": "If one instruction takes longer, the program must be slower.",
+              "right": "The program finishes sooner because a new instruction finishes every cycle.",
+              "why": "Throughput, not latency, sets the running time of a long program."
+            }
+          ],
+          "explainAgain": {
+            "beginner": "A car still takes the same time to be built, but a new car rolls off the line every few minutes. The line did not speed up one car; it produced more cars per hour.",
+            "technical": "Latency per instruction = number of stages x pipelined clock period, which is at least the non-pipelined time. Throughput = one instruction per clock period in the ideal case."
+          },
+          "notes": {
+            "explain": "Show the table. Latency goes from 500 ps up to 750 ps, but an instruction finishes every 150 ps instead of every 500 ps. Delay is added by uneven stage times and in practice by pipeline register overhead.",
+            "terms": [
+              "**Latency**",
+              "**Throughput**"
+            ],
+            "misconceptions": [
+              "The most common wrong belief: pipelining makes each instruction faster."
+            ],
+            "ask": "A pipeline always shortens how long one instruction takes. True or false?",
+            "minutes": 3,
+            "difficulty": "Medium"
+          }
+        },
+        {
+          "type": "tf",
+          "concept": "latency",
+          "skill": "Understand",
+          "statement": "Pipelining reduces the time needed to complete a single instruction.",
+          "answer": false,
+          "why": "A single instruction still goes through all five stages, so its latency stays the same or grows slightly. What improves is how many instructions finish per second.",
+          "misconception": "Mixing up latency (one instruction) with throughput (many instructions)."
+        },
+        {
+          "type": "predict",
+          "concept": "speedup",
+          "skill": "Apply",
+          "question": "A pipeline has 5 perfectly balanced stages and runs a very long program with no stalls. About how many times faster is it than the same hardware without pipelining?",
+          "options": [
+            "About 2 times",
+            "About 5 times",
+            "About 10 times",
+            "About 25 times"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Without pipelining one instruction finishes every 5 stage-times. With a full pipeline one finishes every stage-time. The ratio is 5, the number of stages."
+            }
+          ],
+          "result": "About 5 times. Ideal speedup equals the number of balanced stages. Use the calculator to see how n and k change it.",
+          "notes": {
+            "explain": "Let students argue 2 vs 5 vs 10 before the reveal."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "speedup",
+          "title": "Try it: ideal speedup",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Ideal speedup with balanced stages",
+              "equation": "**Speedup = (n x k) / (n + k − 1)**   (balanced stages, no stalls)",
+              "inputs": [
+                {
+                  "id": "ks",
+                  "label": "Pipeline stages (k)",
+                  "value": 5,
+                  "min": 2,
+                  "max": 10,
+                  "step": 1
+                },
+                {
+                  "id": "tp",
+                  "label": "Time per stage",
+                  "value": 100,
+                  "min": 50,
+                  "max": 200,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "ni",
+                  "label": "Instructions (n)",
+                  "value": 8,
+                  "min": 1,
+                  "max": 1000,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "Without pipelining",
+                  "formula": "ni*ks*tp*1e-12",
+                  "format": "time",
+                  "better": "lower"
+                },
+                {
+                  "label": "With pipelining",
+                  "formula": "(ni+ks-1)*tp*1e-12",
+                  "format": "time",
+                  "better": "lower"
+                },
+                {
+                  "label": "Speedup",
+                  "formula": "(ni*ks)/(ni+ks-1)",
+                  "format": "x",
+                  "digits": 2
+                },
+                {
+                  "label": "Ideal limit for a very long run",
+                  "formula": "ks",
+                  "format": "x",
+                  "digits": 0
+                }
+              ],
+              "trace": "{ni} instructions: speedup {r2}, limit {r3}"
+            },
+            {
+              "type": "callout",
+              "tone": "warn",
+              "text": "Ideal means no stalls: every instruction is independent. Real programs have dependences and branches that make the pipeline wait. That is Class 13.",
+              "reveal": true
+            }
+          ],
+          "why": "A pipeline with k balanced stages can be up to k times faster. That is why designers use several stages, but only if the pipeline stays full.",
+          "real": "The same idea applies to factory lines and to GPU and network hardware: more stages in a balanced line means more finished work per second.",
+          "notes": {
+            "explain": "Start with n = 8 (speedup 3.33), then slide n to 1000. The speedup approaches 5. Then change k to 10 (the limit becomes 10). Ask why n = 1 gives a speedup of 1.",
+            "terms": [
+              "**Ideal speedup**: the number of balanced stages",
+              "**Fill and drain**: the cycles at the start and end when the pipeline is not full"
+            ],
+            "ask": "Why is the speedup below 5 for a short program?",
+            "minutes": 3,
+            "difficulty": "Medium"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "speedup",
+          "skill": "Apply",
+          "question": "A balanced 5-stage pipeline runs 100 independent instructions. Compare the cycles with 5 cycles per instruction without pipelining. About what speedup?",
+          "options": [
+            "5.00",
+            "4.81",
+            "2.50",
+            "20"
+          ],
+          "answer": 1,
+          "why": "Without: 100 x 5 = 500 cycles. With: 100 + 4 = 104 cycles. Speedup 500 / 104 = 4.81, close to but below the ideal 5.",
+          "feedback": [
+            "5 is the limit only for an infinitely long run. The 4 fill cycles keep it slightly below.",
+            "",
+            "That would be the speedup for a very short run, not 100 instructions.",
+            "The speedup of a 5-stage pipeline cannot exceed 5."
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "balance",
+          "title": "Why the stages must be balanced",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Stages that are not balanced",
+              "equation": "**Clock cycle = slowest stage.   Long-run speedup = sum of stage times ÷ slowest stage**",
+              "inputs": [
+                {
+                  "id": "tf",
+                  "label": "IF stage",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "td",
+                  "label": "ID stage",
+                  "value": 80,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "te",
+                  "label": "EX stage",
+                  "value": 120,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "tm",
+                  "label": "MEM stage",
+                  "value": 150,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "tw",
+                  "label": "WB stage",
+                  "value": 50,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Non-pipelined cycle (sum of stages)",
+                  "formula": "(tf+td+te+tm+tw)*1e-12",
+                  "format": "time"
+                },
+                {
+                  "label": "Pipelined cycle (slowest stage)",
+                  "formula": "max(max(max(tf,td),max(te,tm)),tw)*1e-12",
+                  "format": "time"
+                },
+                {
+                  "label": "Long-run speedup",
+                  "formula": "(tf+td+te+tm+tw)/max(max(max(tf,td),max(te,tm)),tw)",
+                  "format": "x",
+                  "digits": 2,
+                  "better": "higher"
+                },
+                {
+                  "label": "One instruction, start to finish, pipelined",
+                  "formula": "5*max(max(max(tf,td),max(te,tm)),tw)*1e-12",
+                  "format": "time",
+                  "better": "lower"
+                }
+              ],
+              "trace": "cycle {r1}, speedup {r2}, one instruction takes {r3}"
+            }
+          ],
+          "why": "The clock must be slow enough for the slowest stage. Fast stages wait for it, and the ideal speedup of 5 is lost.",
+          "real": "Designers try to spread the work evenly, and some cores split a slow stage in two. This is one reason high-performance pipelines have more than five stages.",
+          "mistake": {
+            "wrong": "A 5-stage pipeline always gives a 5 times speedup.",
+            "right": "5 times is the ideal. Unequal stages and an unfilled pipeline both reduce it.",
+            "why": "The clock cycle equals the slowest stage, and the pipeline needs time to fill."
+          },
+          "deeper": "Real pipeline registers add a small delay to every cycle, so the speedup is a bit lower than these numbers. More stages also raise the cost of a pipeline that has to wait or be emptied. That is a Class 13 and Class 14 story.",
+          "notes": {
+            "explain": "Defaults: stages 100, 80, 120, 150, 50 ps. The slowest is 150, the sum is 500, so the speedup is 3.33, not 5. Make MEM 100 and watch EX (120) become the limit. Then make them all equal to reach 5.",
+            "terms": [
+              "**Balanced stages**: about equal time per stage"
+            ],
+            "misconceptions": [
+              "Students think speeding up any stage helps. Only the slowest stage sets the clock."
+            ],
+            "ask": "Which single stage should you speed up first?",
+            "minutes": 3,
+            "difficulty": "Medium"
+          }
+        },
+        {
+          "type": "tps",
+          "concept": "balance",
+          "skill": "Analyze",
+          "title": "Think, pair, share",
+          "prompt": "Five stages take 100, 100, 100, 100 and 300 ps. (a) What is the pipelined clock cycle and the long-run speedup over the non-pipelined machine? (b) If the 300 ps stage could be split into three 100 ps stages, what would change?",
+          "think": 30,
+          "pair": 45,
+          "answer": "(a) The clock is 300 ps (the slowest stage). The non-pipelined cycle is 700 ps, so the speedup is 700 / 300 = 2.33. (b) The stages become seven of 100 ps each: the clock is 100 ps and the long-run speedup is 700 / 100 = 7, at the cost of a longer pipeline.",
+          "notes": {
+            "explain": "Let pairs use the calculator while they discuss, but note that it has five stage inputs. Stress that splitting a stage is a design decision."
+          }
+        },
+        {
+          "type": "discussion",
+          "concept": "latency",
+          "title": "Discussion",
+          "question": "If pipelining does not make any single instruction faster, why do almost all processors use it?",
+          "seconds": 60,
+          "ideas": [
+            "A program is billions of instructions, so the rate of finishing them is what matters.",
+            "The same hardware does more work per second because all stages stay busy.",
+            "The clock cycle can be as short as the slowest stage, not the sum of all stages.",
+            "The gain is limited by unbalanced stages, short runs and (next class) hazards."
+          ],
+          "notes": {
+            "explain": "Let groups argue both sides before revealing. Link back to the CPU equation of Class 3: pipelining mainly lowers cycle time and CPI for the same instruction count."
+          }
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What is the difference between latency and throughput?",
+              "a": "Latency is the time for one instruction from start to finish. Throughput is how many instructions finish per unit time. Pipelining improves throughput, not latency.",
+              "concept": "latency"
+            },
+            {
+              "q": "What is the ideal speedup of a pipeline?",
+              "a": "The number of balanced stages (5 for the classic MIPS pipeline), for a long run with no stalls.",
+              "concept": "speedup"
+            },
+            {
+              "q": "Why can unbalanced stages reduce the speedup?",
+              "a": "The clock must fit the slowest stage, so the faster stages sit partly idle.",
+              "concept": "balance"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 11,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "stages",
+          "skill": "Remember",
+          "think": 25,
+          "question": "Write the five classic pipeline stages in order and give a short phrase for each.",
+          "answer": "IF instruction fetch; ID decode and read registers; EX execute (ALU) or address calculation; MEM data memory access; WB write the result back to a register.",
+          "solution": "The order follows the work an instruction needs: get it, understand it, compute, use memory, store the result.",
+          "mistake": "Swapping ID and EX, or putting WB before MEM."
+        },
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "pipereg",
+          "skill": "Understand",
+          "think": 25,
+          "question": "What is a pipeline register and why does a pipeline need them?",
+          "answer": "A register placed between two stages that holds the values one stage produced, so the next stage can use them in the next cycle while the earlier stage works on a new instruction.",
+          "solution": "Without them, a stage working on a new instruction would overwrite data that the next stage still needs.",
+          "mistake": "Thinking pipeline registers are visible registers such as $t0."
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "timing",
+          "skill": "Apply",
+          "think": 45,
+          "question": "Four independent instructions run in a 5-stage pipeline, one stage per cycle. (a) In which clock cycle is the third instruction (C) in MEM? (b) In which cycle does the fourth (D) finish?",
+          "code": "A  add $t0,$s1,$s2\nB  sub $t1,$s3,$s4\nC  and $t2,$s5,$s6\nD  or  $t3,$s7,$t8",
+          "answer": "(a) Cycle 6. (b) Cycle 8.",
+          "solution": "Instruction i is in stage s in cycle i + s - 1. For C (i = 3), MEM (s = 4): 3 + 4 - 1 = 6. D (i = 4) finishes WB (s = 5) in cycle 4 + 5 - 1 = 8, which is also 4 + 4.",
+          "hint": "Use the rule: cycle = i + s - 1. Check with the simulator's first scenario.",
+          "mistake": "Counting cycle 5 as the finish of every instruction, or forgetting that each instruction starts one cycle later."
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "timing",
+          "skill": "Apply",
+          "think": 45,
+          "question": "Six independent instructions I1 to I6 run in a 5-stage pipeline. During clock cycle 5, which instruction is in each stage?",
+          "answer": "IF: I5, ID: I4, EX: I3, MEM: I2, WB: I1. (I6 has not been fetched yet.)",
+          "solution": "I_i is in IF in cycle i, ID in i + 1, EX in i + 2, MEM in i + 3 and WB in i + 4. In cycle 5: I5 in IF, I4 in ID, I3 in EX, I2 in MEM, I1 in WB.",
+          "mistake": "Putting I1 in IF: cycle 5 is when the first instruction is almost done."
+        },
+        {
+          "type": "find",
+          "concept": "speedup",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "A student works out the pipeline gain for 10 independent instructions with 5 balanced stages of 100 ps. One line is wrong. Click it.",
+          "lines": [
+            "1. Not pipelined: 10 x 500 ps = 5000 ps.",
+            "2. Pipelined: 10 x 100 ps = 1000 ps.",
+            "3. So the speedup is 5000 / 1000 = 5.",
+            "4. The speedup of 5 is the ideal limit for 5 balanced stages."
+          ],
+          "wrong": 1,
+          "explain": "The pipeline also needs 4 cycles to fill, so 10 instructions take (10 + 4) x 100 = 1400 ps. The speedup is 5000 / 1400 = 3.57, below the ideal 5.",
+          "fix": "Pipelined: (10 + 4) x 100 ps = 1400 ps, speedup 3.57."
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "speedup",
+          "skill": "Apply",
+          "think": 60,
+          "question": "A pipeline has 5 balanced stages of 100 ps each. A program has 20 independent instructions. Find the time without pipelining (500 ps per instruction), the time with pipelining, and the speedup.",
+          "answer": "Without: 10,000 ps. With: 2,400 ps. Speedup about 4.17.",
+          "solution": "Without: 20 x 500 = 10,000 ps. With: (20 + 4) x 100 = 2,400 ps. Speedup 10,000 / 2,400 = 4.17, below the ideal 5 because of the 4 fill cycles.",
+          "mistake": "Using 20 x 100 for the pipelined time and forgetting to add the 4 fill cycles."
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "latency",
+          "skill": "Analyze",
+          "think": 60,
+          "question": "A 5-stage pipelined processor has a 200 ps clock. At best, how many instructions finish per second, and how long does one instruction take from fetch to completion?",
+          "answer": "At best 5 billion instructions per second (one every 200 ps). One instruction takes 5 x 200 ps = 1000 ps = 1 ns.",
+          "solution": "Throughput is one instruction per cycle: 1 / 200 ps = 5 x 10^9 per second. Latency is 5 cycles x 200 ps = 1 ns.",
+          "mistake": "Answering 200 ps for the time of one instruction: that is the time between completions."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "speedup",
+          "skill": "Evaluate",
+          "think": 90,
+          "question": "A 5-stage pipeline has balanced stages and no stalls. How many instructions must the program have for the speedup over 5-cycles-per-instruction execution to reach at least 4.5, which is 90% of the ideal?",
+          "answer": "At least 36 instructions.",
+          "solution": "Speedup = 5n / (n + 4). Set 5n / (n + 4) >= 4.5, so 5n >= 4.5n + 18, so 0.5n >= 18, so n >= 36. Check: n = 36 gives 180 / 40 = 4.5 exactly, and n = 35 gives 4.49.",
+          "hint": "Write the speedup in terms of n and solve the inequality.",
+          "mistake": "Setting n + 4 = 5, or forgetting that the speedup can never reach 5 exactly."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "balance",
+          "skill": "Apply",
+          "title": "Exam practice: numerical",
+          "think": 90,
+          "question": "A processor's five stages take 110, 70, 130, 160 and 60 ps. (a) What is the clock cycle if the whole instruction runs in one cycle, and what is it if the stages are pipelined? (b) How long do 1000 instructions take each way? (c) What is the speedup?",
+          "answer": "(a) 530 ps (sum) versus 160 ps (slowest stage). (b) 1000 x 530 = 530,000 ps = 530 ns, versus (1000 + 4) x 160 = 160,640 ps, about 160.6 ns. (c) about 3.30.",
+          "solution": "The single-cycle clock must fit all stages: 110 + 70 + 130 + 160 + 60 = 530 ps. A pipelined clock must fit only the slowest stage, MEM at 160 ps. The pipelined run needs 1004 cycles. The speedup is 530,000 / 160,640 = 3.30, below 5 because the stages are unbalanced.",
+          "mistake": "Using 5 as the speedup (the ideal) without checking whether the stages are balanced."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "latency",
+          "skill": "Evaluate",
+          "title": "Exam practice: conceptual",
+          "think": 75,
+          "question": "Explain in your own words why pipelining improves throughput but does not make one instruction finish sooner. Give one reason the latency can even grow.",
+          "answer": "An instruction must still pass through every stage, one per cycle, so its time is at least the stage count x the cycle. Throughput improves because a new instruction finishes every cycle. Latency can grow because the clock must fit the slowest stage, and every stage gets that long (and register delays add up).",
+          "solution": "Overlap raises the number of instructions finished per second, but each instruction's own work is unchanged. If stages are unequal, a fast stage still gets the long cycle time, so the pipelined latency can exceed the non-pipelined latency.",
+          "mistake": "Saying pipelining shortens each instruction."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "timing",
+          "skill": "Analyze",
+          "title": "Exam practice: timing diagram",
+          "think": 90,
+          "question": "A diagram starts like this. Seven independent instructions run in the 5-stage pipeline. (a) Which stage is I4 in during cycle 7? (b) In which cycle does I7 finish? (c) What is the CPI for the whole run?",
+          "code": "Cycle  1  2  3  4  5  6  7\nI1     IF ID EX ME WB\nI2        IF ID EX ME WB\nI3           IF ID EX ME WB\nI4              IF ID EX ME WB\n...",
+          "answer": "(a) MEM. (b) Cycle 11. (c) CPI = 11 / 7 = 1.57.",
+          "solution": "I4 enters IF in cycle 4, so ID is 5, EX is 6 and MEM is 7. I7 finishes in cycle 7 + 4 = 11. CPI is total cycles divided by instructions: 11 / 7 = 1.57. It gets closer to 1 for longer runs.",
+          "mistake": "Writing CPI = 5 (the number of stages) instead of cycles divided by instructions."
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "speedup",
+          "skill": "Apply",
+          "title": "Exam practice: performance calculation",
+          "think": 90,
+          "question": "A 5-stage pipelined MIPS processor runs at 2 GHz with no stalls. How long does it take to execute 1,000,000 independent instructions, and what is its CPI?",
+          "answer": "1,000,004 cycles x 0.5 ns = 500,002 ns, about 0.5 ms. CPI = 1,000,004 / 1,000,000, about 1.",
+          "solution": "A 2 GHz clock has a 0.5 ns cycle. With n = 1,000,000 instructions the run takes n + 4 = 1,000,004 cycles, so 500,002 ns. CPI is cycles per instruction, very close to 1. The 4 fill cycles barely matter for a long run.",
+          "mistake": "Multiplying by 5 stages (5,000,000 cycles), which is the non-pipelined count."
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Pipelining",
+          "branches": [
+            {
+              "label": "The problem",
+              "example": "One instruction at a time leaves hardware idle",
+              "section": "problem"
+            },
+            {
+              "label": "Five stages",
+              "example": "IF, ID, EX, MEM, WB",
+              "section": "stages"
+            },
+            {
+              "label": "Pipeline registers",
+              "example": "IF/ID, ID/EX, EX/MEM, MEM/WB",
+              "section": "stages"
+            },
+            {
+              "label": "Timing diagrams",
+              "example": "n + 4 cycles for n instructions",
+              "section": "timing"
+            },
+            {
+              "label": "Latency vs throughput",
+              "example": "Same latency, more instructions per second",
+              "section": "perf"
+            },
+            {
+              "label": "Ideal speedup",
+              "example": "Number of balanced stages",
+              "section": "perf"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Pipelining overlaps different instructions, each in a different stage, so all the hardware stays busy.",
+            "The classic MIPS stages are IF, ID, EX, MEM and WB.",
+            "Pipeline registers between the stages hold each instruction's values for the next stage.",
+            "In a timing diagram each row is an instruction and each column a clock cycle. n independent instructions take n + 4 cycles in 5 stages.",
+            "Pipelining raises throughput; it does not shrink the latency of one instruction.",
+            "Ideal speedup equals the number of balanced stages, reached only for long runs with no stalls.",
+            "The clock cycle must fit the slowest stage, so unbalanced stages lower the speedup."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "Pipelining makes each instruction faster.",
+              "right": "Each takes the same or longer. More instructions finish per second."
+            },
+            {
+              "wrong": "A 5-stage pipeline is always 5 times faster.",
+              "right": "5 is the ideal: balanced stages, a full pipeline, a long run."
+            },
+            {
+              "wrong": "Four pipelined instructions take 4 x 5 = 20 cycles.",
+              "right": "They take 4 + 4 = 8 cycles."
+            },
+            {
+              "wrong": "Pipelining runs steps of one instruction at the same time.",
+              "right": "It overlaps different instructions in different stages."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Running one instruction at a time leaves most hardware idle. A pipeline divides each instruction into five stages (IF, ID, EX, MEM, WB) separated by pipeline registers, and starts a new instruction every cycle. In a timing diagram, n independent instructions take n + 4 cycles. Latency stays the same, but throughput rises toward one instruction per cycle, so the ideal speedup is the number of balanced stages. Unbalanced stages and short runs reduce it. Dependences and branches, which make a pipeline wait, come next class."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "stages",
+              "question": "Which is the correct order of the classic five MIPS pipeline stages?",
+              "options": [
+                "IF, ID, EX, MEM, WB",
+                "ID, IF, EX, MEM, WB",
+                "IF, EX, ID, WB, MEM",
+                "IF, ID, MEM, EX, WB"
+              ],
+              "answer": 0,
+              "why": "Fetch, decode, execute, memory access, write back.",
+              "misconception": "The order follows the work: an instruction is fetched before decoding and uses the ALU before memory."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "problem",
+              "statement": "In a pipeline, a new instruction can start before the previous instruction has finished.",
+              "answer": true,
+              "why": "That overlap is what pipelining is: each instruction is in a different stage.",
+              "misconception": "Without pipelining the next instruction would wait for the current one to finish."
+            },
+            {
+              "level": "easy",
+              "concept": "pipereg",
+              "question": "What do pipeline registers do?",
+              "options": [
+                "Hold a stage's results for the next stage while the earlier stage starts a new instruction",
+                "Store the program permanently",
+                "Replace the clock",
+                "Hold the contents of main memory"
+              ],
+              "answer": 0,
+              "why": "They separate the stages so five instructions can be in flight.",
+              "misconception": "Pipeline registers are small internal registers, not the $t0-style registers a programmer sees."
+            },
+            {
+              "level": "medium",
+              "concept": "timing",
+              "question": "Six independent instructions run in a 5-stage pipeline with no stalls. How many clock cycles do they take?",
+              "options": [
+                "30",
+                "10",
+                "6",
+                "11"
+              ],
+              "answer": 1,
+              "why": "n + 4 = 6 + 4 = 10 cycles.",
+              "misconception": "30 is the non-pipelined time (6 x 5). The first instruction needs 5 cycles, then one more finishes each cycle.",
+              "feedback": [
+                "30 is the time without pipelining.",
+                "",
+                "6 forgets the cycles needed to fill the pipeline.",
+                "That is off by one: instruction 1 already finishes in cycle 5."
+              ]
+            },
+            {
+              "level": "medium",
+              "concept": "speedup",
+              "question": "A balanced 5-stage pipeline runs a very long program with no stalls. About how much faster is it than the non-pipelined version?",
+              "options": [
+                "About 5 times",
+                "About 2 times",
+                "About 10 times",
+                "Exactly 1 time"
+              ],
+              "answer": 0,
+              "why": "Ideal speedup equals the number of balanced stages.",
+              "misconception": "Speedup cannot exceed the stage count: stages do not run a program faster on their own."
+            },
+            {
+              "level": "medium",
+              "concept": "latency",
+              "question": "Five balanced stages of 100 ps each are pipelined. About how long does one instruction take from fetch to completion?",
+              "options": [
+                "About 100 ps",
+                "About 500 ps",
+                "About 250 ps",
+                "About 1000 ps"
+              ],
+              "answer": 1,
+              "why": "5 stages x 100 ps = 500 ps, the same as without pipelining (ignoring register delay).",
+              "misconception": "100 ps is the time between completions (throughput), not the time of one instruction."
+            },
+            {
+              "level": "hard",
+              "concept": "balance",
+              "question": "Stages take 80, 120, 100, 200 and 100 ps. What is the long-run speedup of pipelining over a non-pipelined machine whose cycle is the sum of the stages?",
+              "options": [
+                "5.0",
+                "3.0",
+                "2.0",
+                "6.0"
+              ],
+              "answer": 1,
+              "why": "The sum is 600 ps and the slowest stage is 200 ps, so the speedup is 600 / 200 = 3.0.",
+              "misconception": "The ideal 5 applies only when stages are balanced; the slowest stage sets the clock."
+            },
+            {
+              "level": "hard",
+              "concept": "timing",
+              "question": "Eight independent instructions run in a 5-stage pipeline. In cycle 6, which stage is instruction 3 in?",
+              "options": [
+                "IF",
+                "EX",
+                "MEM",
+                "WB"
+              ],
+              "answer": 2,
+              "why": "Instruction i is in stage s in cycle i + s - 1. For i = 3 and cycle 6, s = 4: MEM.",
+              "misconception": "Counting from cycle 1 instead of from the instruction's own start cycle gives the wrong stage."
+            },
+            {
+              "level": "challenge",
+              "concept": "balance",
+              "question": "Stages take 90, 60, 100, 140 and 70 ps. Engineers can speed up the WB stage (70 to 40 ps) or split the 140 ps MEM stage into two 70 ps stages. Which gives the greater long-run throughput?",
+              "options": [
+                "Speeding up WB: it improves the pipeline by about 1.4 times",
+                "Splitting MEM: the clock goes from 140 ps to 100 ps, about 1.4 times",
+                "They give the same improvement",
+                "Neither changes the clock"
+              ],
+              "answer": 1,
+              "why": "The clock is the slowest stage. After splitting MEM the stages are 90, 60, 100, 70, 70 and 70, so the slowest is 100 ps: a 140 / 100 = 1.4 times higher rate. Speeding up WB leaves the 140 ps stage as the limit, so there is no change.",
+              "misconception": "Speeding up a stage that is not the slowest does nothing for the clock cycle."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "Why does a non-pipelined design waste hardware?",
+              "a": "Only one stage is busy in any cycle, so the other units sit idle while the instruction moves through.",
+              "concept": "problem"
+            },
+            {
+              "q": "Name the five stages and one job for each.",
+              "a": "IF fetch, ID decode and read registers, EX ALU or address, MEM data memory, WB write the result.",
+              "concept": "stages"
+            },
+            {
+              "q": "What is a pipeline register and where does it sit?",
+              "a": "A register between two stages (IF/ID, ID/EX, EX/MEM, MEM/WB) that holds one stage's results for the next.",
+              "concept": "pipereg"
+            },
+            {
+              "q": "How many cycles do n independent instructions take in a 5-stage pipeline?",
+              "a": "n + 4 cycles.",
+              "concept": "timing"
+            },
+            {
+              "q": "What is the difference between latency and throughput, and which does pipelining improve?",
+              "a": "Latency is the time for one instruction; throughput is instructions finished per unit time. Pipelining improves throughput.",
+              "concept": "latency"
+            },
+            {
+              "q": "What is the ideal speedup, and what lowers it?",
+              "a": "The number of balanced stages. Unbalanced stages and short runs lower it.",
+              "concept": "speedup"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

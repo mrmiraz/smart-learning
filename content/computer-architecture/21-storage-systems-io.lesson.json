@@ -1,0 +1,1234 @@
+{
+  "id": "ca-21-storage-systems-io",
+  "title": "Storage Systems and I/O",
+  "subtitle": "Disks, flash and how the computer talks to the outside world.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "CAQA",
+      "chapter": "6",
+      "title": "Storage Systems",
+      "topics": "Types of storage devices (disks, flash); I/O performance: latency and bandwidth; the storage hierarchy"
+    },
+    {
+      "book": "COD",
+      "chapter": "I/O and storage reading (unconfirmed)",
+      "title": "Storage and I/O",
+      "topics": "The 5th edition has no dedicated storage chapter; the reading for this class is to be confirmed by the course author"
+    }
+  ],
+  "objectives": [
+    "Describe how a hard disk works and what makes up its access time",
+    "Explain how SSDs and flash differ from disks",
+    "Distinguish sequential from random access and quantify the gap",
+    "Define I/O latency, bandwidth and IOPS and calculate them",
+    "Explain how I/O limits overall performance (Amdahl's Law)"
+  ],
+  "concepts": [
+    {
+      "id": "hdd",
+      "label": "Hard disks",
+      "section": "hdd"
+    },
+    {
+      "id": "flash",
+      "label": "SSD and flash",
+      "section": "flash"
+    },
+    {
+      "id": "perf",
+      "label": "Access time and I/O performance",
+      "section": "perf"
+    },
+    {
+      "id": "io",
+      "label": "I/O devices and the storage hierarchy",
+      "section": "io"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "Your processor can run billions of instructions per second. Why does opening a big file still make you wait?",
+          "clues": [
+            "A disk access takes **millions of CPU cycles**.",
+            "**Random** accesses are far slower than **sequential** ones.",
+            "Overall speed is limited by the slowest part: **I/O**."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "hdd",
+      "label": "Hard disks",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "hdd",
+          "title": "Inside a hard disk drive (HDD)",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**Platters**: spinning magnetic disks (for example 7,200 revolutions per minute)",
+                "**Tracks** are concentric circles; each is divided into **sectors** (typically 512 bytes or 4 KiB)",
+                "A **head** on a moving arm reads and writes; all heads move together",
+                "A request needs the arm to move to the right track, then wait for the sector to rotate under the head"
+              ]
+            }
+          ],
+          "why": "Because a disk has mechanical parts, its access time is measured in milliseconds, a million times slower than a register.",
+          "real": "Hard disks still store most of the world's data because they are cheap per byte.",
+          "explainAgain": {
+            "beginner": "A record player: the needle (head) must move to the right groove (track) and then wait for the song (sector) to come around."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "hdd",
+          "title": "The four parts of a disk access",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Part",
+                "What it is",
+                "Typical"
+              ],
+              "rows": [
+                [
+                  "Seek time",
+                  "Moving the arm to the right track",
+                  "3 to 10 ms (average about 4 ms is common)"
+                ],
+                [
+                  "Rotational latency",
+                  "Waiting for the sector to arrive under the head; on average half a rotation",
+                  "4.17 ms at 7,200 RPM"
+                ],
+                [
+                  "Transfer time",
+                  "Reading the data as it passes under the head",
+                  "tens of microseconds for 4 KiB"
+                ],
+                [
+                  "Controller overhead",
+                  "The disk controller and the bus",
+                  "about 0.1 to 1 ms"
+                ]
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "average rotational latency = 0.5 × 60 s ÷ RPM",
+                  "note": "half a rotation: 0.5 × 60,000 ms ÷ 7,200 = 4.17 ms"
+                },
+                {
+                  "t": "access time = seek + rotational latency + transfer + overhead",
+                  "note": "the sum of the four parts"
+                }
+              ]
+            }
+          ],
+          "why": "Seek and rotation dominate: the transfer is tiny. That is why disks love big, sequential transfers.",
+          "real": "Faster spindles (10,000 or 15,000 RPM) cut the rotational latency to 3 or 2 ms.",
+          "mistake": {
+            "wrong": "Rotational latency is a full rotation.",
+            "right": "On average the sector is half a rotation away."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "hdd",
+          "title": "Calculate: disk access time",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Average disk access time (illustrative numbers)",
+              "equation": "Access time = seek + rotational latency + transfer + controller overhead",
+              "inputs": [
+                {
+                  "id": "rpm",
+                  "label": "Spindle speed",
+                  "value": 7200,
+                  "min": 4200,
+                  "max": 15000,
+                  "step": 100,
+                  "unit": "RPM"
+                },
+                {
+                  "id": "seek",
+                  "label": "Average seek",
+                  "value": 4,
+                  "min": 1,
+                  "max": 12,
+                  "step": 0.5,
+                  "unit": "ms"
+                },
+                {
+                  "id": "rate",
+                  "label": "Transfer rate",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "MB/s"
+                },
+                {
+                  "id": "kb",
+                  "label": "Request size",
+                  "value": 4,
+                  "min": 1,
+                  "max": 1024,
+                  "step": 1,
+                  "unit": "KB"
+                },
+                {
+                  "id": "ovh",
+                  "label": "Controller overhead",
+                  "value": 0.1,
+                  "min": 0,
+                  "max": 1,
+                  "step": 0.05,
+                  "unit": "ms"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Rotational latency (average)",
+                  "formula": "30000 / rpm",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "ms"
+                },
+                {
+                  "label": "Transfer time",
+                  "formula": "kb * 1024 / (rate * 1000)",
+                  "format": "num",
+                  "digits": 3,
+                  "unit": "ms"
+                },
+                {
+                  "label": "Access time",
+                  "formula": "seek + 30000/rpm + kb*1024/(rate*1000) + ovh",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "ms"
+                },
+                {
+                  "label": "Requests per second",
+                  "formula": "1000 / (seek + 30000/rpm + kb*1024/(rate*1000) + ovh)",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Throughput",
+                  "formula": "kb * 1024 * (1000 / (seek + 30000/rpm + kb*1024/(rate*1000) + ovh)) / 1000000",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "MB/s"
+                }
+              ]
+            }
+          ],
+          "why": "A random 4 KB read takes 8.31 ms: about 120 requests per second, or only 0.49 MB/s on a drive that can stream 100 MB/s. Raise the request size to 1024 KB and watch the throughput climb."
+        },
+        {
+          "type": "predict",
+          "concept": "hdd",
+          "skill": "Apply",
+          "question": "A 7,200 RPM disk. What is the average rotational latency?",
+          "options": [
+            "4.17 ms",
+            "8.33 ms",
+            "0.5 ms",
+            "16.7 ms"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "One rotation takes 60 ÷ 7,200 s = 8.33 ms. On average the data is half a rotation away: **4.17 ms**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "At 15,000 RPM it is 2 ms."
+        },
+        {
+          "type": "predict",
+          "concept": "hdd",
+          "skill": "Apply",
+          "question": "Average seek 4 ms, 7,200 RPM, 100 MB/s, controller overhead 0.1 ms. How long does a 4 KB random read take?",
+          "options": [
+            "About 8.3 ms",
+            "About 0.04 ms",
+            "About 4 ms",
+            "About 100 ms"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "4 + 4.17 + 0.04 + 0.1 = **8.31 ms**. The 4 KB transfer is only 0.04 ms: almost all the time is mechanical.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Reading 4 KB from DRAM takes tens of nanoseconds: a million times faster."
+        },
+        {
+          "type": "match",
+          "concept": "hdd",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each part of a disk access with its description.",
+          "pairs": [
+            {
+              "a": "Seek time",
+              "b": "Moving the arm to the track"
+            },
+            {
+              "a": "Rotational latency",
+              "b": "Waiting for the sector to come around"
+            },
+            {
+              "a": "Transfer time",
+              "b": "Reading the data under the head"
+            },
+            {
+              "a": "Controller overhead",
+              "b": "Time in the controller and the bus"
+            }
+          ],
+          "why": "The sum of the four is the access time."
+        }
+      ]
+    },
+    {
+      "id": "flash",
+      "label": "SSD and flash",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "flash",
+          "title": "Flash memory and SSDs",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**Flash** stores data as trapped charge in transistors; it keeps its data without power (non-volatile)",
+                "An **SSD** (solid-state drive) is many flash chips plus a controller: no moving parts",
+                "Reads are by **page** (a few KB); there is no seek time or rotational latency",
+                "Random reads take tens to hundreds of microseconds, about **100 times faster than a disk**"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "",
+                "HDD",
+                "SSD (flash)"
+              ],
+              "rows": [
+                [
+                  "Moving parts",
+                  "Yes",
+                  "No"
+                ],
+                [
+                  "Random 4 KB read",
+                  "about 8 ms",
+                  "about 0.1 ms (100 µs)"
+                ],
+                [
+                  "Sequential rate",
+                  "about 100 to 200 MB/s",
+                  "hundreds to thousands of MB/s"
+                ],
+                [
+                  "Cost per GB",
+                  "lowest",
+                  "higher"
+                ],
+                [
+                  "Limits",
+                  "mechanical wear, shock",
+                  "limited erase cycles (wear)"
+                ]
+              ]
+            }
+          ],
+          "why": "Flash fills the gap between DRAM and disks: much faster than a disk, much larger than DRAM.",
+          "real": "Phones, tablets and most laptops use flash as their main storage.",
+          "explainAgain": {
+            "beginner": "A bookshelf with every book instantly reachable, versus a library where a robot arm must fetch each one."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "flash",
+          "title": "How flash differs from RAM",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "A flash page cannot be overwritten in place: its **block** must be **erased** first",
+                "Erasing is slow and wears the cells out (thousands of cycles)",
+                "The controller hides this with a **flash translation layer** (remapping and **wear levelling**)",
+                "Writes are therefore more complicated than reads, and writing many small random updates can be slower than reading"
+              ]
+            }
+          ],
+          "why": "Flash is fast but has a very different write behaviour from RAM, and the controller does a lot of work to hide it.",
+          "real": "SSD lifetimes are quoted in terabytes written because the cells wear out.",
+          "mistake": {
+            "wrong": "An SSD can be rewritten forever like RAM.",
+            "right": "Each block survives a limited number of erase cycles."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "flash",
+          "title": "Calculate: flash vs disk",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Random 4 KB reads, flash vs disk (illustrative)",
+              "equation": "Requests per second = 1 ÷ access time",
+              "inputs": [
+                {
+                  "id": "hdd",
+                  "label": "HDD access time",
+                  "value": 8.3,
+                  "min": 3,
+                  "max": 15,
+                  "step": 0.1,
+                  "unit": "ms"
+                },
+                {
+                  "id": "ssd",
+                  "label": "SSD access time",
+                  "value": 0.1,
+                  "min": 0.02,
+                  "max": 0.5,
+                  "step": 0.01,
+                  "unit": "ms"
+                }
+              ],
+              "results": [
+                {
+                  "label": "HDD requests per second",
+                  "formula": "1000 / hdd",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "SSD requests per second (one at a time)",
+                  "formula": "1000 / ssd",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "SSD advantage",
+                  "formula": "hdd / ssd",
+                  "format": "x",
+                  "digits": 0
+                },
+                {
+                  "label": "SSD throughput at 4 KB",
+                  "formula": "4096 * (1000 / ssd) / 1000000",
+                  "format": "num",
+                  "digits": 1,
+                  "unit": "MB/s"
+                }
+              ]
+            }
+          ],
+          "why": "With the defaults the SSD is about 83 times faster at random reads: 10,000 requests per second, 41 MB/s with a single outstanding request."
+        },
+        {
+          "type": "mcq",
+          "concept": "flash",
+          "question": "Which is true of an SSD?",
+          "options": [
+            "It has no seek time or rotational latency",
+            "It has a spinning platter",
+            "Its cells can be rewritten forever",
+            "It is slower than a hard disk for random reads"
+          ],
+          "answer": 0,
+          "why": "Flash has no mechanical parts.",
+          "feedback": [
+            "",
+            "That describes a hard disk.",
+            "Flash cells wear out after many erase cycles.",
+            "It is much faster at random reads."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "flash",
+          "statement": "Flash memory keeps its data when the power is off.",
+          "answer": true,
+          "why": "It is non-volatile, unlike DRAM and SRAM."
+        },
+        {
+          "type": "find",
+          "concept": "flash",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about flash is wrong. Click it.",
+          "lines": [
+            "1. Flash is non-volatile.",
+            "2. A flash block must be erased before its pages can be rewritten.",
+            "3. Flash cells can be erased an unlimited number of times.",
+            "4. An SSD contains a controller that remaps blocks."
+          ],
+          "wrong": 2,
+          "explain": "Each block survives only a limited number of erase cycles (wear).",
+          "fix": "Flash wears out."
+        }
+      ]
+    },
+    {
+      "id": "perf",
+      "label": "Access time and I/O performance",
+      "minutes": 12,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "perf",
+          "title": "Sequential vs random access",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Access pattern",
+                "What happens on a disk",
+                "Result"
+              ],
+              "rows": [
+                [
+                  "Sequential",
+                  "One seek and one rotational wait, then data streams under the head",
+                  "near the full transfer rate (about 100 MB/s)"
+                ],
+                [
+                  "Random",
+                  "A seek and a rotational wait for every request",
+                  "about 0.5 MB/s for 4 KB requests"
+                ]
+              ]
+            },
+            {
+              "type": "text",
+              "text": "Example: reading a 10 MB file.",
+              "style": "lead"
+            },
+            {
+              "type": "table",
+              "head": [
+                "",
+                "Time"
+              ],
+              "rows": [
+                [
+                  "Sequential, 100 MB/s",
+                  "0.1 s"
+                ],
+                [
+                  "Random: 2,441 separate 4 KB blocks × 8.31 ms",
+                  "20.3 s (about 200 times slower)"
+                ]
+              ]
+            }
+          ],
+          "why": "The same data takes 200 times longer if it is scattered, so software and file systems work hard to keep data contiguous.",
+          "real": "Defragmenting a disk, database indexes and log-structured file systems all exist to turn random access into sequential access.",
+          "mistake": {
+            "wrong": "Disk speed is a single number (MB/s).",
+            "right": "The speed depends enormously on whether the accesses are sequential or random."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "perf",
+          "skill": "Apply",
+          "question": "Reading 10 MB as 2,441 random 4 KB blocks on the disk above takes about 20 seconds. How long does a sequential read take at 100 MB/s?",
+          "options": [
+            "0.1 s",
+            "2 s",
+            "10 s",
+            "20 s"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "10 MB ÷ 100 MB/s = **0.1 s**: about 200 times faster than the random reads.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The data transferred is identical; only the access pattern changed."
+        },
+        {
+          "type": "concept",
+          "concept": "perf",
+          "title": "Latency, bandwidth and IOPS",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Measure",
+                "Meaning",
+                "Unit"
+              ],
+              "rows": [
+                [
+                  "I/O latency (response time)",
+                  "Time for one request from issue to completion",
+                  "ms or µs"
+                ],
+                [
+                  "Bandwidth (throughput)",
+                  "Bytes transferred per second",
+                  "MB/s or GB/s"
+                ],
+                [
+                  "IOPS",
+                  "I/O operations per second (small random requests)",
+                  "operations per second"
+                ]
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "throughput = IOPS × request size",
+                  "note": "4 KB × 120 IOPS = 0.49 MB/s"
+                },
+                {
+                  "t": "IOPS = 1 ÷ latency (one request at a time)",
+                  "note": "1 ÷ 8.31 ms = 120 per second"
+                }
+              ]
+            }
+          ],
+          "why": "Different applications need different measures: a video stream needs bandwidth, a database needs low latency and many IOPS.",
+          "real": "Datasheets give sequential MB/s and random IOPS separately for this reason.",
+          "deeper": {
+            "text": "Several outstanding requests can overlap their latencies, which is how SSDs reach hundreds of thousands of IOPS."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "perf",
+          "title": "I/O limits the speed-up (Amdahl again)",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Amdahl's Law with I/O",
+              "equation": "Speedup = 1 ÷ (I/O fraction + (1 − I/O fraction) ÷ CPU speed-up)",
+              "inputs": [
+                {
+                  "id": "f",
+                  "label": "Share of time spent on I/O",
+                  "value": 10,
+                  "min": 0,
+                  "max": 60,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "s",
+                  "label": "CPU speed-up",
+                  "value": 10,
+                  "min": 1,
+                  "max": 200,
+                  "step": 1,
+                  "unit": "x"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Overall speed-up",
+                  "formula": "1 / ((f/100) + (1 - f/100) / s)",
+                  "format": "x",
+                  "digits": 2
+                },
+                {
+                  "label": "Maximum possible (infinitely fast CPU)",
+                  "formula": "1 / (f/100)",
+                  "format": "x",
+                  "digits": 1
+                }
+              ]
+            }
+          ],
+          "why": "If 10% of the time is I/O, a CPU that is 10 times faster speeds the whole program up only 5.26 times, and even an infinitely fast CPU can reach at most 10 times."
+        },
+        {
+          "type": "predict",
+          "concept": "perf",
+          "skill": "Apply",
+          "question": "A program spends 10% of its time on I/O. The CPU becomes 10 times faster; the disk does not change. What is the overall speed-up?",
+          "options": [
+            "5.26",
+            "10",
+            "9",
+            "1.1"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Speed-up = 1 ÷ (0.1 + 0.9 ÷ 10) = 1 ÷ 0.19 = **5.26**. The unchanged I/O part limits the gain.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "With a 100 times faster CPU it is only 9.17."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "A company doubles its servers' CPU speed but the web pages do not load noticeably faster. What could be the cause?",
+          "think": 20,
+          "pair": 40,
+          "answer": "The time may be dominated by I/O (disk or network), which the faster CPU does not change. By Amdahl's Law the overall speed-up is limited by the fraction of time that does not improve; the fix is to speed up the storage (flash, caching) or the network."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "Name the four parts of a disk access.",
+              "a": "Seek, rotational latency, transfer time and controller overhead.",
+              "concept": "perf"
+            },
+            {
+              "q": "Why is random access slow on a disk?",
+              "a": "Every request pays a seek and a rotational wait.",
+              "concept": "perf"
+            },
+            {
+              "q": "What does Amdahl's Law say about I/O?",
+              "a": "I/O time that does not speed up limits the overall gain.",
+              "concept": "perf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "io",
+      "label": "I/O devices and the storage hierarchy",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "io",
+          "title": "I/O devices",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Device",
+                "Data rate (about)",
+                "Behaviour"
+              ],
+              "rows": [
+                [
+                  "Keyboard, mouse",
+                  "bytes to KB per second",
+                  "tiny, human speed"
+                ],
+                [
+                  "Network interface",
+                  "Mbit/s to Gbit/s",
+                  "packets, bursts"
+                ],
+                [
+                  "Hard disk",
+                  "100 to 200 MB/s sequential",
+                  "blocks, mechanical delays"
+                ],
+                [
+                  "SSD",
+                  "hundreds of MB/s to GB/s",
+                  "blocks, no mechanical delay"
+                ]
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "The CPU talks to devices through registers at special addresses (memory-mapped I/O)",
+                "**Polling**: the CPU repeatedly asks the device if it is ready (wastes time)",
+                "**Interrupts**: the device signals the CPU when it needs attention",
+                "**DMA** (direct memory access): a controller moves whole blocks between device and memory without the CPU"
+              ]
+            }
+          ],
+          "why": "The range of speeds is enormous, so the system uses buffering, interrupts and DMA to keep the fast CPU from waiting on slow devices.",
+          "real": "When you copy a file the CPU only starts the transfer; the DMA engine and the disk do the rest."
+        },
+        {
+          "type": "concept",
+          "concept": "io",
+          "title": "The storage hierarchy",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Storage extends the memory hierarchy of Class 17 downward: each level is bigger and slower."
+            }
+          ],
+          "why": "Capacity and cost per byte improve as latency gets worse, exactly like the cache levels."
+        },
+        {
+          "type": "concept",
+          "concept": "io",
+          "title": "Explore the storage levels",
+          "blocks": [
+            {
+              "type": "hierarchy",
+              "title": "From memory down to archives",
+              "levels": [
+                {
+                  "name": "DRAM",
+                  "speed": "tens of ns",
+                  "capacity": "GBs",
+                  "cost": "highest of these",
+                  "purpose": "Running programs and their data",
+                  "example": "The RAM modules"
+                },
+                {
+                  "name": "SSD (flash)",
+                  "speed": "about 0.1 ms",
+                  "capacity": "hundreds of GB to TBs",
+                  "cost": "medium",
+                  "purpose": "Operating system, programs and active files",
+                  "example": "A laptop or phone drive"
+                },
+                {
+                  "name": "Hard disk",
+                  "speed": "about 8 ms (random)",
+                  "capacity": "TBs",
+                  "cost": "low",
+                  "purpose": "Bulk data and backups",
+                  "example": "A large internal or external drive"
+                },
+                {
+                  "name": "Tape or cloud archive",
+                  "speed": "seconds to hours",
+                  "capacity": "enormous",
+                  "cost": "lowest",
+                  "purpose": "Rarely used archives",
+                  "example": "Data centre backups"
+                }
+              ]
+            }
+          ],
+          "why": "Click each level: latency grows by many orders of magnitude from DRAM to the archive."
+        },
+        {
+          "type": "mcq",
+          "concept": "io",
+          "question": "Which technique lets a device transfer a block to memory without the CPU copying every word?",
+          "options": [
+            "DMA",
+            "Polling",
+            "Interrupt only",
+            "Caching"
+          ],
+          "answer": 0,
+          "why": "Direct memory access moves data between the device and memory on its own.",
+          "feedback": [
+            "",
+            "Polling makes the CPU do the waiting.",
+            "An interrupt only signals; the CPU would still copy.",
+            "Caching is a different idea."
+          ]
+        },
+        {
+          "type": "arrange",
+          "concept": "io",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the steps of a disk read using DMA and an interrupt in order.",
+          "items": [
+            "The CPU programs the DMA controller and the disk with the request",
+            "The disk seeks and reads the sector",
+            "The DMA controller copies the data to memory",
+            "The device raises an interrupt",
+            "The CPU handles the interrupt and continues with the data"
+          ],
+          "why": "The CPU is free during the middle three steps."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "io",
+          "question": "Where would you use flash, a hard disk and a cloud archive in a photo-sharing service?",
+          "seconds": 60,
+          "ideas": [
+            "Flash for the database and recently uploaded photos (fast random access).",
+            "Hard disks for the large store of older photos.",
+            "A cloud archive for backups and photos nobody has opened in years.",
+            "The hierarchy balances cost against access time."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "hdd",
+          "question": "List the four parts of a disk access time.",
+          "answer": "Seek time, rotational latency, transfer time and controller overhead.",
+          "solution": "Seek and rotation are mechanical and dominate.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "hdd",
+          "question": "Find the average rotational latency at 7,200 RPM and at 15,000 RPM.",
+          "answer": "4.17 ms and 2.0 ms.",
+          "solution": "Half a rotation: 30,000 ÷ RPM ms = 30,000 ÷ 7,200 = 4.17; 30,000 ÷ 15,000 = 2.0.",
+          "hint": "Half of 60,000 ms divided by the RPM.",
+          "think": 45
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "perf",
+          "question": "7,200 RPM disk, 4 ms average seek, 100 MB/s, 0.1 ms controller overhead. Find the access time for a random 4 KB read, the requests per second and the throughput.",
+          "answer": "8.31 ms; about 120 requests per second; about 0.49 MB/s.",
+          "solution": "4 + 4.17 + 0.04 + 0.1 = 8.31 ms. 1000 ÷ 8.31 = 120. 120 × 4 KB = 0.49 MB/s.",
+          "hint": "Transfer time = 4096 B ÷ 100 MB/s = 0.04 ms.",
+          "mistake": "Forgetting the rotational latency.",
+          "think": 90
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "perf",
+          "question": "Read a 10 MB file from the disk above (a) sequentially at 100 MB/s and (b) as 2,441 random 4 KB requests. Compare.",
+          "answer": "(a) 0.1 s; (b) about 20.3 s; random is about 200 times slower.",
+          "solution": "(b) 2,441 × 8.31 ms = 20.3 s. The ratio 20.3 ÷ 0.1 = 203.",
+          "mistake": "Using the transfer rate for random reads.",
+          "title": "Exam practice: sequential vs random",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "flash",
+          "question": "A disk needs 8.3 ms and an SSD 0.1 ms for a random 4 KB read. How many random reads per second can each do (one at a time) and how many times faster is the SSD?",
+          "answer": "Disk about 120 per second, SSD 10,000 per second; the SSD is about 83 times faster.",
+          "solution": "1000 ÷ 8.3 = 120; 1000 ÷ 0.1 = 10,000; 8.3 ÷ 0.1 = 83.",
+          "mistake": "Mixing up ms and µs.",
+          "title": "Exam practice: flash vs disk",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "perf",
+          "question": "A program spends 10% of its time waiting for I/O. The CPU is replaced by one 10 times faster; the disk is unchanged. Find the speed-up. What if the CPU were 100 times faster? What is the limit?",
+          "answer": "5.26; 9.17; the limit is 10.",
+          "solution": "1 ÷ (0.1 + 0.9 ÷ 10) = 5.26; 1 ÷ (0.1 + 0.9 ÷ 100) = 9.17; the limit is 1 ÷ 0.1 = 10.",
+          "mistake": "Applying the 10× speed-up to the whole program.",
+          "title": "Exam practice: Amdahl",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "perf",
+          "question": "Explain why random access is so slow on a hard disk but not on an SSD.",
+          "answer": "A hard disk must move the head to the right track (seek) and wait for the sector to rotate under it for every random request, which costs milliseconds, while the transfer itself takes microseconds. An SSD has no moving parts, so any page can be read after a short electronic delay of tens to hundreds of microseconds.",
+          "solution": "A strong answer names seek and rotation as the cause.",
+          "mistake": "Saying SSDs have faster transfer rates only.",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Storage systems and I/O",
+          "branches": [
+            {
+              "label": "Hard disks",
+              "example": "seek, rotation, transfer",
+              "section": "hdd"
+            },
+            {
+              "label": "SSD and flash",
+              "example": "no moving parts, wear",
+              "section": "flash"
+            },
+            {
+              "label": "I/O performance",
+              "example": "latency, bandwidth, IOPS",
+              "section": "perf"
+            },
+            {
+              "label": "I/O devices",
+              "example": "DMA, hierarchy",
+              "section": "io"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "A disk access = seek + rotational latency (half a rotation on average) + transfer + controller overhead.",
+            "Seek and rotation dominate, so random access is about 200 times slower than sequential.",
+            "Flash has no mechanical delay; blocks must be erased before rewriting, and cells wear out.",
+            "Latency is time per request; bandwidth is bytes per second; throughput = IOPS × request size.",
+            "Amdahl's Law: unchanged I/O time limits overall speed-up.",
+            "DMA and interrupts keep the CPU from waiting on slow devices; the storage hierarchy trades speed for capacity."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "Disk speed is one number.",
+              "right": "It depends on sequential vs random access."
+            },
+            {
+              "wrong": "Rotational latency is a full rotation.",
+              "right": "On average half a rotation."
+            },
+            {
+              "wrong": "A faster CPU always speeds everything up.",
+              "right": "I/O time does not change; Amdahl's Law limits the gain."
+            },
+            {
+              "wrong": "Flash is rewritten like RAM.",
+              "right": "A block must be erased before pages can be rewritten."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Disks pay a seek and a rotational delay per request, so random access is about 200 times slower than sequential. Flash has no mechanical delay but wears out and must erase blocks before rewriting. I/O is described by latency, bandwidth and IOPS, and by Amdahl's Law the unimproved I/O time limits the overall speed-up. DMA, interrupts and a storage hierarchy hide these delays."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "hdd",
+              "question": "Which part of a disk access is the movement of the head to the right track?",
+              "options": [
+                "Seek time",
+                "Rotational latency",
+                "Transfer time",
+                "Overhead"
+              ],
+              "answer": 0,
+              "why": "The arm movement is the seek.",
+              "misconception": "Rotation waits for the sector to arrive."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "flash",
+              "statement": "An SSD has no moving parts.",
+              "answer": true,
+              "why": "It is made of flash chips and a controller.",
+              "misconception": "That is why it has no seek time."
+            },
+            {
+              "level": "easy",
+              "concept": "io",
+              "question": "What does DMA do?",
+              "options": [
+                "Moves blocks between a device and memory without the CPU copying",
+                "Speeds up the clock",
+                "Encrypts the disk",
+                "Increases the cache size"
+              ],
+              "answer": 0,
+              "why": "Direct memory access offloads the copying.",
+              "misconception": "The CPU only starts the transfer."
+            },
+            {
+              "level": "medium",
+              "concept": "hdd",
+              "question": "Average rotational latency at 7,200 RPM?",
+              "options": [
+                "4.17 ms",
+                "8.33 ms",
+                "2.08 ms",
+                "16.7 ms"
+              ],
+              "answer": 0,
+              "why": "Half of 8.33 ms.",
+              "misconception": "One rotation takes 60 ÷ 7,200 s."
+            },
+            {
+              "level": "medium",
+              "concept": "perf",
+              "question": "4 ms seek, 4.17 ms rotation, 0.04 ms transfer, 0.1 ms overhead: access time?",
+              "options": [
+                "8.31 ms",
+                "4.04 ms",
+                "4.21 ms",
+                "8.17 ms"
+              ],
+              "answer": 0,
+              "why": "4 + 4.17 + 0.04 + 0.1 = 8.31.",
+              "misconception": "Do not forget the overhead."
+            },
+            {
+              "level": "medium",
+              "concept": "flash",
+              "question": "Random 4 KB reads: HDD 8.3 ms, SSD 0.1 ms. About how many times faster is the SSD?",
+              "options": [
+                "83",
+                "8",
+                "1,000",
+                "2"
+              ],
+              "answer": 0,
+              "why": "8.3 ÷ 0.1 = 83.",
+              "misconception": "Both numbers are for the same request size."
+            },
+            {
+              "level": "hard",
+              "concept": "perf",
+              "question": "10 MB read sequentially at 100 MB/s versus as 2,441 random reads of 8.31 ms: ratio?",
+              "options": [
+                "About 200",
+                "About 20",
+                "About 2",
+                "About 2,000"
+              ],
+              "answer": 0,
+              "why": "20.3 s ÷ 0.1 s ≈ 203.",
+              "misconception": "The data is the same."
+            },
+            {
+              "level": "hard",
+              "concept": "perf",
+              "question": "10% of time in I/O, CPU 10 times faster: overall speed-up?",
+              "options": [
+                "5.26",
+                "10",
+                "9",
+                "1.1"
+              ],
+              "answer": 0,
+              "why": "1 ÷ (0.1 + 0.9 ÷ 10) = 5.26.",
+              "misconception": "The I/O part is unchanged."
+            },
+            {
+              "level": "challenge",
+              "concept": "perf",
+              "question": "The same program with a CPU 100 times faster (10% I/O): speed-up?",
+              "options": [
+                "9.17",
+                "100",
+                "10",
+                "5.26"
+              ],
+              "answer": 0,
+              "why": "1 ÷ (0.1 + 0.9 ÷ 100) = 9.17, close to the limit of 10.",
+              "misconception": "The limit is 1 ÷ 0.1 = 10."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "List the parts of disk access time.",
+              "a": "Seek, rotational latency, transfer, overhead.",
+              "concept": "hdd"
+            },
+            {
+              "q": "Why is flash faster for random reads?",
+              "a": "No seek or rotation.",
+              "concept": "flash"
+            },
+            {
+              "q": "Throughput from IOPS?",
+              "a": "IOPS × request size.",
+              "concept": "perf"
+            },
+            {
+              "q": "What does DMA do?",
+              "a": "Transfers blocks between device and memory without CPU copying.",
+              "concept": "io"
+            },
+            {
+              "q": "What limits the benefit of a faster CPU?",
+              "a": "I/O time that does not improve (Amdahl's Law).",
+              "concept": "perf"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

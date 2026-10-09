@@ -1,0 +1,1330 @@
+{
+  "id": "ca-19-cache-performance",
+  "title": "Cache Misses, Hit Time and Miss Penalty",
+  "subtitle": "Why caches miss, what a miss costs, and how designers trade it off.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "5",
+      "title": "Large and Fast: Exploiting Memory Hierarchy",
+      "topics": "Measuring and improving cache performance; handling writes; multilevel caches"
+    },
+    {
+      "book": "CAQA",
+      "chapter": "5",
+      "title": "Memory-Hierarchy Design",
+      "topics": "Cache performance; the three Cs of misses; reducing miss rate and miss penalty; write policies"
+    }
+  ],
+  "objectives": [
+    "Classify misses as compulsory, capacity or conflict",
+    "Define hit time, miss rate and miss penalty and compute AMAT",
+    "Explain the trade-offs of larger blocks and higher associativity",
+    "Compute AMAT for a two-level cache",
+    "Compare write-through and write-back"
+  ],
+  "concepts": [
+    {
+      "id": "misses",
+      "label": "The three Cs",
+      "section": "misses"
+    },
+    {
+      "id": "amat",
+      "label": "Average memory access time",
+      "section": "amat"
+    },
+    {
+      "id": "design",
+      "label": "Design trade-offs",
+      "section": "design"
+    },
+    {
+      "id": "write",
+      "label": "Write policies",
+      "section": "write"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "Your program accesses memory 100 million times. Does it matter whether 95% or 98% of them hit in the cache?",
+          "clues": [
+            "A hit costs about **1 cycle**; a miss can cost **dozens or hundreds**.",
+            "A small change in the miss rate causes a **big change in speed**.",
+            "To reduce misses we first need to know **why** they happen."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "misses",
+      "label": "The three Cs",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "misses",
+          "title": "Why a miss happens",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Miss type",
+                "Cause",
+                "Typical cure"
+              ],
+              "rows": [
+                [
+                  "Compulsory (cold)",
+                  "First access ever to that block: it cannot be in the cache yet",
+                  "Larger blocks, prefetching"
+                ],
+                [
+                  "Capacity",
+                  "The working set is bigger than the cache, so useful blocks are evicted",
+                  "A larger cache"
+                ],
+                [
+                  "Conflict",
+                  "Too many blocks map to the same set while other sets have room",
+                  "Higher associativity"
+                ]
+              ]
+            }
+          ],
+          "why": "The cure depends on the cause, so classifying a miss tells the designer what to change.",
+          "real": "Architects run simulators exactly like this one over real programs to find which of the three Cs dominates.",
+          "explainAgain": {
+            "beginner": "A small desk: the first time you need a book it is not on the desk (compulsory); if you need more books than fit you must swap (capacity); if two books you need both have to go in the same drawer you swap them again and again (conflict)."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "misses",
+          "title": "Try it: classify the misses",
+          "blocks": [
+            {
+              "type": "cache",
+              "title": "Compulsory, capacity or conflict?",
+              "config": {
+                "blockBytes": 4,
+                "lines": 4,
+                "addrBits": 8,
+                "assoc": 1
+              },
+              "controls": [
+                "assoc"
+              ],
+              "sequences": [
+                {
+                  "name": "First touches",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    16,
+                    20,
+                    24,
+                    28
+                  ]
+                },
+                {
+                  "name": "Five blocks in a loop",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    16,
+                    0,
+                    4,
+                    8,
+                    12,
+                    16
+                  ]
+                },
+                {
+                  "name": "Two blocks, one line",
+                  "accesses": [
+                    0,
+                    16,
+                    0,
+                    16,
+                    0,
+                    16
+                  ]
+                }
+              ],
+              "hint": "Run each pattern. Then switch the mapping to **Fully associative** or **2-way** and see which misses disappear."
+            }
+          ],
+          "why": "First touches: 8 compulsory. Five blocks in a loop on a fully associative cache: 5 compulsory + 5 capacity (the cache holds only 4). Two blocks sharing a line: 2 compulsory + 4 conflict; 2-way removes all 4."
+        },
+        {
+          "type": "predict",
+          "concept": "misses",
+          "skill": "Apply",
+          "question": "Five blocks are read in a loop (0, 4, 8, 12, 16, then again) by a fully associative 4-line cache. How many of the 10 accesses miss, and why?",
+          "options": [
+            "All 10: 5 compulsory + 5 capacity",
+            "5: only the compulsory ones",
+            "0",
+            "2"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The loop touches 5 blocks but the cache holds 4. With LRU the block needed next was always just evicted, so **every access misses**: 5 compulsory on the first pass and 5 capacity misses on the second.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "A conflict miss is impossible here: a fully associative cache has no sets to collide in."
+        },
+        {
+          "type": "concept",
+          "concept": "misses",
+          "title": "Telling them apart",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Would the miss happen in an **infinite** cache? Yes: **compulsory**",
+                "Would it happen in a **fully associative** cache of the same size? Yes: **capacity**",
+                "Does it happen only because of the **mapping**? Yes: **conflict**"
+              ]
+            },
+            {
+              "type": "text",
+              "text": "The simulator uses exactly these tests.",
+              "style": "muted"
+            }
+          ],
+          "why": "These three questions classify every miss.",
+          "real": "Multiprocessors add a fourth kind (coherence misses) in Class 23.",
+          "mistake": {
+            "wrong": "Every miss in a small cache is a capacity miss.",
+            "right": "If a fully associative cache of the same size would have hit, it is a conflict miss."
+          }
+        },
+        {
+          "type": "match",
+          "concept": "misses",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each miss with its cause.",
+          "pairs": [
+            {
+              "a": "Compulsory",
+              "b": "First ever access to the block"
+            },
+            {
+              "a": "Capacity",
+              "b": "Working set is larger than the cache"
+            },
+            {
+              "a": "Conflict",
+              "b": "Blocks competing for the same set"
+            },
+            {
+              "a": "Hit",
+              "b": "The block is already present"
+            }
+          ],
+          "why": "Each miss type has a different cure."
+        },
+        {
+          "type": "mcq",
+          "concept": "misses",
+          "question": "Which change removes conflict misses but not capacity misses?",
+          "options": [
+            "Higher associativity",
+            "A bigger cache",
+            "Smaller blocks",
+            "Prefetching only"
+          ],
+          "answer": 0,
+          "why": "More ways let conflicting blocks stay together.",
+          "feedback": [
+            "",
+            "A bigger cache mainly reduces capacity misses.",
+            "Smaller blocks increase compulsory misses.",
+            "Prefetching targets compulsory misses."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "amat",
+      "label": "Average memory access time",
+      "minutes": 12,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "amat",
+          "title": "Three numbers",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Term",
+                "Meaning"
+              ],
+              "rows": [
+                [
+                  "Hit time",
+                  "Time to access the cache when the data is there (cycles)"
+                ],
+                [
+                  "Miss rate",
+                  "Fraction of accesses that miss = misses ÷ accesses"
+                ],
+                [
+                  "Miss penalty",
+                  "Extra time to fetch the block from the next level (cycles)"
+                ]
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "AMAT = hit time + miss rate × miss penalty",
+                  "note": "average memory access time"
+                }
+              ]
+            }
+          ],
+          "why": "AMAT folds the three numbers into the one that matters: the average time per memory access.",
+          "real": "All three can be improved in different ways, usually at the expense of the others.",
+          "explainAgain": {
+            "beginner": "Mostly you walk to the fridge (hit time); occasionally you drive to the shop (miss penalty): your average time depends on how often you drive."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "amat",
+          "title": "Calculate AMAT",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Average memory access time (illustrative numbers)",
+              "equation": "AMAT = hit time + miss rate × miss penalty",
+              "inputs": [
+                {
+                  "id": "ht",
+                  "label": "Hit time",
+                  "value": 1,
+                  "min": 1,
+                  "max": 5,
+                  "step": 1,
+                  "unit": "cycles"
+                },
+                {
+                  "id": "mr",
+                  "label": "Miss rate",
+                  "value": 5,
+                  "min": 0,
+                  "max": 30,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "mp",
+                  "label": "Miss penalty",
+                  "value": 20,
+                  "min": 5,
+                  "max": 300,
+                  "step": 5,
+                  "unit": "cycles"
+                }
+              ],
+              "results": [
+                {
+                  "label": "AMAT",
+                  "formula": "ht + (mr/100) * mp",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "cycles"
+                },
+                {
+                  "label": "Slowdown compared with always hitting",
+                  "formula": "(ht + (mr/100) * mp) / ht",
+                  "format": "x",
+                  "digits": 2
+                }
+              ]
+            }
+          ],
+          "why": "1 + 0.05 × 20 = 2.0 cycles: the 5% of misses double the average. With a 100-cycle penalty the AMAT is 6.0. Move the miss rate and see how sensitive it is."
+        },
+        {
+          "type": "predict",
+          "concept": "amat",
+          "skill": "Apply",
+          "question": "Hit time 1 cycle, miss rate 5%, miss penalty 20 cycles. What is the AMAT?",
+          "options": [
+            "2.0 cycles",
+            "1.0 cycle",
+            "21 cycles",
+            "1.05 cycles"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "AMAT = 1 + 0.05 × 20 = **2.0 cycles**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Even a 5% miss rate doubles the average access time here."
+        },
+        {
+          "type": "concept",
+          "concept": "amat",
+          "title": "Two-level caches",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "An L1 miss goes to **L2**, not straight to memory",
+                "**L1 AMAT** = L1 hit time + L1 miss rate × L1 miss penalty",
+                "**L1 miss penalty** = L2 hit time + L2 local miss rate × memory time",
+                "The L2 local miss rate is the fraction of **L2 accesses** that miss"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Quantity",
+                "Value"
+              ],
+              "rows": [
+                [
+                  "L1 hit time",
+                  "1 cycle"
+                ],
+                [
+                  "L1 miss rate",
+                  "5%"
+                ],
+                [
+                  "L2 hit time",
+                  "10 cycles"
+                ],
+                [
+                  "L2 local miss rate",
+                  "20%"
+                ],
+                [
+                  "Memory access",
+                  "100 cycles"
+                ],
+                [
+                  "L1 miss penalty",
+                  "10 + 0.2 × 100 = 30 cycles"
+                ],
+                [
+                  "AMAT with L2",
+                  "1 + 0.05 × 30 = 2.5 cycles"
+                ],
+                [
+                  "AMAT without L2",
+                  "1 + 0.05 × 100 = 6.0 cycles"
+                ]
+              ]
+            }
+          ],
+          "why": "An L2 cache cuts the effective miss penalty of L1 from 100 to 30 cycles.",
+          "real": "Most processors have L1, L2 and often L3. L1 is small and fast; later levels are bigger and slower.",
+          "mistake": {
+            "wrong": "The L2 miss rate is a fraction of all accesses.",
+            "right": "The local miss rate is a fraction of the accesses that reach L2; this lesson uses the local rate."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "amat",
+          "title": "Calculate a two-level AMAT",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Two-level cache",
+              "equation": "AMAT = L1 hit + L1 miss rate × (L2 hit + L2 local miss rate × memory)",
+              "inputs": [
+                {
+                  "id": "h1",
+                  "label": "L1 hit time",
+                  "value": 1,
+                  "min": 1,
+                  "max": 4,
+                  "step": 1,
+                  "unit": "cycles"
+                },
+                {
+                  "id": "m1",
+                  "label": "L1 miss rate",
+                  "value": 5,
+                  "min": 0,
+                  "max": 30,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "h2",
+                  "label": "L2 hit time",
+                  "value": 10,
+                  "min": 4,
+                  "max": 30,
+                  "step": 1,
+                  "unit": "cycles"
+                },
+                {
+                  "id": "m2",
+                  "label": "L2 local miss rate",
+                  "value": 20,
+                  "min": 0,
+                  "max": 100,
+                  "step": 5,
+                  "unit": "%"
+                },
+                {
+                  "id": "mem",
+                  "label": "Memory time",
+                  "value": 100,
+                  "min": 20,
+                  "max": 400,
+                  "step": 10,
+                  "unit": "cycles"
+                }
+              ],
+              "results": [
+                {
+                  "label": "L1 miss penalty",
+                  "formula": "h2 + (m2/100) * mem",
+                  "format": "num",
+                  "digits": 1,
+                  "unit": "cycles"
+                },
+                {
+                  "label": "AMAT with L2",
+                  "formula": "h1 + (m1/100) * (h2 + (m2/100) * mem)",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "cycles"
+                },
+                {
+                  "label": "AMAT without L2",
+                  "formula": "h1 + (m1/100) * mem",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "cycles"
+                }
+              ]
+            }
+          ],
+          "why": "With the defaults: 2.5 cycles with L2, 6.0 without."
+        },
+        {
+          "type": "predict",
+          "concept": "amat",
+          "skill": "Apply",
+          "question": "Using the table above, what is the AMAT with the L2 cache?",
+          "options": [
+            "2.5 cycles",
+            "6.0 cycles",
+            "1.5 cycles",
+            "30 cycles"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "L1 miss penalty = 10 + 0.2 × 100 = 30. AMAT = 1 + 0.05 × 30 = **2.5 cycles**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Without L2 it would be 6.0."
+        },
+        {
+          "type": "tf",
+          "concept": "amat",
+          "statement": "Lowering the miss rate always lowers the AMAT.",
+          "answer": false,
+          "why": "Not if the change raises the hit time or the miss penalty by more than it saves."
+        },
+        {
+          "type": "find",
+          "concept": "amat",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about AMAT is wrong. Click it.",
+          "lines": [
+            "1. AMAT = hit time + miss rate × miss penalty.",
+            "2. A second-level cache reduces the effective miss penalty of L1.",
+            "3. A 0% miss rate gives an AMAT equal to the hit time.",
+            "4. The miss penalty is the time of a hit."
+          ],
+          "wrong": 3,
+          "explain": "The miss penalty is the extra time to fetch the block after a miss, not the hit time.",
+          "fix": "Miss penalty is the extra time on a miss."
+        }
+      ]
+    },
+    {
+      "id": "design",
+      "label": "Design trade-offs",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "design",
+          "title": "Larger blocks",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Benefit: more **spatial locality** is captured, so fewer compulsory misses",
+                "Cost 1: a larger block takes **longer to fetch**: higher miss penalty",
+                "Cost 2: with few lines, large blocks can **crowd out** useful data (more conflict and capacity misses)",
+                "So the best block size is a compromise (typically 32 to 128 bytes)"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Block size (4 lines)",
+                "Sequential: hits of 32",
+                "Penalty (10 + size/4)",
+                "AMAT sequential",
+                "AMAT strided (no reuse)"
+              ],
+              "rows": [
+                [
+                  "4 bytes",
+                  "0",
+                  "11",
+                  "12.0",
+                  "12"
+                ],
+                [
+                  "8 bytes",
+                  "16",
+                  "12",
+                  "7.0",
+                  "13"
+                ],
+                [
+                  "16 bytes",
+                  "24",
+                  "14",
+                  "4.5",
+                  "15"
+                ]
+              ]
+            }
+          ],
+          "why": "Bigger blocks help programs that walk through memory and hurt those that jump around, because the penalty rises either way.",
+          "real": "Common L1 block sizes today are 32 or 64 bytes.",
+          "mistake": {
+            "wrong": "Bigger blocks always mean fewer misses and a faster cache.",
+            "right": "They help spatial locality but raise the miss penalty and can waste cache space."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "design",
+          "title": "Try it: block size",
+          "blocks": [
+            {
+              "type": "cache",
+              "title": "Block size and spatial locality",
+              "config": {
+                "blockBytes": 4,
+                "lines": 4,
+                "addrBits": 8,
+                "assoc": 1
+              },
+              "controls": [
+                "block"
+              ],
+              "sequences": [
+                {
+                  "name": "Sequential words (32 accesses)",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    16,
+                    20,
+                    24,
+                    28,
+                    32,
+                    36,
+                    40,
+                    44,
+                    48,
+                    52,
+                    56,
+                    60,
+                    64,
+                    68,
+                    72,
+                    76,
+                    80,
+                    84,
+                    88,
+                    92,
+                    96,
+                    100,
+                    104,
+                    108,
+                    112,
+                    116,
+                    120,
+                    124
+                  ]
+                },
+                {
+                  "name": "Stride of 32 bytes",
+                  "accesses": [
+                    0,
+                    32,
+                    64,
+                    96,
+                    128,
+                    160,
+                    192,
+                    224,
+                    0,
+                    32,
+                    64,
+                    96,
+                    128,
+                    160,
+                    192,
+                    224
+                  ]
+                }
+              ],
+              "hint": "Switch the **block size** between 4, 8 and 16 bytes (4 lines)."
+            }
+          ],
+          "why": "Sequential: 0, 16 and 24 hits of 32. The stride of 32 bytes jumps over every block: 0 hits for any of these block sizes."
+        },
+        {
+          "type": "predict",
+          "concept": "design",
+          "skill": "Apply",
+          "question": "A program reads words one after another. Going from 4-byte to 16-byte blocks changes the hits of 32 accesses from 0 to:",
+          "options": [
+            "24",
+            "8",
+            "16",
+            "32"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "A 16-byte block holds 4 words: one miss then 3 hits, so 8 misses and **24 hits**. The miss penalty is higher, but the AMAT still falls (12.0 to 4.5 in our example).",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The same blocks would not help a strided program."
+        },
+        {
+          "type": "concept",
+          "concept": "design",
+          "title": "Higher associativity",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Fewer **conflict** misses (Class 18)",
+                "But a **slower hit time**: more tags to compare and a bigger multiplexer",
+                "And more power and area",
+                "Beyond 4 to 8 ways the gains are small"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Cache (4 lines, 0,16,0,16,0,16)",
+                "Hits",
+                "Misses"
+              ],
+              "rows": [
+                [
+                  "Direct mapped",
+                  "0",
+                  "6"
+                ],
+                [
+                  "2-way",
+                  "4",
+                  "2"
+                ],
+                [
+                  "Fully associative",
+                  "4",
+                  "2"
+                ]
+              ]
+            }
+          ],
+          "why": "Associativity reduces the miss rate term of AMAT but increases the hit time term.",
+          "real": "L1 caches are kept small and low-associativity to keep the hit time at one or two cycles."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "A designer doubles the cache associativity. The miss rate falls from 5% to 4% but the hit time rises from 1.0 to 1.1 cycles. The miss penalty is 20 cycles. Is it an improvement?",
+          "think": 20,
+          "pair": 40,
+          "answer": "AMAT before: 1.0 + 0.05 × 20 = 2.0. After: 1.1 + 0.04 × 20 = 1.9. It is a small improvement. With a hit time of 1.3 it would be 2.1, a loss. The answer depends on both terms."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "Name the three Cs.",
+              "a": "Compulsory, capacity and conflict.",
+              "concept": "misses"
+            },
+            {
+              "q": "What is AMAT?",
+              "a": "Hit time + miss rate × miss penalty.",
+              "concept": "amat"
+            },
+            {
+              "q": "Why can larger blocks hurt?",
+              "a": "Higher miss penalty and fewer lines to hold useful data.",
+              "concept": "design"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "write",
+      "label": "Write policies",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "write",
+          "title": "What happens on a write?",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Policy",
+                "On a write hit",
+                "Memory traffic"
+              ],
+              "rows": [
+                [
+                  "Write-through",
+                  "Update the cache **and** memory immediately",
+                  "Every write goes to memory"
+                ],
+                [
+                  "Write-back",
+                  "Update only the cache and mark the line **dirty**; write memory when the line is evicted",
+                  "Only evicted dirty lines are written"
+                ]
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "A **write buffer** holds pending memory writes so the CPU need not wait for them",
+                "**Write-allocate**: on a write miss, fetch the block into the cache first (usual with write-back)"
+              ]
+            }
+          ],
+          "why": "Write-through is simple and keeps memory up to date; write-back saves bandwidth when the same block is written many times.",
+          "real": "L1 data caches often use write-through with a write buffer; L2 and L3 caches usually use write-back.",
+          "mistake": {
+            "wrong": "Write-back loses data because memory is stale.",
+            "right": "Memory is stale only while the line is in the cache; evicting a dirty line writes it back."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "write",
+          "title": "Try it: write-through vs write-back",
+          "blocks": [
+            {
+              "type": "cache",
+              "title": "Counting memory writes",
+              "config": {
+                "blockBytes": 4,
+                "lines": 4,
+                "addrBits": 8,
+                "assoc": 1,
+                "write": "back"
+              },
+              "controls": [
+                "write"
+              ],
+              "sequences": [
+                {
+                  "name": "Four writes to one word, then a conflicting read",
+                  "accesses": [
+                    {
+                      "addr": 0,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 0,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 0,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 0,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 16,
+                      "op": "R"
+                    }
+                  ]
+                },
+                {
+                  "name": "Writes to two words, then a read",
+                  "accesses": [
+                    {
+                      "addr": 0,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 4,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 0,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 4,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 0,
+                      "op": "R"
+                    }
+                  ]
+                }
+              ],
+              "hint": "Switch the **write policy** and compare the **Memory writes** counter."
+            }
+          ],
+          "why": "Four writes to the same word then a conflicting read: write-through sends 4 writes to memory, write-back 1 (when the dirty block is evicted). Second pattern: 4 writes with write-through, 0 with write-back (no eviction yet)."
+        },
+        {
+          "type": "predict",
+          "concept": "write",
+          "skill": "Apply",
+          "question": "The same word is written four times and then evicted by a conflicting read. How many memory writes does write-back perform?",
+          "options": [
+            "1",
+            "4",
+            "0",
+            "5"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The cache absorbs the four writes and the dirty block is written once on eviction: **1 memory write** (write-through would do 4).",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "If the line is never evicted, write-back writes nothing until later."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "write",
+          "question": "What are the advantages and risks of write-back?",
+          "seconds": 60,
+          "ideas": [
+            "Fewer memory writes when blocks are written repeatedly.",
+            "Memory can be stale, so the dirty bit must be tracked.",
+            "Other processors must not read stale memory (Class 23).",
+            "Evicting a dirty line costs an extra write."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "misses",
+          "question": "Name and define the three kinds of cache miss.",
+          "answer": "Compulsory (first access), capacity (working set too large), conflict (blocks sharing a set).",
+          "solution": "Each kind has a different cause and cure.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "amat",
+          "question": "Hit time 1 cycle, miss rate 5%, miss penalty 20 cycles: find the AMAT.",
+          "answer": "2.0 cycles.",
+          "solution": "1 + 0.05 × 20 = 2.0.",
+          "hint": "Use the miss rate, not the hit rate.",
+          "think": 40
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "amat",
+          "question": "L1 hit 1, L1 miss rate 5%, L2 hit 10, L2 local miss rate 20%, memory 100 cycles. Find the AMAT with and without L2.",
+          "answer": "With L2: 2.5 cycles. Without: 6.0 cycles.",
+          "solution": "L1 miss penalty with L2 = 10 + 0.2 × 100 = 30; AMAT = 1 + 0.05 × 30 = 2.5. Without L2: 1 + 0.05 × 100 = 6.",
+          "hint": "First find the effective L1 miss penalty.",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "misses",
+          "question": "4-line, 4-byte-block cache. Classify the misses for 0, 16, 0, 16, 0, 16 on a direct-mapped cache and on a 2-way cache.",
+          "answer": "Direct mapped: 6 misses (2 compulsory + 4 conflict). 2-way: 2 misses (both compulsory), 4 hits.",
+          "solution": "Blocks 0 and 4 share line 0 in the direct-mapped cache and evict each other. In a 2-way cache they sit in the same set together.",
+          "mistake": "Calling the conflict misses capacity misses.",
+          "title": "Exam practice: classification",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "design",
+          "question": "Illustrative miss penalty = 10 + block bytes ÷ 4 cycles, hit time 1 cycle. Reading 32 words in sequence with 4-line caches gives 0, 16 and 24 hits for 4, 8 and 16-byte blocks. Find the AMAT for each.",
+          "answer": "12.0, 7.0 and 4.5 cycles.",
+          "solution": "Miss rate: 32/32, 16/32, 8/32. Penalty: 11, 12, 14. AMAT = 1 + 1.0×11 = 12; 1 + 0.5×12 = 7; 1 + 0.25×14 = 4.5.",
+          "mistake": "Forgetting that the penalty grows with block size.",
+          "title": "Exam practice: block size",
+          "think": 105,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "write",
+          "question": "A word is written four times and then evicted by a conflicting read. How many memory writes occur under write-through and under write-back?",
+          "answer": "Write-through 4; write-back 1.",
+          "solution": "Write-through updates memory on every write. Write-back marks the line dirty and writes it once when it is evicted.",
+          "mistake": "Counting write-back as one write per CPU write.",
+          "title": "Exam practice: memory traffic",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "amat",
+          "question": "Associativity is doubled: the miss rate falls from 6% to 4.5% but the hit time rises from 1 to 1.2 cycles. The miss penalty is 40 cycles. Which design has the lower AMAT?",
+          "answer": "Before: 3.4 cycles; after: 3.0 cycles. The doubled associativity is better.",
+          "solution": "Before: 1 + 0.06 × 40 = 3.4. After: 1.2 + 0.045 × 40 = 3.0.",
+          "mistake": "Comparing only the miss rates.",
+          "title": "Exam practice: calculation",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "misses",
+          "question": "Why does a bigger cache not remove conflict misses, and which change does?",
+          "answer": "A conflict miss happens because several blocks map to the same set while other sets have room, so more total capacity does not help if the mapping is unchanged. Higher associativity lets those blocks share the set and removes the conflict misses.",
+          "solution": "A strong answer separates capacity from conflict by the fully associative test.",
+          "mistake": "Saying a bigger cache fixes all misses.",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Cache performance",
+          "branches": [
+            {
+              "label": "Three Cs",
+              "example": "compulsory, capacity, conflict",
+              "section": "misses"
+            },
+            {
+              "label": "AMAT",
+              "example": "hit time + miss rate × penalty",
+              "section": "amat"
+            },
+            {
+              "label": "Trade-offs",
+              "example": "blocks and associativity",
+              "section": "design"
+            },
+            {
+              "label": "Writes",
+              "example": "through vs back",
+              "section": "write"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Misses are compulsory (first use), capacity (cache too small) or conflict (mapping).",
+            "AMAT = hit time + miss rate × miss penalty.",
+            "Two-level: L1 penalty = L2 hit time + L2 local miss rate × memory time.",
+            "Larger blocks cut compulsory misses but raise the miss penalty and can crowd the cache.",
+            "Higher associativity cuts conflict misses but slows the hit.",
+            "Write-through updates memory on every write; write-back writes a dirty block once, at eviction."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "Bigger caches fix conflict misses.",
+              "right": "Associativity does; capacity is separate."
+            },
+            {
+              "wrong": "A lower miss rate always lowers AMAT.",
+              "right": "Hit time and penalty may rise."
+            },
+            {
+              "wrong": "Write-back loses data.",
+              "right": "Dirty lines are written back on eviction."
+            },
+            {
+              "wrong": "Bigger blocks are always better.",
+              "right": "They raise the miss penalty and can waste space."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Cache misses come from first use, limited capacity and conflicts. The average access time is the hit time plus the miss rate times the miss penalty, and a second cache level reduces the effective penalty. Larger blocks and higher associativity lower some misses but increase penalty or hit time. Write-through updates memory on every write; write-back updates it only when a dirty block is evicted."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "misses",
+              "question": "The first access to a block is which kind of miss?",
+              "options": [
+                "Compulsory",
+                "Capacity",
+                "Conflict",
+                "Coherence"
+              ],
+              "answer": 0,
+              "why": "A block cannot be in the cache before its first use.",
+              "misconception": "Capacity and conflict need an earlier eviction."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "amat",
+              "statement": "AMAT = hit time + miss rate × miss penalty.",
+              "answer": true,
+              "why": "That is the formula.",
+              "misconception": "Use the miss rate."
+            },
+            {
+              "level": "easy",
+              "concept": "write",
+              "question": "Which policy writes memory only when a dirty block is evicted?",
+              "options": [
+                "Write-back",
+                "Write-through",
+                "Write-around",
+                "Read-through"
+              ],
+              "answer": 0,
+              "why": "Write-back defers the memory write.",
+              "misconception": "Write-through writes every time."
+            },
+            {
+              "level": "medium",
+              "concept": "amat",
+              "question": "Hit time 1, miss rate 5%, penalty 20. AMAT?",
+              "options": [
+                "2.0",
+                "1.05",
+                "21",
+                "1.0"
+              ],
+              "answer": 0,
+              "why": "1 + 0.05 × 20 = 2.0.",
+              "misconception": "Do not add the penalty without weighting by the miss rate."
+            },
+            {
+              "level": "medium",
+              "concept": "misses",
+              "question": "0,16,0,16,0,16 on a 4-line direct-mapped cache: how many conflict misses?",
+              "options": [
+                "4",
+                "6",
+                "2",
+                "0"
+              ],
+              "answer": 0,
+              "why": "2 compulsory then 4 conflict misses.",
+              "misconception": "A 2-way cache would have 0 conflicts."
+            },
+            {
+              "level": "medium",
+              "concept": "design",
+              "question": "Which change most directly reduces conflict misses?",
+              "options": [
+                "Higher associativity",
+                "Larger blocks",
+                "Smaller cache",
+                "Write-back"
+              ],
+              "answer": 0,
+              "why": "More ways per set.",
+              "misconception": "Larger blocks mainly target compulsory misses."
+            },
+            {
+              "level": "hard",
+              "concept": "amat",
+              "question": "L1 hit 1, miss 5%, L2 hit 10, local miss 20%, memory 100: AMAT?",
+              "options": [
+                "2.5",
+                "6.0",
+                "1.5",
+                "3.0"
+              ],
+              "answer": 0,
+              "why": "1 + 0.05 × (10 + 0.2 × 100) = 2.5.",
+              "misconception": "Without L2 it is 6.0."
+            },
+            {
+              "level": "hard",
+              "concept": "write",
+              "question": "A word is written four times then evicted. Memory writes under write-back?",
+              "options": [
+                "1",
+                "4",
+                "0",
+                "2"
+              ],
+              "answer": 0,
+              "why": "One write at eviction.",
+              "misconception": "Write-through would do 4."
+            },
+            {
+              "level": "challenge",
+              "concept": "amat",
+              "question": "Associativity doubled: miss rate 6% to 4.5%, hit time 1 to 1.2, penalty 40. New AMAT?",
+              "options": [
+                "3.0",
+                "3.4",
+                "2.5",
+                "3.6"
+              ],
+              "answer": 0,
+              "why": "1.2 + 0.045 × 40 = 3.0, better than 3.4.",
+              "misconception": "The extra hit time is smaller than the saving."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "Name the three Cs.",
+              "a": "Compulsory, capacity, conflict.",
+              "concept": "misses"
+            },
+            {
+              "q": "Give the AMAT formula.",
+              "a": "Hit time + miss rate × miss penalty.",
+              "concept": "amat"
+            },
+            {
+              "q": "Why can larger blocks hurt?",
+              "a": "They raise the miss penalty and can crowd out useful data.",
+              "concept": "design"
+            },
+            {
+              "q": "What does a dirty bit mean?",
+              "a": "The cached block was modified and must be written back on eviction.",
+              "concept": "write"
+            },
+            {
+              "q": "How does L2 help L1?",
+              "a": "It reduces the effective L1 miss penalty.",
+              "concept": "amat"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

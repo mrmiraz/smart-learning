@@ -1,0 +1,1253 @@
+{
+  "id": "ca-05-mips-instructions",
+  "title": "MIPS Instructions, Registers and Operands",
+  "subtitle": "Now the course gets practical: write real MIPS.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "2",
+      "title": "Instructions: Language of the Computer",
+      "topics": "Operations of the computer hardware; operands (registers, memory, immediates); signed and unsigned numbers; logical operations; MIPS floating-point instructions"
+    }
+  ],
+  "objectives": [
+    "Name the MIPS registers and explain what the register file is",
+    "Use register, memory and immediate operands",
+    "Write arithmetic and logical instructions",
+    "Move data between memory and registers with lw and sw",
+    "Describe floating-point operands and the floating-point registers"
+  ],
+  "concepts": [
+    {
+      "id": "regs",
+      "label": "Registers and the register file",
+      "section": "regs"
+    },
+    {
+      "id": "operands",
+      "label": "Operand types and immediates",
+      "section": "operands"
+    },
+    {
+      "id": "arith",
+      "label": "Arithmetic and logical instructions",
+      "section": "arith"
+    },
+    {
+      "id": "data",
+      "label": "Data movement and memory",
+      "section": "data"
+    },
+    {
+      "id": "fp",
+      "label": "Floating-point operands",
+      "section": "fp"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "A single line, `add $s0, $s1, $s2`, is a complete instruction. Why does it name numbered places instead of variables like `total`?",
+          "clues": [
+            "The hardware has no variable names, only numbered storage places.",
+            "MIPS gives every program 32 very fast places called **registers**.",
+            "Almost everything a program computes passes through them."
+          ],
+          "notes": {
+            "explain": "Let students try to say what a CPU would need to find a variable named `total`. The answer: a number, not a name."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "regs",
+      "label": "Registers",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "regs",
+          "title": "The register file",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Name",
+                "Number",
+                "Typical use"
+              ],
+              "rows": [
+                [
+                  "$zero",
+                  "0",
+                  "The constant 0 (writes are ignored)"
+                ],
+                [
+                  "$v0 - $v1",
+                  "2 - 3",
+                  "Values returned by procedures"
+                ],
+                [
+                  "$a0 - $a3",
+                  "4 - 7",
+                  "Arguments passed to procedures"
+                ],
+                [
+                  "$t0 - $t7",
+                  "8 - 15",
+                  "Temporaries (a procedure may overwrite them)"
+                ],
+                [
+                  "$s0 - $s7",
+                  "16 - 23",
+                  "Saved values (kept across procedure calls)"
+                ],
+                [
+                  "$t8 - $t9",
+                  "24 - 25",
+                  "More temporaries"
+                ],
+                [
+                  "$gp, $sp, $fp",
+                  "28, 29, 30",
+                  "Global, stack and frame pointers"
+                ],
+                [
+                  "$ra",
+                  "31",
+                  "Return address of a procedure call"
+                ]
+              ]
+            }
+          ],
+          "why": "Each register holds 32 bits. Operations run at register speed, so good programs keep their busy values here.",
+          "real": "A compiler decides which variables live in registers. Your C or Java loop counter is almost always in a register while the loop runs.",
+          "mistake": {
+            "wrong": "Register $zero can be changed like any other register.",
+            "right": "$zero always reads 0. A write to it is ignored."
+          },
+          "explainAgain": {
+            "beginner": "Registers are the numbered slots on the CPU's desk. The names ($t0, $s1) are just friendly labels for the numbers 8, 17 and so on."
+          },
+          "notes": {
+            "explain": "Reveal row by row. Stress that the names are conventions the assembler understands; the hardware only sees the number.",
+            "terms": [
+              "**Register file**",
+              "**$zero**"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "regs",
+          "title": "The register file as hardware",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "32 registers of 32 bits each: 1,024 bits (128 bytes) in total",
+                "Two registers can be **read** and one **written** in the same clock cycle",
+                "A register number needs **5 bits** (2⁵ = 32)",
+                "Register $zero is wired to the value 0"
+              ]
+            }
+          ],
+          "why": "This is exactly why MIPS instructions name at most three registers, which you will see when we encode them (Class 7).",
+          "deeper": {
+            "text": "In the datapath (Class 10) the register file has two read ports and one write port, controlled by a RegWrite signal."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "regs",
+          "question": "Which register always holds the value 0?",
+          "options": [
+            "$zero",
+            "$at",
+            "$t0",
+            "$ra"
+          ],
+          "answer": 0,
+          "why": "$zero is hard-wired to 0.",
+          "feedback": [
+            "",
+            "$at is reserved for the assembler.",
+            "$t0 is a temporary you can change.",
+            "$ra holds a return address."
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "regs",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each register group with its usual job.",
+          "pairs": [
+            {
+              "a": "$a0 - $a3",
+              "b": "Procedure arguments"
+            },
+            {
+              "a": "$v0 - $v1",
+              "b": "Returned values"
+            },
+            {
+              "a": "$s0 - $s7",
+              "b": "Values kept across calls"
+            },
+            {
+              "a": "$t0 - $t7",
+              "b": "Temporaries"
+            }
+          ],
+          "why": "Conventions let separately written procedures work together."
+        },
+        {
+          "type": "concept",
+          "concept": "regs",
+          "title": "Run it: try to change $zero",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Try to change $zero",
+              "program": "addi $zero, $zero, 5\nadd $t0, $zero, $zero",
+              "watch": [
+                "$zero",
+                "$t0"
+              ],
+              "hint": "Run it, then edit the program and try writing other registers.",
+              "editable": true
+            }
+          ],
+          "why": "The hardware ignores writes to $zero, so it can serve as a free constant 0."
+        },
+        {
+          "type": "predict",
+          "concept": "regs",
+          "skill": "Apply",
+          "question": "Before you run it: after `addi $zero, $zero, 5` what will `$zero` hold?",
+          "options": [
+            "5",
+            "0",
+            "-5",
+            "It depends on the CPU"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "$zero stays **0**; the write is ignored.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Writes to $zero are discarded, which is what lets MIPS use it as a free constant 0."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What is the register file?",
+              "a": "A small, fast set of 32 registers inside the CPU that instructions read and write.",
+              "concept": "regs"
+            },
+            {
+              "q": "How many bits name one MIPS register?",
+              "a": "5 bits, because there are 32 registers.",
+              "concept": "regs"
+            },
+            {
+              "q": "Which register is always 0?",
+              "a": "$zero.",
+              "concept": "regs"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "operands",
+      "label": "Operands",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "operands",
+          "title": "Three kinds of operand",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Register",
+                  "sub": "in the register file",
+                  "note": "The value is already in a register: fastest.",
+                  "example": "add $t0, $s1, $s2"
+                },
+                {
+                  "label": "Immediate",
+                  "sub": "a constant inside the instruction",
+                  "note": "The 16-bit constant is part of the instruction word.",
+                  "example": "addi $t0, $s1, 100"
+                },
+                {
+                  "label": "Memory",
+                  "sub": "in main memory",
+                  "note": "Reached only by loads and stores, using a base register and an offset.",
+                  "example": "lw $t0, 8($s1)"
+                }
+              ],
+              "zoom": true
+            }
+          ],
+          "why": "The operand kind decides speed, instruction size and what the hardware must do.",
+          "real": "Adding 1 to a loop counter uses an immediate. Reading an array element uses memory. Everything between uses registers.",
+          "explainAgain": {
+            "beginner": "Registers are in your hands, immediates are written on the instruction itself, memory is a shelf across the room."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "operands",
+          "title": "Immediate operands",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "An immediate is a **16-bit signed** constant inside the instruction",
+                "Range: −32,768 to 32,767",
+                "It is sign-extended to 32 bits before use",
+                "Bigger constants need two instructions: `lui` (upper 16 bits) then `ori` (lower 16 bits)"
+              ]
+            }
+          ],
+          "why": "This follows the design principle \"make the common case fast\": most constants in programs are small."
+        },
+        {
+          "type": "concept",
+          "concept": "operands",
+          "title": "Try it: immediate range",
+          "blocks": [
+            {
+              "type": "walkthrough",
+              "title": "How many values fit in an n-bit signed immediate?",
+              "inputs": [
+                {
+                  "id": "n",
+                  "label": "Immediate width in bits",
+                  "value": 16,
+                  "min": 8,
+                  "max": 24,
+                  "step": 1
+                }
+              ],
+              "stages": [
+                {
+                  "label": "Bits",
+                  "text": "{n} bits can make 2^{n} = **{pow(2,n)}** patterns"
+                },
+                {
+                  "label": "Split",
+                  "text": "Half are negative, half are not"
+                },
+                {
+                  "label": "Range",
+                  "text": "**{-pow(2,n-1)}** to **{pow(2,n-1)-1}**"
+                }
+              ]
+            }
+          ],
+          "why": "MIPS uses n = 16, giving −32,768 to 32,767."
+        },
+        {
+          "type": "predict",
+          "concept": "operands",
+          "skill": "Apply",
+          "question": "The immediate field of `addi` is 16 bits and signed. Which constant does NOT fit?",
+          "options": [
+            "32,767",
+            "-32,768",
+            "40,000",
+            "0"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "40,000 is larger than 32,767, so `addi` cannot hold it. The assembler uses `lui` + `ori` instead.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The largest positive value is 2^15 − 1 = 32,767."
+        },
+        {
+          "type": "find",
+          "concept": "operands",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about operands is wrong. Click it.",
+          "lines": [
+            "1. A register operand is read from the register file.",
+            "2. An immediate operand is stored inside the instruction.",
+            "3. Arithmetic instructions in MIPS can read operands directly from memory.",
+            "4. Memory operands are reached with lw and sw."
+          ],
+          "wrong": 2,
+          "explain": "In MIPS, arithmetic works on registers and immediates only. Memory is reached by lw and sw (a load/store architecture).",
+          "fix": "Arithmetic instructions use registers only; lw and sw access memory."
+        },
+        {
+          "type": "mcq",
+          "concept": "operands",
+          "question": "How many bits does the immediate field of `addi` have?",
+          "options": [
+            "5",
+            "16",
+            "26",
+            "32"
+          ],
+          "answer": 1,
+          "why": "The I-format has a 16-bit immediate field.",
+          "feedback": [
+            "5 bits name a register.",
+            "",
+            "26 bits is the J-format target field.",
+            "The whole instruction is 32 bits, so the immediate cannot take all of them."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arith",
+      "label": "Arithmetic and Logic",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "arith",
+          "title": "Arithmetic instructions",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "Meaning",
+                "Example"
+              ],
+              "rows": [
+                [
+                  "add rd, rs, rt",
+                  "rd = rs + rt (traps on overflow)",
+                  "add $t0, $s1, $s2"
+                ],
+                [
+                  "sub rd, rs, rt",
+                  "rd = rs − rt",
+                  "sub $t0, $s1, $s2"
+                ],
+                [
+                  "addi rt, rs, imm",
+                  "rt = rs + constant",
+                  "addi $t0, $s1, 4"
+                ],
+                [
+                  "addu / subu / addiu",
+                  "Same, but never trap on overflow",
+                  "addu $t0, $s1, $s2"
+                ],
+                [
+                  "slt rd, rs, rt",
+                  "rd = 1 if rs < rt, else 0",
+                  "slt $t0, $s1, $s2"
+                ]
+              ]
+            }
+          ],
+          "why": "Every arithmetic instruction names exactly three operands. That regularity keeps the hardware simple.",
+          "real": "A compiler turns an expression with four variables into several of these three-operand instructions.",
+          "mistake": {
+            "wrong": "One `add` instruction can add three numbers.",
+            "right": "`add` has exactly two sources. Adding three numbers takes two instructions."
+          },
+          "explainAgain": {
+            "beginner": "Think of a calculator that only has a two-number plus key. For three numbers you press it twice and keep the middle result in a temporary."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "arith",
+          "skill": "Apply",
+          "question": "g = 10, h = 20 are in $s1 and $s2; i = 3, j = 4 are in $s3 and $s4. After the program for `f = (g + h) - (i + j)`, what does $s0 (f) hold?",
+          "options": [
+            "23",
+            "30",
+            "7",
+            "37"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "(10 + 20) − (3 + 4) = 30 − 7 = **23**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Two temporaries hold the partial sums; sub combines them.",
+          "code": "add $t0, $s1, $s2\nadd $t1, $s3, $s4\nsub $s0, $t0, $t1"
+        },
+        {
+          "type": "concept",
+          "concept": "arith",
+          "title": "Run it: f = (g + h) - (i + j)",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Translated expression",
+              "program": "li $s1, 10\nli $s2, 20\nli $s3, 3\nli $s4, 4\nadd $t0, $s1, $s2\nadd $t1, $s3, $s4\nsub $s0, $t0, $t1",
+              "watch": [
+                "$s0",
+                "$s1",
+                "$s2",
+                "$s3",
+                "$s4",
+                "$t0",
+                "$t1"
+              ],
+              "hint": "Step through it. Edit the numbers to try your own.",
+              "editable": true
+            }
+          ],
+          "why": "Temporaries ($t0, $t1) hold the two partial results."
+        },
+        {
+          "type": "concept",
+          "concept": "arith",
+          "title": "Logical instructions",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "Operation",
+                "Example"
+              ],
+              "rows": [
+                [
+                  "and, andi",
+                  "Bitwise AND (masking bits)",
+                  "and $t0, $s1, $s2"
+                ],
+                [
+                  "or, ori",
+                  "Bitwise OR (setting bits)",
+                  "ori $t0, $s1, 1"
+                ],
+                [
+                  "xor, nor",
+                  "Exclusive OR; NOT-OR",
+                  "xor $t0, $s1, $s2"
+                ],
+                [
+                  "sll, srl",
+                  "Shift left / right by a constant",
+                  "sll $t0, $s1, 2"
+                ]
+              ]
+            }
+          ],
+          "why": "Shifting left by n multiplies by 2ⁿ, and masking picks out single fields of a word.",
+          "real": "Graphics, networking and compression code is full of shifts and masks.",
+          "deeper": {
+            "text": "`nor` with $zero gives NOT: `nor $t0, $s1, $zero` flips every bit of $s1."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "arith",
+          "title": "Run it: bits and shifts",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Logical instructions on 12 (1100) and 10 (1010)",
+              "program": "li $s1, 12\nli $s2, 10\nand $t0, $s1, $s2\nor $t1, $s1, $s2\nxor $t2, $s1, $s2\nsll $t3, $s1, 2\nsrl $t4, $s1, 2",
+              "watch": [
+                "$s1",
+                "$s2",
+                "$t0",
+                "$t1",
+                "$t2",
+                "$t3",
+                "$t4"
+              ],
+              "hint": "12 = 1100 and 10 = 1010 in binary."
+            }
+          ],
+          "why": "Compare the results with the binary patterns: AND keeps common 1s, OR keeps any 1."
+        },
+        {
+          "type": "mcq",
+          "concept": "arith",
+          "question": "If $s1 = 5, what does `sll $t0, $s1, 3` put in $t0?",
+          "options": [
+            "8",
+            "15",
+            "40",
+            "53"
+          ],
+          "answer": 2,
+          "why": "Shifting left by 3 multiplies by 8: 5 × 8 = 40.",
+          "feedback": [
+            "8 is 2³, not 5 × 2³.",
+            "15 is 5 × 3.",
+            "",
+            "Shift is not the same as add."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "arith",
+          "statement": "`addu` and `add` give different results when the sum fits in 32 bits.",
+          "answer": false,
+          "why": "They differ only on overflow: `add` traps, `addu` wraps."
+        }
+      ]
+    },
+    {
+      "id": "data",
+      "label": "Data Movement",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "data",
+          "title": "Loads and stores",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "lw",
+                  "sub": "memory → register",
+                  "note": "`lw $t0, 8($s1)` loads the word at address $s1 + 8."
+                },
+                {
+                  "label": "Registers",
+                  "sub": "the CPU's workspace",
+                  "note": "Arithmetic happens here."
+                },
+                {
+                  "label": "sw",
+                  "sub": "register → memory",
+                  "note": "`sw $t0, 8($s1)` stores $t0 at address $s1 + 8."
+                }
+              ]
+            }
+          ],
+          "why": "Only loads and stores touch memory, so every memory operand needs an explicit instruction.",
+          "real": "Reading an array element in C is a lw; writing one is a sw.",
+          "mistake": {
+            "wrong": "`lw $t0, 6($s1)` is fine if $s1 is a multiple of 4.",
+            "right": "A word address must be a multiple of 4. Offset 6 breaks that, so the load is misaligned."
+          },
+          "notes": {
+            "explain": "Memory is byte-addressed; a word is four bytes, so array element i of words is at base + 4 × i. Class 6 goes deeper."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "data",
+          "title": "Run it: A[2] = A[0] + A[1]",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Array in memory",
+              "program": "lw $t0, 0($s1)\nlw $t1, 4($s1)\nadd $t2, $t0, $t1\nsw $t2, 8($s1)",
+              "registers": {
+                "$s1": 268500992
+              },
+              "memory": {
+                "0x10010000": 3,
+                "0x10010004": 7
+              },
+              "watch": [
+                "$s1",
+                "$t0",
+                "$t1",
+                "$t2"
+              ],
+              "hint": "$s1 holds the base address 0x10010000 of the array A."
+            }
+          ],
+          "why": "Offsets are in bytes: element 1 is at +4, element 2 at +8."
+        },
+        {
+          "type": "predict",
+          "concept": "data",
+          "skill": "Apply",
+          "question": "`$s3` holds the base address of array A (words). What byte offset does `A[3]` have?",
+          "options": [
+            "3",
+            "4",
+            "12",
+            "16"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Each word is 4 bytes, so A[3] is at offset **3 × 4 = 12**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Index × 4 gives the byte offset for an array of words."
+        },
+        {
+          "type": "arrange",
+          "concept": "data",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the instructions for A[1] = A[0] + 5 in order.",
+          "items": [
+            "Load A[0] from memory into a register",
+            "Add 5 to that register",
+            "Store the register into A[1]"
+          ],
+          "why": "The value must be loaded before it is changed, and stored afterward."
+        },
+        {
+          "type": "find",
+          "concept": "data",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about memory is wrong. Click it.",
+          "lines": [
+            "1. Memory addresses count bytes.",
+            "2. A word occupies four consecutive bytes.",
+            "3. `lw $t0, 6($s1)` is always fine when $s1 is a multiple of 4.",
+            "4. `sw` copies a register into memory."
+          ],
+          "wrong": 2,
+          "explain": "6 is not a multiple of 4, so the address is misaligned and the load faults.",
+          "fix": "Use an offset that keeps the address a multiple of 4."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Why does MIPS have separate lw and sw instructions instead of letting `add` read memory directly?",
+          "think": 20,
+          "pair": 40,
+          "answer": "Memory is slow and varies in speed. Keeping arithmetic on registers makes every arithmetic instruction the same simple length and speed, which is easy to build and to speed up. Loads and stores handle the slow part separately.",
+          "notes": {
+            "explain": "Link back to Class 4: load/store architecture."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "data",
+          "title": "Constants and register moves",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "`li $t0, 100` loads a constant (a pseudo-instruction)",
+                "`move $t0, $s1` copies a register",
+                "Large constants become `lui` + `ori`, so one `li` can be **two** machine instructions",
+                "Pseudo-instructions are conveniences the assembler expands"
+              ]
+            }
+          ],
+          "why": "You write friendly code and the assembler turns it into real instructions."
+        },
+        {
+          "type": "concept",
+          "concept": "data",
+          "title": "Run it: a large constant",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "li with a constant too big for 16 bits",
+              "program": "li $t0, 100000",
+              "watch": [
+                "$at",
+                "$t0"
+              ],
+              "hint": "Step twice and watch the two real instructions."
+            }
+          ],
+          "why": "100,000 = 0x186A0: upper half 1, lower half 0x86A0."
+        },
+        {
+          "type": "mcq",
+          "concept": "data",
+          "question": "How many real instructions does `li $t0, 70000` become?",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "It cannot be done"
+          ],
+          "answer": 1,
+          "why": "70,000 does not fit in 16 bits, so `lui` and `ori` are used: 2 instructions.",
+          "feedback": [
+            "That works only for constants from −32,768 to 65,535.",
+            "",
+            "Two are enough: set the upper half, then OR in the lower half.",
+            "It can, using two instructions."
+          ]
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "regs",
+          "question": "Why does MIPS have only 32 registers instead of thousands?",
+          "seconds": 60,
+          "ideas": [
+            "A register number must fit in 5 bits inside every instruction.",
+            "A bigger register file is slower to read (smaller is faster).",
+            "Most programs keep only a few values busy at once.",
+            "More registers mean more state to save on every procedure call."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fp",
+      "label": "Floating Point",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "fp",
+          "title": "Floating-point operands",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Operation",
+                "Single precision (32-bit)",
+                "Double precision (64-bit)"
+              ],
+              "rows": [
+                [
+                  "add",
+                  "add.s",
+                  "add.d"
+                ],
+                [
+                  "subtract",
+                  "sub.s",
+                  "sub.d"
+                ],
+                [
+                  "multiply",
+                  "mul.s",
+                  "mul.d"
+                ],
+                [
+                  "divide",
+                  "div.s",
+                  "div.d"
+                ],
+                [
+                  "load / store",
+                  "lwc1 / swc1",
+                  "ldc1 / sdc1"
+                ]
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "Separate registers **$f0 - $f31**",
+                "A double uses an even/odd **pair**, for example `$f0`",
+                "Example: `add.s $f0, $f1, $f2`"
+              ]
+            }
+          ],
+          "why": "Floating-point numbers have their own formats and hardware, so they get their own registers and instructions (the formats come in Class 9).",
+          "real": "Science, graphics and machine-learning code runs mostly on floating-point instructions.",
+          "mistake": {
+            "wrong": "Use `add` on $f registers to add floats.",
+            "right": "Floating-point values need `add.s` or `add.d`; `add` works on integer registers."
+          },
+          "notes": {
+            "explain": "The simulator in this course does not run floating point; treat these as notation to recognize."
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "fp",
+          "question": "Which instruction adds two double-precision numbers?",
+          "options": [
+            "add",
+            "add.s",
+            "add.d",
+            "addu"
+          ],
+          "answer": 2,
+          "why": "The suffix .d means double precision.",
+          "feedback": [
+            "`add` is the integer add.",
+            ".s is single precision (32-bit).",
+            "",
+            "`addu` is the integer add without overflow trap."
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "fp",
+          "statement": "The registers $f0 - $f31 are the same registers as $s0 - $s7.",
+          "answer": false,
+          "why": "They are a separate register file for floating-point values."
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "regs",
+          "question": "Name the register that always holds 0, the register for a return address, and the registers used for temporaries.",
+          "answer": "$zero; $ra; $t0 - $t9.",
+          "solution": "$zero is wired to 0, $ra holds the return address of a procedure call, and $t registers are temporaries.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "arith",
+          "question": "Variables f, g, h, i are in $s0, $s1, $s2, $s3. Write MIPS for f = g + h - i.",
+          "answer": "add $t0, $s1, $s2\nsub $s0, $t0, $s3",
+          "solution": "Add g and h into a temporary, then subtract i and put the result in f ($s0). Each instruction has exactly three operands.",
+          "hint": "Use $t0 for the partial sum.",
+          "mistake": "Trying to write one instruction with four operands.",
+          "think": 40
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "data",
+          "question": "The base address of array A (words) is in $s3. Translate A[5] = A[3] + 7.",
+          "answer": "lw $t0, 12($s3)\naddi $t0, $t0, 7\nsw $t0, 20($s3)",
+          "solution": "A[3] is at offset 3 × 4 = 12 and A[5] at 5 × 4 = 20. Load, add the immediate 7, store back.",
+          "hint": "Offsets are in bytes: index × 4.",
+          "mistake": "Using the index as the offset (3 and 5) instead of index × 4.",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "operands",
+          "question": "A redesigned ISA uses 12-bit signed immediates. What range of constants fits in one instruction?",
+          "answer": "−2,048 to 2,047.",
+          "solution": "12 bits give 2^12 = 4,096 values; half are negative: −2^11 = −2,048 to 2^11 − 1 = 2,047.",
+          "mistake": "Using 0 to 4,095 (ignoring the sign).",
+          "title": "Exam practice: numerical",
+          "think": 60,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "data",
+          "question": "Variables g and h are in $s1 and $s2; the base of array A is in $s3. Write MIPS for g = h + A[8].",
+          "answer": "lw $t0, 32($s3)\nadd $s1, $s2, $t0",
+          "solution": "A[8] is at byte offset 8 × 4 = 32. Load it into $t0, then add h.",
+          "mistake": "Using offset 8 instead of 32.",
+          "title": "Exam practice: translation",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "arith",
+          "question": "Trace the program and give the final values of $s2 and $s3.",
+          "answer": "$s2 = 48 and $s3 = 42.",
+          "solution": "$s1 = 6; sll by 3 multiplies by 8, so $s2 = 48; sub gives $s3 = 48 − 6 = 42.",
+          "mistake": "Treating sll as adding 3.",
+          "title": "Exam practice: trace",
+          "think": 60,
+          "code": "li $s1, 6\nsll $s2, $s1, 3\nsub $s3, $s2, $s1",
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "operands",
+          "question": "Explain why MIPS arithmetic instructions use only registers and immediates, never memory.",
+          "answer": "Registers are fast and need only 5 bits to name, so instructions stay simple and the same length. Memory access is separated into lw and sw (a load/store design), which keeps each instruction regular and easy to speed up.",
+          "solution": "A good answer links register speed, the small number of bits needed, and the load/store separation to simpler hardware.",
+          "mistake": "Saying memory is not used at all: it is used, but only through loads and stores.",
+          "title": "Exam practice: conceptual",
+          "think": 75,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "MIPS operands and instructions",
+          "branches": [
+            {
+              "label": "Registers",
+              "example": "$zero, $t, $s, $a, $v, $ra",
+              "section": "regs"
+            },
+            {
+              "label": "Operands",
+              "example": "Register · Immediate · Memory",
+              "section": "operands"
+            },
+            {
+              "label": "Arithmetic and logic",
+              "example": "add, sub, and, or, sll",
+              "section": "arith"
+            },
+            {
+              "label": "Data movement",
+              "example": "lw, sw, li",
+              "section": "data"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "MIPS has 32 registers of 32 bits; a register number takes 5 bits.",
+            "$zero is always 0; $t are temporaries, $s are saved, $a pass arguments, $v return values, $ra holds the return address.",
+            "Operands are registers, 16-bit immediates, or memory (reached only by lw and sw).",
+            "Arithmetic instructions name exactly three operands.",
+            "An array element i of words is at base + 4 × i bytes.",
+            "Large constants need lui + ori; floating point has its own registers and instructions."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "Arithmetic instructions can read memory directly.",
+              "right": "Only lw and sw access memory."
+            },
+            {
+              "wrong": "Array index equals the byte offset.",
+              "right": "The byte offset is index × 4 for words."
+            },
+            {
+              "wrong": "add can add three numbers.",
+              "right": "Each add has two sources."
+            },
+            {
+              "wrong": "Floating-point values use the integer registers.",
+              "right": "They use $f0 - $f31 and add.s / add.d."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "MIPS has 32 registers; instructions work on registers and immediates and reach memory only through lw and sw. Arithmetic and logical instructions always name three operands. Arrays are addressed as base plus four times the index, constants beyond 16 bits take lui and ori, and floating point has separate registers and instructions."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "regs",
+              "statement": "$zero always holds the value 0.",
+              "answer": true,
+              "why": "It is hard-wired to 0.",
+              "misconception": "Writes to $zero are ignored."
+            },
+            {
+              "level": "easy",
+              "concept": "operands",
+              "question": "In `addi $t0, $s1, 25`, what kind of operand is 25?",
+              "options": [
+                "Immediate",
+                "Register",
+                "Memory",
+                "Label"
+              ],
+              "answer": 0,
+              "why": "It is a constant stored in the instruction.",
+              "misconception": "A register would be written with a $ sign."
+            },
+            {
+              "level": "easy",
+              "concept": "regs",
+              "question": "How many bits are needed to name one MIPS register?",
+              "options": [
+                "3",
+                "5",
+                "8",
+                "32"
+              ],
+              "answer": 1,
+              "why": "2⁵ = 32.",
+              "misconception": "The number of names is 2 to the number of bits."
+            },
+            {
+              "level": "medium",
+              "concept": "arith",
+              "question": "With $s1 = 9, $s2 = 4, $s3 = 2, $s4 = 1, what does $s0 hold after `add $t0,$s1,$s2` / `add $t1,$s3,$s4` / `sub $s0,$t0,$t1`?",
+              "options": [
+                "10",
+                "13",
+                "14",
+                "16"
+              ],
+              "answer": 0,
+              "why": "(9 + 4) − (2 + 1) = 10.",
+              "misconception": "Add each pair first, then subtract."
+            },
+            {
+              "level": "medium",
+              "concept": "arith",
+              "question": "If $s1 = 5, what is $t0 after `sll $t0, $s1, 3`?",
+              "options": [
+                "8",
+                "15",
+                "40",
+                "53"
+              ],
+              "answer": 2,
+              "why": "5 × 8 = 40.",
+              "misconception": "A left shift by n multiplies by 2 to the n."
+            },
+            {
+              "level": "medium",
+              "concept": "data",
+              "question": "$s1 = 0x1000. What address does `lw $t0, 12($s1)` read?",
+              "options": [
+                "0x100C",
+                "0x1012",
+                "0x1003",
+                "0x10C0"
+              ],
+              "answer": 0,
+              "why": "0x1000 + 12 = 0x100C.",
+              "misconception": "12 is a decimal byte offset: 12 = 0xC."
+            },
+            {
+              "level": "hard",
+              "concept": "data",
+              "question": "Which sequence performs A[4] = A[1] + 3 (base in $s3)?",
+              "options": [
+                "lw $t0,4($s3); addi $t0,$t0,3; sw $t0,16($s3)",
+                "lw $t0,1($s3); addi $t0,$t0,3; sw $t0,4($s3)",
+                "lw $t0,16($s3); addi $t0,$t0,3; sw $t0,4($s3)",
+                "addi $t0,$s3,3; sw $t0,16($s3)"
+              ],
+              "answer": 0,
+              "why": "A[1] is at offset 4 and A[4] at offset 16.",
+              "misconception": "Byte offsets are index × 4; also read first, then store."
+            },
+            {
+              "level": "hard",
+              "concept": "data",
+              "question": "$s1 = 0x1002. What happens when `lw $t0, 0($s1)` executes?",
+              "options": [
+                "It loads from 0x1002",
+                "An alignment fault: 0x1002 is not a multiple of 4",
+                "It loads from 0x1000",
+                "It stores $t0"
+              ],
+              "answer": 1,
+              "why": "A word load needs an address that is a multiple of 4.",
+              "misconception": "Word accesses must be aligned."
+            },
+            {
+              "level": "challenge",
+              "concept": "operands",
+              "question": "`li $t0, 70000` is expanded by the assembler. What does the first real instruction load into the upper 16 bits?",
+              "options": [
+                "0",
+                "1",
+                "70",
+                "7"
+              ],
+              "answer": 1,
+              "why": "70,000 = 0x11170: the upper 16 bits are 1 (lui), and ori adds 0x1170.",
+              "misconception": "70,000 divided by 65,536 gives 1 with a remainder."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "How many registers does MIPS have and how many bits name one?",
+              "a": "32 registers; 5 bits.",
+              "concept": "regs"
+            },
+            {
+              "q": "Name the three kinds of operand.",
+              "a": "Register, immediate and memory.",
+              "concept": "operands"
+            },
+            {
+              "q": "What is the offset of A[i] for an array of words?",
+              "a": "4 × i bytes from the base address.",
+              "concept": "data"
+            },
+            {
+              "q": "What does sll by n do?",
+              "a": "Multiplies by 2 to the n.",
+              "concept": "arith"
+            },
+            {
+              "q": "Which instructions add floating-point numbers?",
+              "a": "add.s (single) and add.d (double).",
+              "concept": "fp"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

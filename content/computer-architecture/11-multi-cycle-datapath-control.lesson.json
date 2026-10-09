@@ -1,0 +1,3633 @@
+{
+  "id": "ca-11-multi-cycle-processor",
+  "title": "Multi-Cycle Datapath and Control",
+  "subtitle": "One step per clock cycle, shared hardware, and a state machine in charge.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "4",
+      "title": "The Processor",
+      "topics": "Multi-cycle implementation and the control finite-state machine (presented in the supplementary material of the 5th edition and in earlier editions; check your copy)"
+    },
+    {
+      "book": "CAQA",
+      "chapter": "3",
+      "title": "Pipelining",
+      "topics": "A simple implementation of a RISC instruction set: the five execution steps"
+    }
+  ],
+  "objectives": [
+    "Explain why the single-cycle processor is not ideal",
+    "Describe the five steps of the multi-cycle processor and what each does",
+    "Name the intermediate registers IR, MDR, A, B and ALUOut and why they exist",
+    "Follow lw, sw, R-type and beq through the control state machine",
+    "Compare single-cycle and multi-cycle processors with a calculation"
+  ],
+  "concepts": [
+    {
+      "id": "why",
+      "label": "Why not single-cycle",
+      "section": "why"
+    },
+    {
+      "id": "datapath",
+      "label": "The multi-cycle datapath",
+      "section": "datapath"
+    },
+    {
+      "id": "control",
+      "label": "Control FSM",
+      "section": "control"
+    },
+    {
+      "id": "compare",
+      "label": "Single vs multi",
+      "section": "compare"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "In Class 10 every instruction, even a simple add, waited for the slowest one. Could each instruction use only the time it needs?",
+          "clues": [
+            "Split every instruction into **short steps**, one per clock cycle.",
+            "Let steps **share** one memory and one ALU.",
+            "A **state machine** decides which step comes next."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "why",
+      "label": "Why not single-cycle",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "why",
+          "title": "Three problems with single-cycle",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**The clock is set by the slowest instruction** (lw), so every instruction pays for it",
+                "**Hardware is duplicated**: two memories, a main ALU and two extra adders, each used once per cycle",
+                "**No flexibility**: a long operation such as multiply would stretch the clock for everybody"
+              ]
+            }
+          ],
+          "why": "Single-cycle is simple, but it wastes both time and hardware.",
+          "real": "Early simple processors used designs like this; faster ones changed the structure rather than only the speed.",
+          "explainAgain": {
+            "beginner": "A school bus that waits for the slowest student at every stop, even when most are ready."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "why",
+          "title": "The multi-cycle idea",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Fetch",
+                  "sub": "read the instruction",
+                  "note": "Memory is read; PC + 4 is computed."
+                },
+                {
+                  "label": "Decode",
+                  "sub": "read registers",
+                  "note": "Register file read; control sees the opcode."
+                },
+                {
+                  "label": "Execute",
+                  "sub": "the ALU",
+                  "note": "Arithmetic, address or comparison."
+                },
+                {
+                  "label": "Memory",
+                  "sub": "lw / sw only",
+                  "note": "Read or write data memory."
+                },
+                {
+                  "label": "Write back",
+                  "sub": "lw and R-type",
+                  "note": "Result goes into a register."
+                }
+              ],
+              "zoom": true
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "Each step is **one short clock cycle**",
+                "Different instructions use **different numbers** of cycles",
+                "The **same ALU and memory** are reused in different cycles"
+              ]
+            }
+          ],
+          "why": "Short cycles and reused hardware are the two gains.",
+          "real": "Many microcontrollers still work this way: the processor takes several clocks per instruction."
+        },
+        {
+          "type": "concept",
+          "concept": "why",
+          "title": "Intermediate registers",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Register",
+                "Holds",
+                "Why it is needed"
+              ],
+              "rows": [
+                [
+                  "IR",
+                  "The instruction being executed",
+                  "Memory is reused in later cycles, so the instruction must be kept"
+                ],
+                [
+                  "MDR",
+                  "Data read from memory",
+                  "Held until the write-back cycle"
+                ],
+                [
+                  "A, B",
+                  "Values read from the register file",
+                  "Hold the operands for the ALU in the next cycle"
+                ],
+                [
+                  "ALUOut",
+                  "The ALU result",
+                  "Held until the next cycle: memory address, register result or branch target"
+                ]
+              ]
+            }
+          ],
+          "why": "A value produced in one cycle must survive into the next. These registers do that.",
+          "mistake": {
+            "wrong": "The multi-cycle processor is just the single-cycle processor with a slower clock.",
+            "right": "The datapath is redesigned: shared units and intermediate registers."
+          },
+          "notes": {
+            "explain": "Ask: where would the instruction go after the memory is used for data in cycle 4?",
+            "terms": [
+              "**IR**",
+              "**MDR**",
+              "**ALUOut**"
+            ]
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "why",
+          "question": "Why does the single-cycle processor waste time on an add instruction?",
+          "options": [
+            "Its clock period is set by the slowest instruction (lw)",
+            "It must read memory twice",
+            "Its ALU is slow",
+            "It uses more registers"
+          ],
+          "answer": 0,
+          "why": "Every instruction gets the same cycle length, which fits lw, so add waits.",
+          "feedback": [
+            "",
+            "add does not use data memory at all.",
+            "The ALU is not the issue.",
+            "Register use is the same."
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "why",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each register with what it holds.",
+          "pairs": [
+            {
+              "a": "IR",
+              "b": "The instruction being executed"
+            },
+            {
+              "a": "MDR",
+              "b": "Data read from memory"
+            },
+            {
+              "a": "A and B",
+              "b": "The two register operands"
+            },
+            {
+              "a": "ALUOut",
+              "b": "The result of the ALU"
+            }
+          ],
+          "why": "These five registers carry values between cycles."
+        }
+      ]
+    },
+    {
+      "id": "datapath",
+      "label": "The datapath",
+      "minutes": 12,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "datapath",
+          "title": "Building the multi-cycle datapath",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Compare it with the single-cycle datapath: there is **one memory** and **one ALU**. Intermediate registers separate the steps, and multiplexers choose what each shared unit sees in each cycle."
+            }
+          ],
+          "why": "One memory and one ALU save hardware; the intermediate registers make that sharing possible."
+        },
+        {
+          "type": "concept",
+          "concept": "datapath",
+          "title": "Build it up",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Multi-cycle datapath (build-up)",
+              "width": 960,
+              "height": 472,
+              "nodes": [
+                {
+                  "id": "pc",
+                  "label": "PC",
+                  "kind": "reg",
+                  "x": 20,
+                  "y": 237,
+                  "w": 50,
+                  "h": 60
+                },
+                {
+                  "id": "iord",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 96,
+                  "y": 237,
+                  "w": 26,
+                  "h": 60
+                },
+                {
+                  "id": "mem",
+                  "label": "Unified\nmemory",
+                  "kind": "mem",
+                  "x": 146,
+                  "y": 207,
+                  "w": 100,
+                  "h": 120
+                },
+                {
+                  "id": "ir",
+                  "label": "IR",
+                  "kind": "reg",
+                  "x": 290,
+                  "y": 182,
+                  "w": 50,
+                  "h": 46
+                },
+                {
+                  "id": "mdr",
+                  "label": "MDR",
+                  "kind": "reg",
+                  "x": 290,
+                  "y": 306,
+                  "w": 50,
+                  "h": 46
+                },
+                {
+                  "id": "rf",
+                  "label": "Register\nfile",
+                  "kind": "reg",
+                  "x": 400,
+                  "y": 187,
+                  "w": 110,
+                  "h": 140
+                },
+                {
+                  "id": "mtr",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 360,
+                  "y": 284,
+                  "w": 24,
+                  "h": 56
+                },
+                {
+                  "id": "a",
+                  "label": "A",
+                  "kind": "reg",
+                  "x": 530,
+                  "y": 187,
+                  "w": 36,
+                  "h": 40
+                },
+                {
+                  "id": "b",
+                  "label": "B",
+                  "kind": "reg",
+                  "x": 530,
+                  "y": 277,
+                  "w": 36,
+                  "h": 40
+                },
+                {
+                  "id": "sext",
+                  "label": "Sign\nextend",
+                  "kind": "unit",
+                  "x": 400,
+                  "y": 102,
+                  "w": 90,
+                  "h": 40
+                },
+                {
+                  "id": "alua",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 610,
+                  "y": 192,
+                  "w": 24,
+                  "h": 50
+                },
+                {
+                  "id": "alub",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 610,
+                  "y": 257,
+                  "w": 24,
+                  "h": 100
+                },
+                {
+                  "id": "alu",
+                  "label": "ALU",
+                  "kind": "alu",
+                  "x": 680,
+                  "y": 212,
+                  "w": 80,
+                  "h": 120
+                },
+                {
+                  "id": "aluout",
+                  "label": "ALUOut",
+                  "kind": "reg",
+                  "x": 800,
+                  "y": 249,
+                  "w": 52,
+                  "h": 46
+                },
+                {
+                  "id": "pcsrc",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 880,
+                  "y": 132,
+                  "w": 26,
+                  "h": 56
+                },
+                {
+                  "id": "ctrl",
+                  "label": "Control FSM",
+                  "kind": "ctrl",
+                  "x": 150,
+                  "y": 78,
+                  "w": 190,
+                  "h": 30
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_pc_iord",
+                  "points": [
+                    [
+                      70,
+                      267
+                    ],
+                    [
+                      96,
+                      267
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_iord_mem",
+                  "points": [
+                    [
+                      122,
+                      267
+                    ],
+                    [
+                      146,
+                      267
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_mem_ir",
+                  "points": [
+                    [
+                      246,
+                      267
+                    ],
+                    [
+                      268,
+                      267
+                    ],
+                    [
+                      268,
+                      205
+                    ],
+                    [
+                      290,
+                      205
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_mem_mdr",
+                  "points": [
+                    [
+                      268,
+                      267
+                    ],
+                    [
+                      268,
+                      329
+                    ],
+                    [
+                      290,
+                      329
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_ir_rf",
+                  "points": [
+                    [
+                      340,
+                      205
+                    ],
+                    [
+                      400,
+                      205
+                    ]
+                  ],
+                  "label": "rs, rt",
+                  "labelAt": [
+                    384,
+                    198
+                  ]
+                },
+                {
+                  "id": "e_ir_sext",
+                  "points": [
+                    [
+                      340,
+                      192
+                    ],
+                    [
+                      360,
+                      192
+                    ],
+                    [
+                      360,
+                      122
+                    ],
+                    [
+                      400,
+                      122
+                    ]
+                  ],
+                  "label": "immediate",
+                  "labelAt": [
+                    395,
+                    163
+                  ]
+                },
+                {
+                  "id": "e_mdr_mtr",
+                  "points": [
+                    [
+                      340,
+                      329
+                    ],
+                    [
+                      360,
+                      329
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_aluout_mtr",
+                  "points": [
+                    [
+                      350,
+                      442
+                    ],
+                    [
+                      350,
+                      297
+                    ],
+                    [
+                      360,
+                      297
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_mtr_rf",
+                  "points": [
+                    [
+                      384,
+                      312
+                    ],
+                    [
+                      400,
+                      312
+                    ]
+                  ],
+                  "label": "write data",
+                  "labelAt": [
+                    440,
+                    344
+                  ]
+                },
+                {
+                  "id": "e_rf_a",
+                  "points": [
+                    [
+                      510,
+                      207
+                    ],
+                    [
+                      530,
+                      207
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_rf_b",
+                  "points": [
+                    [
+                      510,
+                      297
+                    ],
+                    [
+                      530,
+                      297
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_a_alua",
+                  "points": [
+                    [
+                      566,
+                      207
+                    ],
+                    [
+                      610,
+                      207
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_pc_alua",
+                  "points": [
+                    [
+                      45,
+                      237
+                    ],
+                    [
+                      45,
+                      62
+                    ],
+                    [
+                      596,
+                      62
+                    ],
+                    [
+                      596,
+                      198
+                    ],
+                    [
+                      610,
+                      198
+                    ]
+                  ],
+                  "label": "PC",
+                  "labelAt": [
+                    330,
+                    56
+                  ]
+                },
+                {
+                  "id": "e_b_alub",
+                  "points": [
+                    [
+                      566,
+                      297
+                    ],
+                    [
+                      610,
+                      297
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_four_alub",
+                  "points": [
+                    [
+                      585,
+                      270
+                    ],
+                    [
+                      610,
+                      270
+                    ]
+                  ],
+                  "label": "4",
+                  "labelAt": [
+                    577,
+                    266
+                  ]
+                },
+                {
+                  "id": "e_sext_alub",
+                  "points": [
+                    [
+                      490,
+                      122
+                    ],
+                    [
+                      575,
+                      122
+                    ],
+                    [
+                      575,
+                      344
+                    ],
+                    [
+                      610,
+                      344
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_alua_alu",
+                  "points": [
+                    [
+                      634,
+                      217
+                    ],
+                    [
+                      680,
+                      237
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_alub_alu",
+                  "points": [
+                    [
+                      634,
+                      307
+                    ],
+                    [
+                      680,
+                      307
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_alu_aluout",
+                  "points": [
+                    [
+                      760,
+                      272
+                    ],
+                    [
+                      800,
+                      272
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_alu_pcsrc",
+                  "points": [
+                    [
+                      780,
+                      272
+                    ],
+                    [
+                      780,
+                      147
+                    ],
+                    [
+                      880,
+                      147
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_aluout_pcsrc",
+                  "points": [
+                    [
+                      852,
+                      272
+                    ],
+                    [
+                      866,
+                      272
+                    ],
+                    [
+                      866,
+                      172
+                    ],
+                    [
+                      880,
+                      172
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_pcsrc_pc",
+                  "points": [
+                    [
+                      906,
+                      160
+                    ],
+                    [
+                      935,
+                      160
+                    ],
+                    [
+                      935,
+                      34
+                    ],
+                    [
+                      8,
+                      34
+                    ],
+                    [
+                      8,
+                      257
+                    ],
+                    [
+                      20,
+                      257
+                    ]
+                  ],
+                  "label": "next PC",
+                  "labelAt": [
+                    470,
+                    28
+                  ]
+                },
+                {
+                  "id": "e_aluout_iord",
+                  "points": [
+                    [
+                      826,
+                      295
+                    ],
+                    [
+                      826,
+                      442
+                    ],
+                    [
+                      84,
+                      442
+                    ],
+                    [
+                      84,
+                      287
+                    ],
+                    [
+                      96,
+                      287
+                    ]
+                  ],
+                  "label": "ALUOut as address (lw, sw)",
+                  "labelAt": [
+                    460,
+                    436
+                  ]
+                },
+                {
+                  "id": "e_b_mem",
+                  "points": [
+                    [
+                      548,
+                      317
+                    ],
+                    [
+                      548,
+                      402
+                    ],
+                    [
+                      196,
+                      402
+                    ],
+                    [
+                      196,
+                      327
+                    ]
+                  ],
+                  "label": "write data (sw)",
+                  "labelAt": [
+                    370,
+                    396
+                  ]
+                },
+                {
+                  "id": "e_ctrl_ir",
+                  "points": [
+                    [
+                      315,
+                      182
+                    ],
+                    [
+                      315,
+                      108
+                    ]
+                  ],
+                  "kind": "control"
+                },
+                {
+                  "id": "e_ctrl_alu",
+                  "points": [
+                    [
+                      340,
+                      93
+                    ],
+                    [
+                      720,
+                      93
+                    ],
+                    [
+                      720,
+                      212
+                    ]
+                  ],
+                  "kind": "control"
+                }
+              ],
+              "labels": [
+                {
+                  "x": 109,
+                  "y": 229,
+                  "text": "IorD",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 372,
+                  "y": 278,
+                  "text": "MemtoReg",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 622,
+                  "y": 186,
+                  "text": "ALUSrcA",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 622,
+                  "y": 251,
+                  "text": "ALUSrcB",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 893,
+                  "y": 126,
+                  "text": "PCSource",
+                  "anchor": "middle"
+                }
+              ],
+              "steps": [
+                {
+                  "show": [
+                    "pc",
+                    "iord",
+                    "mem",
+                    "ir",
+                    "mdr",
+                    "e_pc_iord",
+                    "e_iord_mem",
+                    "e_mem_ir",
+                    "e_mem_mdr"
+                  ],
+                  "text": "**One memory** holds both instructions and data. The **PC** addresses it. What comes out is saved in an **instruction register (IR)** or a **memory data register (MDR)**."
+                },
+                {
+                  "show": [
+                    "rf",
+                    "mtr",
+                    "a",
+                    "b",
+                    "e_ir_rf",
+                    "e_rf_a",
+                    "e_rf_b",
+                    "e_mdr_mtr",
+                    "e_mtr_rf"
+                  ],
+                  "text": "The **register file** reads two registers into **A** and **B**. Intermediate registers hold values between cycles, because the next cycle reuses the same hardware."
+                },
+                {
+                  "show": [
+                    "sext",
+                    "alua",
+                    "alub",
+                    "alu",
+                    "aluout",
+                    "e_ir_sext",
+                    "e_a_alua",
+                    "e_b_alub",
+                    "e_four_alub",
+                    "e_sext_alub",
+                    "e_alua_alu",
+                    "e_alub_alu",
+                    "e_alu_aluout"
+                  ],
+                  "text": "**One ALU** does every calculation: PC + 4, the memory address, the arithmetic and the branch comparison. **ALUOut** holds its result. Multiplexers choose the inputs."
+                },
+                {
+                  "show": [
+                    "pcsrc",
+                    "e_pc_alua",
+                    "e_alu_pcsrc",
+                    "e_aluout_pcsrc",
+                    "e_pcsrc_pc",
+                    "e_aluout_mtr",
+                    "e_aluout_iord",
+                    "e_b_mem"
+                  ],
+                  "text": "Extra paths: the PC can be loaded from the ALU or ALUOut; ALUOut can address memory; B supplies the data for a store."
+                },
+                {
+                  "show": [
+                    "ctrl",
+                    "e_ctrl_ir",
+                    "e_ctrl_alu"
+                  ],
+                  "text": "The **control unit** is now a **finite-state machine**: its state tells the datapath what to do in the current cycle."
+                }
+              ]
+            }
+          ],
+          "why": "Each click adds a group of components. Compare with the single-cycle datapath from Class 10."
+        },
+        {
+          "type": "concept",
+          "concept": "datapath",
+          "title": "Follow lw and add",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Multi-cycle datapath (scenarios)",
+              "width": 960,
+              "height": 472,
+              "nodes": [
+                {
+                  "id": "pc",
+                  "label": "PC",
+                  "kind": "reg",
+                  "x": 20,
+                  "y": 237,
+                  "w": 50,
+                  "h": 60
+                },
+                {
+                  "id": "iord",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 96,
+                  "y": 237,
+                  "w": 26,
+                  "h": 60
+                },
+                {
+                  "id": "mem",
+                  "label": "Unified\nmemory",
+                  "kind": "mem",
+                  "x": 146,
+                  "y": 207,
+                  "w": 100,
+                  "h": 120
+                },
+                {
+                  "id": "ir",
+                  "label": "IR",
+                  "kind": "reg",
+                  "x": 290,
+                  "y": 182,
+                  "w": 50,
+                  "h": 46
+                },
+                {
+                  "id": "mdr",
+                  "label": "MDR",
+                  "kind": "reg",
+                  "x": 290,
+                  "y": 306,
+                  "w": 50,
+                  "h": 46
+                },
+                {
+                  "id": "rf",
+                  "label": "Register\nfile",
+                  "kind": "reg",
+                  "x": 400,
+                  "y": 187,
+                  "w": 110,
+                  "h": 140
+                },
+                {
+                  "id": "mtr",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 360,
+                  "y": 284,
+                  "w": 24,
+                  "h": 56
+                },
+                {
+                  "id": "a",
+                  "label": "A",
+                  "kind": "reg",
+                  "x": 530,
+                  "y": 187,
+                  "w": 36,
+                  "h": 40
+                },
+                {
+                  "id": "b",
+                  "label": "B",
+                  "kind": "reg",
+                  "x": 530,
+                  "y": 277,
+                  "w": 36,
+                  "h": 40
+                },
+                {
+                  "id": "sext",
+                  "label": "Sign\nextend",
+                  "kind": "unit",
+                  "x": 400,
+                  "y": 102,
+                  "w": 90,
+                  "h": 40
+                },
+                {
+                  "id": "alua",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 610,
+                  "y": 192,
+                  "w": 24,
+                  "h": 50
+                },
+                {
+                  "id": "alub",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 610,
+                  "y": 257,
+                  "w": 24,
+                  "h": 100
+                },
+                {
+                  "id": "alu",
+                  "label": "ALU",
+                  "kind": "alu",
+                  "x": 680,
+                  "y": 212,
+                  "w": 80,
+                  "h": 120
+                },
+                {
+                  "id": "aluout",
+                  "label": "ALUOut",
+                  "kind": "reg",
+                  "x": 800,
+                  "y": 249,
+                  "w": 52,
+                  "h": 46
+                },
+                {
+                  "id": "pcsrc",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 880,
+                  "y": 132,
+                  "w": 26,
+                  "h": 56
+                },
+                {
+                  "id": "ctrl",
+                  "label": "Control FSM",
+                  "kind": "ctrl",
+                  "x": 150,
+                  "y": 78,
+                  "w": 190,
+                  "h": 30
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_pc_iord",
+                  "points": [
+                    [
+                      70,
+                      267
+                    ],
+                    [
+                      96,
+                      267
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_iord_mem",
+                  "points": [
+                    [
+                      122,
+                      267
+                    ],
+                    [
+                      146,
+                      267
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_mem_ir",
+                  "points": [
+                    [
+                      246,
+                      267
+                    ],
+                    [
+                      268,
+                      267
+                    ],
+                    [
+                      268,
+                      205
+                    ],
+                    [
+                      290,
+                      205
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_mem_mdr",
+                  "points": [
+                    [
+                      268,
+                      267
+                    ],
+                    [
+                      268,
+                      329
+                    ],
+                    [
+                      290,
+                      329
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_ir_rf",
+                  "points": [
+                    [
+                      340,
+                      205
+                    ],
+                    [
+                      400,
+                      205
+                    ]
+                  ],
+                  "label": "rs, rt",
+                  "labelAt": [
+                    384,
+                    198
+                  ]
+                },
+                {
+                  "id": "e_ir_sext",
+                  "points": [
+                    [
+                      340,
+                      192
+                    ],
+                    [
+                      360,
+                      192
+                    ],
+                    [
+                      360,
+                      122
+                    ],
+                    [
+                      400,
+                      122
+                    ]
+                  ],
+                  "label": "immediate",
+                  "labelAt": [
+                    395,
+                    163
+                  ]
+                },
+                {
+                  "id": "e_mdr_mtr",
+                  "points": [
+                    [
+                      340,
+                      329
+                    ],
+                    [
+                      360,
+                      329
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_aluout_mtr",
+                  "points": [
+                    [
+                      350,
+                      442
+                    ],
+                    [
+                      350,
+                      297
+                    ],
+                    [
+                      360,
+                      297
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_mtr_rf",
+                  "points": [
+                    [
+                      384,
+                      312
+                    ],
+                    [
+                      400,
+                      312
+                    ]
+                  ],
+                  "label": "write data",
+                  "labelAt": [
+                    440,
+                    344
+                  ]
+                },
+                {
+                  "id": "e_rf_a",
+                  "points": [
+                    [
+                      510,
+                      207
+                    ],
+                    [
+                      530,
+                      207
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_rf_b",
+                  "points": [
+                    [
+                      510,
+                      297
+                    ],
+                    [
+                      530,
+                      297
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_a_alua",
+                  "points": [
+                    [
+                      566,
+                      207
+                    ],
+                    [
+                      610,
+                      207
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_pc_alua",
+                  "points": [
+                    [
+                      45,
+                      237
+                    ],
+                    [
+                      45,
+                      62
+                    ],
+                    [
+                      596,
+                      62
+                    ],
+                    [
+                      596,
+                      198
+                    ],
+                    [
+                      610,
+                      198
+                    ]
+                  ],
+                  "label": "PC",
+                  "labelAt": [
+                    330,
+                    56
+                  ]
+                },
+                {
+                  "id": "e_b_alub",
+                  "points": [
+                    [
+                      566,
+                      297
+                    ],
+                    [
+                      610,
+                      297
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_four_alub",
+                  "points": [
+                    [
+                      585,
+                      270
+                    ],
+                    [
+                      610,
+                      270
+                    ]
+                  ],
+                  "label": "4",
+                  "labelAt": [
+                    577,
+                    266
+                  ]
+                },
+                {
+                  "id": "e_sext_alub",
+                  "points": [
+                    [
+                      490,
+                      122
+                    ],
+                    [
+                      575,
+                      122
+                    ],
+                    [
+                      575,
+                      344
+                    ],
+                    [
+                      610,
+                      344
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_alua_alu",
+                  "points": [
+                    [
+                      634,
+                      217
+                    ],
+                    [
+                      680,
+                      237
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_alub_alu",
+                  "points": [
+                    [
+                      634,
+                      307
+                    ],
+                    [
+                      680,
+                      307
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_alu_aluout",
+                  "points": [
+                    [
+                      760,
+                      272
+                    ],
+                    [
+                      800,
+                      272
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_alu_pcsrc",
+                  "points": [
+                    [
+                      780,
+                      272
+                    ],
+                    [
+                      780,
+                      147
+                    ],
+                    [
+                      880,
+                      147
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_aluout_pcsrc",
+                  "points": [
+                    [
+                      852,
+                      272
+                    ],
+                    [
+                      866,
+                      272
+                    ],
+                    [
+                      866,
+                      172
+                    ],
+                    [
+                      880,
+                      172
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_pcsrc_pc",
+                  "points": [
+                    [
+                      906,
+                      160
+                    ],
+                    [
+                      935,
+                      160
+                    ],
+                    [
+                      935,
+                      34
+                    ],
+                    [
+                      8,
+                      34
+                    ],
+                    [
+                      8,
+                      257
+                    ],
+                    [
+                      20,
+                      257
+                    ]
+                  ],
+                  "label": "next PC",
+                  "labelAt": [
+                    470,
+                    28
+                  ]
+                },
+                {
+                  "id": "e_aluout_iord",
+                  "points": [
+                    [
+                      826,
+                      295
+                    ],
+                    [
+                      826,
+                      442
+                    ],
+                    [
+                      84,
+                      442
+                    ],
+                    [
+                      84,
+                      287
+                    ],
+                    [
+                      96,
+                      287
+                    ]
+                  ],
+                  "label": "ALUOut as address (lw, sw)",
+                  "labelAt": [
+                    460,
+                    436
+                  ]
+                },
+                {
+                  "id": "e_b_mem",
+                  "points": [
+                    [
+                      548,
+                      317
+                    ],
+                    [
+                      548,
+                      402
+                    ],
+                    [
+                      196,
+                      402
+                    ],
+                    [
+                      196,
+                      327
+                    ]
+                  ],
+                  "label": "write data (sw)",
+                  "labelAt": [
+                    370,
+                    396
+                  ]
+                },
+                {
+                  "id": "e_ctrl_ir",
+                  "points": [
+                    [
+                      315,
+                      182
+                    ],
+                    [
+                      315,
+                      108
+                    ]
+                  ],
+                  "kind": "control"
+                },
+                {
+                  "id": "e_ctrl_alu",
+                  "points": [
+                    [
+                      340,
+                      93
+                    ],
+                    [
+                      720,
+                      93
+                    ],
+                    [
+                      720,
+                      212
+                    ]
+                  ],
+                  "kind": "control"
+                }
+              ],
+              "labels": [
+                {
+                  "x": 109,
+                  "y": 229,
+                  "text": "IorD",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 372,
+                  "y": 278,
+                  "text": "MemtoReg",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 622,
+                  "y": 186,
+                  "text": "ALUSrcA",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 622,
+                  "y": 251,
+                  "text": "ALUSrcB",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 893,
+                  "y": 126,
+                  "text": "PCSource",
+                  "anchor": "middle"
+                }
+              ],
+              "steps": [
+                {
+                  "show": [
+                    "pc",
+                    "iord",
+                    "mem",
+                    "ir",
+                    "mdr",
+                    "rf",
+                    "mtr",
+                    "a",
+                    "b",
+                    "sext",
+                    "alua",
+                    "alub",
+                    "alu",
+                    "aluout",
+                    "pcsrc",
+                    "ctrl",
+                    "e_pc_iord",
+                    "e_iord_mem",
+                    "e_mem_ir",
+                    "e_mem_mdr",
+                    "e_ir_rf",
+                    "e_ir_sext",
+                    "e_mdr_mtr",
+                    "e_aluout_mtr",
+                    "e_mtr_rf",
+                    "e_rf_a",
+                    "e_rf_b",
+                    "e_a_alua",
+                    "e_pc_alua",
+                    "e_b_alub",
+                    "e_four_alub",
+                    "e_sext_alub",
+                    "e_alua_alu",
+                    "e_alub_alu",
+                    "e_alu_aluout",
+                    "e_alu_pcsrc",
+                    "e_aluout_pcsrc",
+                    "e_pcsrc_pc",
+                    "e_aluout_iord",
+                    "e_b_mem",
+                    "e_ctrl_ir",
+                    "e_ctrl_alu"
+                  ],
+                  "text": "The complete diagram. Pick a scenario and press Play or Step."
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "lw $t0, 8($s1): five cycles",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "pc",
+                        "e_pc_iord",
+                        "iord",
+                        "e_iord_mem",
+                        "mem",
+                        "e_mem_ir",
+                        "ir",
+                        "e_pc_alua",
+                        "alua",
+                        "e_four_alub",
+                        "alub",
+                        "alu",
+                        "e_alu_pcsrc",
+                        "pcsrc",
+                        "e_pcsrc_pc"
+                      ],
+                      "text": "**Cycle 1, fetch**: IR = Mem[PC] and the ALU computes PC + 4, which is written back to the PC.",
+                      "values": {
+                        "mem": "lw $t0,8($s1)",
+                        "alu": "PC + 4"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "ir",
+                        "e_ir_rf",
+                        "rf",
+                        "e_rf_a",
+                        "a",
+                        "e_rf_b",
+                        "b",
+                        "e_ir_sext",
+                        "sext"
+                      ],
+                      "text": "**Cycle 2, decode**: read $s1 into A and $t0 into B; sign-extend the offset. (The ALU can also precompute the branch target.)",
+                      "values": {
+                        "a": "$s1 = 0x1000",
+                        "sext": "8"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "a",
+                        "e_a_alua",
+                        "alua",
+                        "sext",
+                        "e_sext_alub",
+                        "alub",
+                        "alu",
+                        "e_alu_aluout",
+                        "aluout"
+                      ],
+                      "text": "**Cycle 3, address calculation**: the ALU adds A + 8 and keeps the result in ALUOut.",
+                      "values": {
+                        "aluout": "0x1008"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "aluout",
+                        "e_aluout_iord",
+                        "iord",
+                        "e_iord_mem",
+                        "mem",
+                        "e_mem_mdr",
+                        "mdr"
+                      ],
+                      "text": "**Cycle 4, memory read**: ALUOut addresses the memory; the data is saved in MDR.",
+                      "values": {
+                        "mem": "Mem[0x1008]",
+                        "mdr": "42"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "mdr",
+                        "e_mdr_mtr",
+                        "mtr",
+                        "e_mtr_rf",
+                        "rf"
+                      ],
+                      "text": "**Cycle 5, write back**: the MDR is written into $t0. The instruction took five cycles.",
+                      "values": {
+                        "rf": "$t0 = 42"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "add $t0, $s1, $s2: four cycles",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "pc",
+                        "iord",
+                        "mem",
+                        "ir",
+                        "alua",
+                        "alub",
+                        "alu",
+                        "pcsrc"
+                      ],
+                      "text": "**Cycle 1, fetch**: read the instruction; PC = PC + 4."
+                    },
+                    {
+                      "highlight": [
+                        "ir",
+                        "rf",
+                        "a",
+                        "b"
+                      ],
+                      "text": "**Cycle 2, decode**: read $s1 into A and $s2 into B."
+                    },
+                    {
+                      "highlight": [
+                        "a",
+                        "alua",
+                        "b",
+                        "alub",
+                        "alu",
+                        "aluout"
+                      ],
+                      "text": "**Cycle 3, execute**: the ALU adds A and B; ALUOut holds the sum."
+                    },
+                    {
+                      "highlight": [
+                        "aluout",
+                        "e_aluout_mtr",
+                        "mtr",
+                        "rf"
+                      ],
+                      "text": "**Cycle 4, write back**: ALUOut is written to $t0. Four cycles: the memory stage is skipped."
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "Run the lw scenario: five cycles, and the ALU is used three times (PC + 4, the address calculation, and sometimes the branch target)."
+        },
+        {
+          "type": "concept",
+          "concept": "datapath",
+          "title": "Cycles per instruction type",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "Steps used",
+                "Cycles"
+              ],
+              "rows": [
+                [
+                  "R-type (add, sub, ...)",
+                  "Fetch, decode, execute, write back",
+                  "4"
+                ],
+                [
+                  "lw",
+                  "Fetch, decode, address, memory read, write back",
+                  "5"
+                ],
+                [
+                  "sw",
+                  "Fetch, decode, address, memory write",
+                  "4"
+                ],
+                [
+                  "beq",
+                  "Fetch, decode, compare and branch",
+                  "3"
+                ]
+              ]
+            }
+          ],
+          "why": "Simple instructions finish earlier, the point of the whole design.",
+          "real": "Hardware manuals list these cycle counts for each instruction.",
+          "mistake": {
+            "wrong": "Every instruction takes the same number of cycles.",
+            "right": "The count depends on how many steps the instruction needs: 3, 4 or 5."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "datapath",
+          "skill": "Apply",
+          "question": "How many clock cycles does `lw` need in the multi-cycle processor?",
+          "options": [
+            "5",
+            "3",
+            "4",
+            "1"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Fetch, decode, address calculation, memory read and write back: **5 cycles**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "sw needs 4 because it has no write back; beq needs only 3."
+        },
+        {
+          "type": "arrange",
+          "concept": "datapath",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the cycles of `lw $t0, 8($s1)` in order.",
+          "items": [
+            "Fetch the instruction into IR and compute PC + 4",
+            "Decode: read $s1 into A",
+            "The ALU adds A and the offset into ALUOut",
+            "Read memory at ALUOut into MDR",
+            "Write MDR into $t0"
+          ],
+          "why": "Each cycle uses the register written by the one before it."
+        },
+        {
+          "type": "find",
+          "concept": "datapath",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about the multi-cycle datapath is wrong. Click it.",
+          "lines": [
+            "1. There is a single memory for instructions and data.",
+            "2. There is one ALU, reused in different cycles.",
+            "3. The ALU result is written straight to memory with no register in between.",
+            "4. IR holds the current instruction between cycles."
+          ],
+          "wrong": 2,
+          "explain": "The ALU result is saved in ALUOut first; it is held there for the next cycle.",
+          "fix": "The ALU result goes into ALUOut."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "Why does the multi-cycle datapath need an IR?",
+              "a": "The memory is reused for data, so the instruction must be saved.",
+              "concept": "datapath"
+            },
+            {
+              "q": "How many cycles do R-type, lw, sw and beq need?",
+              "a": "4, 5, 4 and 3.",
+              "concept": "datapath"
+            },
+            {
+              "q": "Which hardware is shared across cycles?",
+              "a": "The memory and the ALU.",
+              "concept": "datapath"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control",
+      "label": "Control as a state machine",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "control",
+          "title": "What is a finite-state machine?",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "A set of **states**: one per step of an instruction",
+                "The machine is in **one state per clock cycle**",
+                "Each state sets the **control signals** for that cycle (outputs)",
+                "The **next state** depends on the current state and the opcode (input)"
+              ]
+            },
+            {
+              "type": "text",
+              "text": "S0 and S1 are the same for every instruction. At S1 the opcode picks the path."
+            }
+          ],
+          "why": "The control unit becomes a small machine that steps through states instead of a single block of logic.",
+          "real": "Traffic lights and vending machines are also finite-state machines.",
+          "explainAgain": {
+            "beginner": "A board game: you are always on one square (state); the dice (opcode) decide which square is next."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "control",
+          "title": "The states, built up",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Control finite-state machine (build-up)",
+              "width": 960,
+              "height": 460,
+              "nodes": [
+                {
+                  "id": "s0",
+                  "label": "S0 Fetch",
+                  "kind": "state",
+                  "x": 15,
+                  "y": 210,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "IR = Mem[PC]; PC+4"
+                },
+                {
+                  "id": "s1",
+                  "label": "S1 Decode",
+                  "kind": "state",
+                  "x": 210,
+                  "y": 210,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "A, B = regs; target"
+                },
+                {
+                  "id": "s2",
+                  "label": "S2 Address",
+                  "kind": "state",
+                  "x": 405,
+                  "y": 80,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "ALUOut = A + off"
+                },
+                {
+                  "id": "s6",
+                  "label": "S6 Execute",
+                  "kind": "state",
+                  "x": 405,
+                  "y": 210,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "ALUOut = A op B"
+                },
+                {
+                  "id": "s8",
+                  "label": "S8 Branch",
+                  "kind": "state",
+                  "x": 405,
+                  "y": 340,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "if A=B: PC=target"
+                },
+                {
+                  "id": "s3",
+                  "label": "S3 Mem read",
+                  "kind": "state",
+                  "x": 600,
+                  "y": 40,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "MDR = Mem[ALUOut]"
+                },
+                {
+                  "id": "s5",
+                  "label": "S5 Mem write",
+                  "kind": "state",
+                  "x": 600,
+                  "y": 130,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "Mem[ALUOut] = B"
+                },
+                {
+                  "id": "s7",
+                  "label": "S7 R complete",
+                  "kind": "state",
+                  "x": 600,
+                  "y": 210,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "Reg[rd] = ALUOut"
+                },
+                {
+                  "id": "s4",
+                  "label": "S4 Write back",
+                  "kind": "state",
+                  "x": 795,
+                  "y": 40,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "Reg[rt] = MDR"
+                }
+              ],
+              "edges": [
+                {
+                  "id": "f01",
+                  "points": [
+                    [
+                      165,
+                      245
+                    ],
+                    [
+                      210,
+                      245
+                    ]
+                  ]
+                },
+                {
+                  "id": "f12",
+                  "points": [
+                    [
+                      360,
+                      230
+                    ],
+                    [
+                      382,
+                      230
+                    ],
+                    [
+                      382,
+                      115
+                    ],
+                    [
+                      405,
+                      115
+                    ]
+                  ],
+                  "label": "lw / sw",
+                  "labelAt": [
+                    346,
+                    170
+                  ]
+                },
+                {
+                  "id": "f16",
+                  "points": [
+                    [
+                      360,
+                      245
+                    ],
+                    [
+                      405,
+                      245
+                    ]
+                  ],
+                  "label": "R-type",
+                  "labelAt": [
+                    383,
+                    234
+                  ]
+                },
+                {
+                  "id": "f18",
+                  "points": [
+                    [
+                      360,
+                      260
+                    ],
+                    [
+                      382,
+                      260
+                    ],
+                    [
+                      382,
+                      375
+                    ],
+                    [
+                      405,
+                      375
+                    ]
+                  ],
+                  "label": "beq",
+                  "labelAt": [
+                    352,
+                    320
+                  ]
+                },
+                {
+                  "id": "f23",
+                  "points": [
+                    [
+                      555,
+                      100
+                    ],
+                    [
+                      577,
+                      100
+                    ],
+                    [
+                      577,
+                      75
+                    ],
+                    [
+                      600,
+                      75
+                    ]
+                  ],
+                  "label": "lw",
+                  "labelAt": [
+                    566,
+                    93
+                  ]
+                },
+                {
+                  "id": "f25",
+                  "points": [
+                    [
+                      555,
+                      115
+                    ],
+                    [
+                      577,
+                      115
+                    ],
+                    [
+                      577,
+                      165
+                    ],
+                    [
+                      600,
+                      165
+                    ]
+                  ],
+                  "label": "sw",
+                  "labelAt": [
+                    585,
+                    156
+                  ]
+                },
+                {
+                  "id": "f34",
+                  "points": [
+                    [
+                      750,
+                      75
+                    ],
+                    [
+                      795,
+                      75
+                    ]
+                  ]
+                },
+                {
+                  "id": "f67",
+                  "points": [
+                    [
+                      555,
+                      245
+                    ],
+                    [
+                      600,
+                      245
+                    ]
+                  ]
+                },
+                {
+                  "id": "r4",
+                  "points": [
+                    [
+                      870,
+                      40
+                    ],
+                    [
+                      870,
+                      26
+                    ],
+                    [
+                      90,
+                      26
+                    ],
+                    [
+                      90,
+                      210
+                    ]
+                  ],
+                  "label": "back to S0",
+                  "labelAt": [
+                    480,
+                    20
+                  ]
+                },
+                {
+                  "id": "r5",
+                  "points": [
+                    [
+                      750,
+                      165
+                    ],
+                    [
+                      900,
+                      165
+                    ],
+                    [
+                      900,
+                      440
+                    ],
+                    [
+                      90,
+                      440
+                    ],
+                    [
+                      90,
+                      280
+                    ]
+                  ]
+                },
+                {
+                  "id": "r7",
+                  "points": [
+                    [
+                      750,
+                      245
+                    ],
+                    [
+                      900,
+                      245
+                    ],
+                    [
+                      900,
+                      440
+                    ],
+                    [
+                      90,
+                      440
+                    ],
+                    [
+                      90,
+                      280
+                    ]
+                  ]
+                },
+                {
+                  "id": "r8",
+                  "points": [
+                    [
+                      480,
+                      410
+                    ],
+                    [
+                      480,
+                      440
+                    ],
+                    [
+                      90,
+                      440
+                    ],
+                    [
+                      90,
+                      280
+                    ]
+                  ],
+                  "label": "back to S0",
+                  "labelAt": [
+                    290,
+                    434
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "s0",
+                    "s1",
+                    "f01"
+                  ],
+                  "text": "Every instruction starts with **Fetch** and **Decode**: the same two states for all."
+                },
+                {
+                  "show": [
+                    "s2",
+                    "s3",
+                    "s4",
+                    "s5",
+                    "f12",
+                    "f23",
+                    "f25",
+                    "f34",
+                    "r4",
+                    "r5"
+                  ],
+                  "text": "**lw and sw** share the address calculation. lw then reads memory and writes the register; sw writes memory."
+                },
+                {
+                  "show": [
+                    "s6",
+                    "s7",
+                    "f16",
+                    "r7"
+                  ],
+                  "text": "**R-type** instructions execute in the ALU and write their result."
+                },
+                {
+                  "show": [
+                    "s8",
+                    "f18",
+                    "r8"
+                  ],
+                  "text": "**beq** needs a single extra cycle to compare and update the PC. Every path ends back at Fetch."
+                }
+              ]
+            }
+          ],
+          "why": "The branching happens at S1, once the opcode is known."
+        },
+        {
+          "type": "concept",
+          "concept": "control",
+          "title": "Walk each instruction through",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Control finite-state machine (scenarios)",
+              "width": 960,
+              "height": 460,
+              "nodes": [
+                {
+                  "id": "s0",
+                  "label": "S0 Fetch",
+                  "kind": "state",
+                  "x": 15,
+                  "y": 210,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "IR = Mem[PC]; PC+4"
+                },
+                {
+                  "id": "s1",
+                  "label": "S1 Decode",
+                  "kind": "state",
+                  "x": 210,
+                  "y": 210,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "A, B = regs; target"
+                },
+                {
+                  "id": "s2",
+                  "label": "S2 Address",
+                  "kind": "state",
+                  "x": 405,
+                  "y": 80,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "ALUOut = A + off"
+                },
+                {
+                  "id": "s6",
+                  "label": "S6 Execute",
+                  "kind": "state",
+                  "x": 405,
+                  "y": 210,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "ALUOut = A op B"
+                },
+                {
+                  "id": "s8",
+                  "label": "S8 Branch",
+                  "kind": "state",
+                  "x": 405,
+                  "y": 340,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "if A=B: PC=target"
+                },
+                {
+                  "id": "s3",
+                  "label": "S3 Mem read",
+                  "kind": "state",
+                  "x": 600,
+                  "y": 40,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "MDR = Mem[ALUOut]"
+                },
+                {
+                  "id": "s5",
+                  "label": "S5 Mem write",
+                  "kind": "state",
+                  "x": 600,
+                  "y": 130,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "Mem[ALUOut] = B"
+                },
+                {
+                  "id": "s7",
+                  "label": "S7 R complete",
+                  "kind": "state",
+                  "x": 600,
+                  "y": 210,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "Reg[rd] = ALUOut"
+                },
+                {
+                  "id": "s4",
+                  "label": "S4 Write back",
+                  "kind": "state",
+                  "x": 795,
+                  "y": 40,
+                  "w": 150,
+                  "h": 70,
+                  "sub": "Reg[rt] = MDR"
+                }
+              ],
+              "edges": [
+                {
+                  "id": "f01",
+                  "points": [
+                    [
+                      165,
+                      245
+                    ],
+                    [
+                      210,
+                      245
+                    ]
+                  ]
+                },
+                {
+                  "id": "f12",
+                  "points": [
+                    [
+                      360,
+                      230
+                    ],
+                    [
+                      382,
+                      230
+                    ],
+                    [
+                      382,
+                      115
+                    ],
+                    [
+                      405,
+                      115
+                    ]
+                  ],
+                  "label": "lw / sw",
+                  "labelAt": [
+                    346,
+                    170
+                  ]
+                },
+                {
+                  "id": "f16",
+                  "points": [
+                    [
+                      360,
+                      245
+                    ],
+                    [
+                      405,
+                      245
+                    ]
+                  ],
+                  "label": "R-type",
+                  "labelAt": [
+                    383,
+                    234
+                  ]
+                },
+                {
+                  "id": "f18",
+                  "points": [
+                    [
+                      360,
+                      260
+                    ],
+                    [
+                      382,
+                      260
+                    ],
+                    [
+                      382,
+                      375
+                    ],
+                    [
+                      405,
+                      375
+                    ]
+                  ],
+                  "label": "beq",
+                  "labelAt": [
+                    352,
+                    320
+                  ]
+                },
+                {
+                  "id": "f23",
+                  "points": [
+                    [
+                      555,
+                      100
+                    ],
+                    [
+                      577,
+                      100
+                    ],
+                    [
+                      577,
+                      75
+                    ],
+                    [
+                      600,
+                      75
+                    ]
+                  ],
+                  "label": "lw",
+                  "labelAt": [
+                    566,
+                    93
+                  ]
+                },
+                {
+                  "id": "f25",
+                  "points": [
+                    [
+                      555,
+                      115
+                    ],
+                    [
+                      577,
+                      115
+                    ],
+                    [
+                      577,
+                      165
+                    ],
+                    [
+                      600,
+                      165
+                    ]
+                  ],
+                  "label": "sw",
+                  "labelAt": [
+                    585,
+                    156
+                  ]
+                },
+                {
+                  "id": "f34",
+                  "points": [
+                    [
+                      750,
+                      75
+                    ],
+                    [
+                      795,
+                      75
+                    ]
+                  ]
+                },
+                {
+                  "id": "f67",
+                  "points": [
+                    [
+                      555,
+                      245
+                    ],
+                    [
+                      600,
+                      245
+                    ]
+                  ]
+                },
+                {
+                  "id": "r4",
+                  "points": [
+                    [
+                      870,
+                      40
+                    ],
+                    [
+                      870,
+                      26
+                    ],
+                    [
+                      90,
+                      26
+                    ],
+                    [
+                      90,
+                      210
+                    ]
+                  ],
+                  "label": "back to S0",
+                  "labelAt": [
+                    480,
+                    20
+                  ]
+                },
+                {
+                  "id": "r5",
+                  "points": [
+                    [
+                      750,
+                      165
+                    ],
+                    [
+                      900,
+                      165
+                    ],
+                    [
+                      900,
+                      440
+                    ],
+                    [
+                      90,
+                      440
+                    ],
+                    [
+                      90,
+                      280
+                    ]
+                  ]
+                },
+                {
+                  "id": "r7",
+                  "points": [
+                    [
+                      750,
+                      245
+                    ],
+                    [
+                      900,
+                      245
+                    ],
+                    [
+                      900,
+                      440
+                    ],
+                    [
+                      90,
+                      440
+                    ],
+                    [
+                      90,
+                      280
+                    ]
+                  ]
+                },
+                {
+                  "id": "r8",
+                  "points": [
+                    [
+                      480,
+                      410
+                    ],
+                    [
+                      480,
+                      440
+                    ],
+                    [
+                      90,
+                      440
+                    ],
+                    [
+                      90,
+                      280
+                    ]
+                  ],
+                  "label": "back to S0",
+                  "labelAt": [
+                    290,
+                    434
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "s0",
+                    "s1",
+                    "s2",
+                    "s6",
+                    "s8",
+                    "s3",
+                    "s5",
+                    "s7",
+                    "s4",
+                    "f01",
+                    "f12",
+                    "f16",
+                    "f18",
+                    "f23",
+                    "f25",
+                    "f34",
+                    "f67",
+                    "r4",
+                    "r5",
+                    "r7",
+                    "r8"
+                  ],
+                  "text": "The complete diagram. Pick a scenario and press Play or Step."
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "lw (5 cycles)",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "s0"
+                      ],
+                      "text": "**S0**: fetch. Every instruction starts here."
+                    },
+                    {
+                      "highlight": [
+                        "s1",
+                        "f01"
+                      ],
+                      "text": "**S1**: decode. The opcode decides the next state: lw goes to S2."
+                    },
+                    {
+                      "highlight": [
+                        "s2",
+                        "f12"
+                      ],
+                      "text": "**S2**: compute the address A + offset."
+                    },
+                    {
+                      "highlight": [
+                        "s3",
+                        "f23"
+                      ],
+                      "text": "**S3**: read memory into the MDR."
+                    },
+                    {
+                      "highlight": [
+                        "s4",
+                        "f34"
+                      ],
+                      "text": "**S4**: write the MDR into the register, then return to S0. Total 5 cycles."
+                    }
+                  ]
+                },
+                {
+                  "name": "sw (4 cycles)",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "s0"
+                      ],
+                      "text": "**S0**: fetch."
+                    },
+                    {
+                      "highlight": [
+                        "s1",
+                        "f01"
+                      ],
+                      "text": "**S1**: decode."
+                    },
+                    {
+                      "highlight": [
+                        "s2",
+                        "f12"
+                      ],
+                      "text": "**S2**: compute the address A + offset."
+                    },
+                    {
+                      "highlight": [
+                        "s5",
+                        "f25"
+                      ],
+                      "text": "**S5**: write register B into memory, then return to S0. Total 4 cycles."
+                    }
+                  ]
+                },
+                {
+                  "name": "R-type (4 cycles)",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "s0"
+                      ],
+                      "text": "**S0**: fetch."
+                    },
+                    {
+                      "highlight": [
+                        "s1",
+                        "f01"
+                      ],
+                      "text": "**S1**: decode."
+                    },
+                    {
+                      "highlight": [
+                        "s6",
+                        "f16"
+                      ],
+                      "text": "**S6**: the ALU computes A op B."
+                    },
+                    {
+                      "highlight": [
+                        "s7",
+                        "f67"
+                      ],
+                      "text": "**S7**: write ALUOut to rd and return. Total 4 cycles."
+                    }
+                  ]
+                },
+                {
+                  "name": "beq (3 cycles)",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "s0"
+                      ],
+                      "text": "**S0**: fetch."
+                    },
+                    {
+                      "highlight": [
+                        "s1",
+                        "f01"
+                      ],
+                      "text": "**S1**: decode (the branch target is already computed)."
+                    },
+                    {
+                      "highlight": [
+                        "s8",
+                        "f18"
+                      ],
+                      "text": "**S8**: compare A and B; if equal, PC = target. Total 3 cycles."
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "Run all four scenarios and count the states each one visits: that is its cycle count."
+        },
+        {
+          "type": "concept",
+          "concept": "control",
+          "title": "What each state does",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "State",
+                "Action",
+                "Main control signals"
+              ],
+              "rows": [
+                [
+                  "S0 Fetch",
+                  "IR = Mem[PC]; PC = PC + 4",
+                  "MemRead, IRWrite, PC write; ALU adds PC + 4"
+                ],
+                [
+                  "S1 Decode",
+                  "A, B = registers; ALUOut = branch target",
+                  "ALU adds PC and the shifted offset"
+                ],
+                [
+                  "S2 Address",
+                  "ALUOut = A + offset",
+                  "ALU input A = register, B = offset"
+                ],
+                [
+                  "S3 Mem read",
+                  "MDR = Mem[ALUOut]",
+                  "MemRead; address from ALUOut"
+                ],
+                [
+                  "S4 Write back",
+                  "Reg[rt] = MDR",
+                  "RegWrite, MemtoReg = 1, RegDst = 0"
+                ],
+                [
+                  "S5 Mem write",
+                  "Mem[ALUOut] = B",
+                  "MemWrite; address from ALUOut"
+                ],
+                [
+                  "S6 Execute",
+                  "ALUOut = A op B",
+                  "ALUOp = 10 (decode funct)"
+                ],
+                [
+                  "S7 R complete",
+                  "Reg[rd] = ALUOut",
+                  "RegWrite, RegDst = 1, MemtoReg = 0"
+                ],
+                [
+                  "S8 Branch",
+                  "If A = B then PC = ALUOut",
+                  "ALUOp = 01 (subtract), branch control"
+                ]
+              ]
+            }
+          ],
+          "why": "This table plays the same role as the control table in Class 10, one row per cycle instead of one per instruction.",
+          "real": "Real control units implement exactly this table in logic or in microcode.",
+          "deeper": {
+            "text": "A microprogrammed design stores these steps as microinstructions in a small ROM."
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "control",
+          "skill": "Apply",
+          "question": "Which states does `sw` pass through?",
+          "options": [
+            "S0, S1, S2, S5",
+            "S0, S1, S2, S3, S4",
+            "S0, S1, S6, S7",
+            "S0, S1, S8"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Fetch (S0), decode (S1), address (S2), then memory write (S5): **4 cycles**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "lw is S0, S1, S2, S3, S4; R-type is S0, S1, S6, S7; beq is S0, S1, S8."
+        },
+        {
+          "type": "tf",
+          "concept": "control",
+          "statement": "S0 (Fetch) and S1 (Decode) are the same for every instruction.",
+          "answer": true,
+          "why": "The opcode is only known after the fetch, so the paths split after S1."
+        },
+        {
+          "type": "match",
+          "concept": "control",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each state with its action.",
+          "pairs": [
+            {
+              "a": "S0",
+              "b": "Read the instruction and compute PC + 4"
+            },
+            {
+              "a": "S2",
+              "b": "Compute the memory address A + offset"
+            },
+            {
+              "a": "S5",
+              "b": "Write B to memory"
+            },
+            {
+              "a": "S8",
+              "b": "Compare A and B and update the PC"
+            }
+          ],
+          "why": "Each state does one small job."
+        }
+      ]
+    },
+    {
+      "id": "compare",
+      "label": "Single vs multi",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "compare",
+          "title": "Single-cycle vs multi-cycle",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Single-cycle",
+                "Multi-cycle"
+              ],
+              "rows": [
+                [
+                  "One instruction = one cycle",
+                  "An instruction can use multiple cycles"
+                ],
+                [
+                  "Long clock cycle",
+                  "Shorter clock cycle"
+                ],
+                [
+                  "Hardware duplication",
+                  "Better hardware reuse"
+                ],
+                [
+                  "CPI = 1",
+                  "CPI is about 3 to 5"
+                ]
+              ]
+            }
+          ],
+          "why": "The multi-cycle design trades more cycles per instruction for a shorter cycle and shared hardware.",
+          "real": "Choosing between the two is a classic architecture trade-off: neither is simply better."
+        },
+        {
+          "type": "concept",
+          "concept": "compare",
+          "title": "Which is faster? Calculate",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Single-cycle vs multi-cycle (illustrative delays)",
+              "equation": "Time per instruction = CPI × clock period",
+              "inputs": [
+                {
+                  "id": "im",
+                  "label": "Instruction memory",
+                  "value": 200,
+                  "min": 50,
+                  "max": 500,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "rr",
+                  "label": "Register read",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "al",
+                  "label": "ALU",
+                  "value": 200,
+                  "min": 50,
+                  "max": 500,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "dm",
+                  "label": "Data memory",
+                  "value": 200,
+                  "min": 50,
+                  "max": 500,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "rw",
+                  "label": "Register write",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "plw",
+                  "label": "lw share",
+                  "value": 25,
+                  "min": 0,
+                  "max": 100,
+                  "step": 5,
+                  "unit": "%"
+                },
+                {
+                  "id": "psw",
+                  "label": "sw share",
+                  "value": 10,
+                  "min": 0,
+                  "max": 100,
+                  "step": 5,
+                  "unit": "%"
+                },
+                {
+                  "id": "pr",
+                  "label": "R-type share",
+                  "value": 45,
+                  "min": 0,
+                  "max": 100,
+                  "step": 5,
+                  "unit": "%"
+                },
+                {
+                  "id": "pb",
+                  "label": "beq share",
+                  "value": 20,
+                  "min": 0,
+                  "max": 100,
+                  "step": 5,
+                  "unit": "%"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Single-cycle clock (lw path)",
+                  "formula": "im+rr+al+dm+rw",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                },
+                {
+                  "label": "Multi-cycle clock (longest step)",
+                  "formula": "max(im, rr, al, dm, rw)",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                },
+                {
+                  "label": "Multi-cycle CPI",
+                  "formula": "(5*plw + 4*psw + 4*pr + 3*pb) / (plw+psw+pr+pb)",
+                  "format": "num",
+                  "digits": 2
+                },
+                {
+                  "label": "Multi-cycle time per instruction",
+                  "formula": "max(im, rr, al, dm, rw) * (5*plw + 4*psw + 4*pr + 3*pb) / (plw+psw+pr+pb)",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                },
+                {
+                  "label": "Single-cycle speed relative to multi",
+                  "formula": "(max(im, rr, al, dm, rw) * (5*plw + 4*psw + 4*pr + 3*pb) / (plw+psw+pr+pb)) / (im+rr+al+dm+rw)",
+                  "format": "x",
+                  "digits": 2
+                }
+              ]
+            }
+          ],
+          "why": "The delays are illustrative. With the defaults the multi-cycle design needs 4.05 cycles × 200 ps = 810 ps per instruction, almost the same as the 800 ps single-cycle design. Change the delays and the mix: the winner depends on the balance of the steps and on the instruction mix."
+        },
+        {
+          "type": "predict",
+          "concept": "compare",
+          "skill": "Apply",
+          "question": "With these delays and the 25/10/45/20 mix, which design finishes an instruction faster on average?",
+          "options": [
+            "About the same: 800 ps (single) vs 810 ps (multi)",
+            "Multi-cycle is twice as fast",
+            "Single-cycle is twice as fast",
+            "Multi-cycle is 4 times faster"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Multi-cycle: CPI 4.05 × 200 ps = **810 ps**. Single-cycle: **800 ps**. The shorter clock is cancelled by the extra cycles.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "The multi-cycle benefit is mostly hardware reuse; the next class (pipelining) is what gets the clock and the CPI together."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "If multi-cycle is not faster here, why would a designer still choose it?",
+          "think": 20,
+          "pair": 40,
+          "answer": "It saves hardware: one memory and one ALU instead of two memories and three adders. It also lets slow operations (multiply, divide, slow memory) take extra cycles without slowing every instruction, and it sets the stage for pipelining, which overlaps these cycles."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "compare",
+          "question": "What would you need to change so that multi-cycle clearly beats single-cycle?",
+          "seconds": 60,
+          "ideas": [
+            "More balanced step delays, so the clock period gets close to one fifth of the total.",
+            "An instruction mix with more short instructions (beq, jumps).",
+            "Slow, rare instructions (multiply) that single-cycle would have to fit in every cycle.",
+            "Overlapping the steps of different instructions: pipelining."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "why",
+          "question": "Name the five intermediate registers of the multi-cycle datapath.",
+          "answer": "IR, MDR, A, B and ALUOut.",
+          "solution": "They hold the instruction, memory data, the two operands and the ALU result between cycles.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "datapath",
+          "question": "How many cycles do `add`, `lw`, `sw` and `beq` take?",
+          "answer": "4, 5, 4 and 3.",
+          "solution": "add: fetch, decode, execute, write back. lw: plus memory read. sw: memory write, no write back. beq: fetch, decode, branch.",
+          "hint": "Which steps does each instruction skip?",
+          "think": 45
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "control",
+          "question": "Give the path through the control FSM for an R-type instruction and the cycle count.",
+          "answer": "S0, S1, S6, S7; 4 cycles.",
+          "solution": "Fetch, decode, execute in the ALU, then write the result to rd.",
+          "hint": "Which states do R-type instructions skip?",
+          "think": 45
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "compare",
+          "question": "A program has 1,000 instructions with CPI 4.05 and the clock period is 200 ps. How long does it take?",
+          "answer": "810,000 ps = 810 ns.",
+          "solution": "Cycles = 1,000 × 4.05 = 4,050. Time = 4,050 × 200 ps = 810,000 ps.",
+          "hint": "Cycles first, then time.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "compare",
+          "question": "Mix: 30% lw, 10% sw, 40% R-type, 20% beq (cycles 5, 4, 4, 3). Clock = 200 ps. What are the CPI and the time per instruction? Compare with a single-cycle design at 800 ps.",
+          "answer": "CPI 4.1; 820 ps per instruction; single-cycle (800 ps) is slightly faster.",
+          "solution": "CPI = 0.3×5 + 0.1×4 + 0.4×4 + 0.2×3 = 1.5 + 0.4 + 1.6 + 0.6 = 4.1. Time = 4.1 × 200 = 820 ps, which is more than 800 ps.",
+          "mistake": "Averaging the cycle counts without weighting them by frequency.",
+          "title": "Exam practice: numerical",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "control",
+          "question": "Trace `beq $t0, $t1, L` (the registers are equal) through the FSM. Give each state and the action.",
+          "answer": "S0 fetch (IR = Mem[PC], PC = PC + 4); S1 decode (read A and B, compute the target into ALUOut); S8 (A = B, so PC = ALUOut). 3 cycles.",
+          "solution": "The target is computed in S1 so S8 only has to compare and update the PC.",
+          "mistake": "Taking 4 cycles by adding a write-back state.",
+          "title": "Exam practice: state tracing",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "datapath",
+          "question": "`lw $t0, 8($s1)` has $s1 = 0x1000 and Mem[0x1008] = 42. Give the values of ALUOut, MDR and $t0 after cycles 3, 4 and 5.",
+          "answer": "After cycle 3: ALUOut = 0x1008. After cycle 4: MDR = 42. After cycle 5: $t0 = 42.",
+          "solution": "Cycle 3 adds 0x1000 + 8 = 0x1008. Cycle 4 reads memory at that address into MDR. Cycle 5 writes MDR to $t0.",
+          "mistake": "Putting the memory data directly in ALUOut.",
+          "title": "Exam practice: datapath tracing",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "compare",
+          "question": "Explain two advantages and one weakness of the multi-cycle processor compared with the single-cycle one.",
+          "answer": "Advantages: a shorter clock cycle, and shared hardware (one memory, one ALU) instead of duplicates; simple instructions also finish in fewer cycles. Weakness: every instruction needs several cycles (CPI above 1) and extra registers and control states, so the total time is not necessarily shorter.",
+          "solution": "A strong answer states the trade-off between cycle length and cycle count.",
+          "mistake": "Claiming multi-cycle is always faster.",
+          "title": "Exam practice: conceptual",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "The multi-cycle processor",
+          "branches": [
+            {
+              "label": "Why not single-cycle",
+              "example": "slowest sets clock",
+              "section": "why"
+            },
+            {
+              "label": "Datapath",
+              "example": "shared units, IR/MDR/A/B/ALUOut",
+              "section": "datapath"
+            },
+            {
+              "label": "Control FSM",
+              "example": "states per cycle",
+              "section": "control"
+            },
+            {
+              "label": "Comparison",
+              "example": "CPI × clock",
+              "section": "compare"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "Single-cycle: the clock is set by lw and hardware is duplicated.",
+            "Multi-cycle: one step per cycle, one memory and one ALU reused.",
+            "Intermediate registers: IR, MDR, A, B, ALUOut carry values between cycles.",
+            "Cycles: R-type 4, lw 5, sw 4, beq 3.",
+            "The control unit is a finite-state machine: S0 fetch and S1 decode for all, then the opcode picks the path.",
+            "Time per instruction = CPI × clock period; multi-cycle is not automatically faster."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "Multi-cycle is just single-cycle with a slower clock.",
+              "right": "It is a redesigned datapath with shared units and intermediate registers."
+            },
+            {
+              "wrong": "All instructions take the same number of cycles.",
+              "right": "They take 3, 4 or 5."
+            },
+            {
+              "wrong": "A shorter clock always means a faster processor.",
+              "right": "Time = CPI × clock; more cycles can cancel the shorter clock."
+            },
+            {
+              "wrong": "The ALU result goes straight to memory.",
+              "right": "It is held in ALUOut first."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "Multi-cycle processors split each instruction into short steps and reuse one memory and one ALU. Intermediate registers (IR, MDR, A, B, ALUOut) pass values between cycles and a finite-state machine supplies the control signals. R-type and sw take 4 cycles, lw 5 and beq 3. The shorter clock does not guarantee a faster processor, since time per instruction is CPI times the clock period."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "datapath",
+              "question": "How many ALUs does the multi-cycle datapath use?",
+              "options": [
+                "One, reused in different cycles",
+                "Three",
+                "Two",
+                "None"
+              ],
+              "answer": 0,
+              "why": "One ALU is shared by all the cycles.",
+              "misconception": "The single-cycle design used an ALU and two extra adders."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "datapath",
+              "statement": "All instructions take the same number of cycles in the multi-cycle processor.",
+              "answer": false,
+              "why": "The number varies: 3, 4 or 5.",
+              "misconception": "beq needs only 3; lw needs 5."
+            },
+            {
+              "level": "easy",
+              "concept": "why",
+              "question": "Which register holds the instruction being executed?",
+              "options": [
+                "IR",
+                "MDR",
+                "ALUOut",
+                "A"
+              ],
+              "answer": 0,
+              "why": "IR is the instruction register.",
+              "misconception": "MDR holds memory data."
+            },
+            {
+              "level": "medium",
+              "concept": "datapath",
+              "question": "How many cycles does `lw` take?",
+              "options": [
+                "5",
+                "4",
+                "3",
+                "2"
+              ],
+              "answer": 0,
+              "why": "Fetch, decode, address, memory read, write back.",
+              "misconception": "sw skips the write back, so it takes 4."
+            },
+            {
+              "level": "medium",
+              "concept": "control",
+              "question": "Which instruction type visits S0, S1, S8 only?",
+              "options": [
+                "beq",
+                "lw",
+                "sw",
+                "add"
+              ],
+              "answer": 0,
+              "why": "beq: fetch, decode, branch completion.",
+              "misconception": "It takes 3 cycles."
+            },
+            {
+              "level": "medium",
+              "concept": "datapath",
+              "question": "What does ALUOut hold during the memory read cycle of lw?",
+              "options": [
+                "The memory address",
+                "The data read",
+                "The instruction",
+                "The PC"
+              ],
+              "answer": 0,
+              "why": "The ALU computed A + offset in the previous cycle and ALUOut keeps it as the address.",
+              "misconception": "The data read goes into MDR."
+            },
+            {
+              "level": "hard",
+              "concept": "compare",
+              "question": "Mix 25% lw, 10% sw, 45% R, 20% beq. What is the multi-cycle CPI?",
+              "options": [
+                "4.05",
+                "4.5",
+                "3.75",
+                "4.0"
+              ],
+              "answer": 0,
+              "why": "0.25×5 + 0.10×4 + 0.45×4 + 0.20×3 = 4.05.",
+              "misconception": "Weight each cycle count by its frequency."
+            },
+            {
+              "level": "hard",
+              "concept": "compare",
+              "question": "CPI 4.05 and a clock of 200 ps. Single-cycle takes 800 ps. Which is faster?",
+              "options": [
+                "Single-cycle (800 ps vs 810 ps)",
+                "Multi-cycle (810 ps vs 800 ps)",
+                "They are exactly equal",
+                "Impossible to say"
+              ],
+              "answer": 0,
+              "why": "4.05 × 200 = 810 ps, slightly slower than 800 ps.",
+              "misconception": "Compare time per instruction, not clock periods."
+            },
+            {
+              "level": "challenge",
+              "concept": "compare",
+              "question": "Mix 30% lw, 10% sw, 40% R, 20% beq. What is the CPI?",
+              "options": [
+                "4.1",
+                "4.05",
+                "3.9",
+                "4.2"
+              ],
+              "answer": 0,
+              "why": "1.5 + 0.4 + 1.6 + 0.6 = 4.1.",
+              "misconception": "Multiply each cycle count by its share and add."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "Why is single-cycle not ideal?",
+              "a": "The slowest instruction sets the clock and hardware is duplicated.",
+              "concept": "why"
+            },
+            {
+              "q": "Name the five intermediate registers.",
+              "a": "IR, MDR, A, B, ALUOut.",
+              "concept": "datapath"
+            },
+            {
+              "q": "How many cycles for lw, sw, R-type, beq?",
+              "a": "5, 4, 4, 3.",
+              "concept": "datapath"
+            },
+            {
+              "q": "What is the control unit in a multi-cycle processor?",
+              "a": "A finite-state machine.",
+              "concept": "control"
+            },
+            {
+              "q": "What decides which is faster?",
+              "a": "CPI × clock period (time per instruction).",
+              "concept": "compare"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

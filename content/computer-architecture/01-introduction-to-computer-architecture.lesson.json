@@ -1,13 +1,14 @@
 {
   "id": "ca-01-introduction",
-  "title": "Introduction to Computer Architecture",
-  "subtitle": "What is inside a computer, and who decides how it is built?",
+  "title": "Introduction to Computer Architecture and Computer Design",
+  "subtitle": "What is inside a computer, how a program becomes instructions, and who decides how it is all built?",
   "level": "Beginner",
   "duration": 60,
   "objectives": [
     "Explain what computer architecture is and how it differs from computer organization",
-    "Name the main components of a computer: CPU, memory, I/O and the interconnect",
-    "Describe how the address, data and control buses move information",
+    "Name the main components of a computer and how the buses connect them",
+    "Trace a program from high-level code to machine instructions, and the steps the CPU takes to execute one",
+    "Name the four design goals: performance, cost, power and reliability",
     "Explain what a computer architect designs and why the work matters"
   ],
   "concepts": [
@@ -25,6 +26,16 @@
       "id": "bus",
       "label": "System interconnection",
       "section": "interconnect"
+    },
+    {
+      "id": "iface",
+      "label": "Software, hardware and instruction execution",
+      "section": "interface"
+    },
+    {
+      "id": "goals",
+      "label": "Design goals",
+      "section": "interface"
     },
     {
       "id": "architect",
@@ -181,7 +192,7 @@
     {
       "id": "components",
       "label": "Components",
-      "minutes": 10,
+      "minutes": 9,
       "steps": [
         {
           "type": "concept",
@@ -368,7 +379,7 @@
     {
       "id": "interconnect",
       "label": "Buses",
-      "minutes": 7,
+      "minutes": 3,
       "steps": [
         {
           "type": "concept",
@@ -408,6 +419,9 @@
           "mistake": {
             "wrong": "The data bus carries the address.",
             "right": "The address bus carries the address. The data bus carries the value."
+          },
+          "notes": {
+            "explain": "Keep this short: buses return in Class 22 (bandwidth, reliability, RAID). Only the three jobs matter today."
           }
         },
         {
@@ -447,47 +461,254 @@
             }
           ],
           "result": "The address goes out on the address bus; the answer comes back on the data bus."
+        }
+      ]
+    },
+    {
+      "id": "interface",
+      "label": "Software & Hardware",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "iface",
+          "title": "Below your program: from code to hardware",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "High-level program",
+                  "sub": "C or Java",
+                  "note": "People write programs in a language close to how they think.",
+                  "example": "a = b + c;"
+                },
+                {
+                  "label": "Compiler",
+                  "sub": "translates",
+                  "note": "A **compiler** translates the high-level program into assembly language for one particular ISA."
+                },
+                {
+                  "label": "Assembly language",
+                  "sub": "readable instructions",
+                  "note": "Assembly is a human-readable form of machine instructions.",
+                  "example": "add $s0, $s1, $s2"
+                },
+                {
+                  "label": "Assembler",
+                  "sub": "translates",
+                  "note": "An **assembler** turns each assembly instruction into binary."
+                },
+                {
+                  "label": "Machine code",
+                  "sub": "binary instructions",
+                  "note": "The CPU only understands patterns of 0s and 1s.",
+                  "example": "000000 10001 10010 10000 00000 100000"
+                },
+                {
+                  "label": "Hardware",
+                  "sub": "executes",
+                  "note": "The processor fetches the binary instructions and carries them out."
+                }
+              ]
+            }
+          ],
+          "why": "Software and hardware speak different languages, and these layers translate between them. This is the software/hardware interface.",
+          "real": "When you install an app, you are installing machine code built for your phone's or laptop's instruction set.",
+          "mistake": {
+            "wrong": "The CPU runs C or Java directly.",
+            "right": "The CPU only runs machine code. Compilers and assemblers (or an interpreter) translate for it."
+          },
+          "explainAgain": {
+            "beginner": "It is like translating a recipe from English into the exact button presses of a kitchen robot. Each step makes it less human and more machine.",
+            "technical": "A compiler lowers high-level code to the target ISA's assembly; an assembler encodes it into machine words; the processor decodes and executes those words."
+          },
+          "notes": {
+            "explain": "Click each stage. The MIPS example previews Classes 5 to 7; students need not decode the binary today.",
+            "terms": [
+              "**Compiler**",
+              "**Assembler**",
+              "**Machine code**"
+            ],
+            "misconceptions": [
+              "Students think the CPU understands the programming language."
+            ]
+          }
         },
         {
-          "type": "arrange",
-          "concept": "bus",
-          "skill": "Understand",
-          "title": "Mini challenge",
-          "prompt": "Put a memory read in the correct order.",
-          "items": [
-            "CPU places the address on the address bus",
-            "CPU asserts READ on the control bus",
-            "Memory places the data on the data bus",
-            "CPU copies the data into a register"
+          "type": "concept",
+          "concept": "iface",
+          "title": "Instruction execution: the big picture",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "Fetch",
+                  "sub": "get the instruction",
+                  "note": "The CPU uses the **program counter** (PC) as an address and reads the next instruction from memory.",
+                  "example": "The PC holds the address of the instruction to run."
+                },
+                {
+                  "label": "Decode",
+                  "sub": "work out what it means",
+                  "note": "The control unit decodes the instruction and reads the registers it names."
+                },
+                {
+                  "label": "Execute",
+                  "sub": "do the operation",
+                  "note": "The ALU computes the result, or the address for a memory access."
+                },
+                {
+                  "label": "Write result",
+                  "sub": "store the answer",
+                  "note": "The result goes to a register (or memory) and the PC moves on to the next instruction.",
+                  "example": "For add $s0, $s1, $s2 the sum is written to $s0."
+                }
+              ]
+            }
           ],
-          "why": "The memory must know where to look and what to do before it can send the value back."
+          "why": "Every instruction of every program goes through this same loop, billions of times a second.",
+          "real": "Whenever your phone is awake, its processor is running this fetch, decode, execute loop.",
+          "notes": {
+            "explain": "This is only an overview. Classes 10 and 11 build the real datapath step by step.",
+            "terms": [
+              "**Program counter (PC)**"
+            ]
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "iface",
+          "skill": "Apply",
+          "question": "Every MIPS instruction is 4 bytes long. The CPU has just fetched the instruction at address 100. Normally, which address will the program counter hold for the next instruction?",
+          "options": [
+            "101",
+            "104",
+            "200",
+            "100"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "transform",
+              "before": {
+                "title": "After fetching",
+                "text": "PC = 100"
+              },
+              "process": "add 4 bytes (one instruction)",
+              "after": {
+                "title": "Next instruction",
+                "text": "PC = 104"
+              }
+            }
+          ],
+          "result": "Each instruction is 4 bytes, so the next one is 4 bytes further on, unless a branch or jump changes the PC."
         },
         {
           "type": "mcq",
-          "concept": "bus",
-          "skill": "Apply",
-          "question": "A computer has a 16-bit address bus. How many different memory locations can it address?",
+          "concept": "iface",
+          "skill": "Remember",
+          "question": "Which program turns assembly language into binary machine code?",
           "options": [
-            "16",
-            "256",
-            "65,536",
-            "1,048,576"
+            "The assembler",
+            "The compiler",
+            "The operating system",
+            "The memory"
           ],
-          "answer": 2,
-          "why": "2^16 = 65,536 different addresses.",
+          "answer": 0,
+          "why": "The assembler encodes each assembly instruction as binary machine code.",
           "feedback": [
-            "16 is the number of wires, not the number of addresses. Each wire doubles the count.",
-            "256 is 2^8, the count for 8 address lines.",
             "",
-            "That is 2^20, the count for 20 address lines."
+            "The compiler translates a high-level language such as C into assembly language.",
+            "The operating system manages programs and resources; it does not translate code.",
+            "Memory only stores the machine code."
           ]
+        },
+        {
+          "type": "concept",
+          "concept": "goals",
+          "title": "Design goals",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Goal",
+                "The question",
+                "How it is measured"
+              ],
+              "rows": [
+                [
+                  "Performance",
+                  "How fast does it run programs?",
+                  "Execution time, throughput"
+                ],
+                [
+                  "Cost",
+                  "What does it cost to build and buy?",
+                  "Price, cost per chip"
+                ],
+                [
+                  "Power",
+                  "How much energy and heat does it use?",
+                  "Watts, battery life"
+                ],
+                [
+                  "Reliability",
+                  "How often does it fail?",
+                  "Failure rate, availability"
+                ]
+              ]
+            }
+          ],
+          "why": "Improving one goal usually costs another, so architects balance all four for a purpose.",
+          "real": "A phone favors low power, a server favors performance and reliability, and a toy favors low cost.",
+          "mistake": {
+            "wrong": "The best computer is simply the fastest one.",
+            "right": "Best depends on the balance of performance, cost, power and reliability for the job."
+          },
+          "notes": {
+            "explain": "Class 2 and 3 take performance, cost and power further; reliability returns in Class 22.",
+            "terms": [
+              "**Reliability**",
+              "**Availability**"
+            ]
+          }
+        },
+        {
+          "type": "match",
+          "concept": "goals",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each design goal with how it is measured.",
+          "pairs": [
+            {
+              "a": "Performance",
+              "b": "Execution time"
+            },
+            {
+              "a": "Cost",
+              "b": "Price to build and buy"
+            },
+            {
+              "a": "Power",
+              "b": "Energy used and heat produced"
+            },
+            {
+              "a": "Reliability",
+              "b": "How often it fails"
+            }
+          ],
+          "why": "Each goal has its own measure, and architects trade them against each other."
         }
       ]
     },
     {
       "id": "architect",
       "label": "The Architect",
-      "minutes": 10,
+      "minutes": 9,
       "steps": [
         {
           "type": "concept",
@@ -517,44 +738,93 @@
         {
           "type": "concept",
           "concept": "architect",
-          "title": "Layers of abstraction",
+          "title": "Eight great ideas in computer architecture",
           "blocks": [
             {
               "type": "flow",
-              "layout": "column",
+              "layout": "grid",
+              "cols": 4,
+              "zoom": true,
               "nodes": [
                 {
-                  "label": "Applications",
-                  "sub": "the apps you use",
-                  "note": "Programs written by developers."
+                  "label": "Design for Moore's law",
+                  "sub": "aim at where technology will be",
+                  "note": "Technology improves so quickly that a design must target the technology available when the product ships, not today's."
                 },
                 {
-                  "label": "Operating system",
-                  "sub": "manages resources",
-                  "note": "Shares the hardware between programs."
+                  "label": "Use abstraction",
+                  "sub": "hide the detail",
+                  "note": "Layers with simple interfaces let each layer be designed without knowing the layers around it."
                 },
                 {
-                  "label": "Instruction set architecture",
-                  "sub": "the hardware/software contract",
-                  "note": "The **ISA** is the line between what software asks for and what hardware must do."
+                  "label": "Make the common case fast",
+                  "sub": "improve what happens most",
+                  "note": "Speeding up the frequent case helps more, and is usually easier, than speeding up a rare one."
                 },
                 {
-                  "label": "Organization",
-                  "sub": "CPU and memory design",
-                  "note": "How the processor, caches and buses are built."
+                  "label": "Performance via parallelism",
+                  "sub": "do many things at once",
+                  "note": "Doing operations at the same time gives more work per second."
                 },
                 {
-                  "label": "Logic and circuits",
-                  "sub": "gates and transistors",
-                  "note": "The physical components that do the work."
+                  "label": "Performance via pipelining",
+                  "sub": "overlap the steps",
+                  "note": "Like an assembly line, a pipeline works on different stages of several tasks at once."
+                },
+                {
+                  "label": "Performance via prediction",
+                  "sub": "guess and start early",
+                  "note": "If a good guess is cheaper than waiting, start the likely work early and recover when the guess is wrong."
+                },
+                {
+                  "label": "Hierarchy of memories",
+                  "sub": "small and fast to big and slow",
+                  "note": "Keep fast, small, expensive memory near the processor and large, slow, cheap memory further away."
+                },
+                {
+                  "label": "Dependability via redundancy",
+                  "sub": "spare parts",
+                  "note": "Extra components let a system keep working when one part fails."
                 }
               ]
             }
           ],
-          "why": "Each layer hides the detail below it, so people can work on one layer without knowing everything underneath.",
+          "why": "These eight ideas come back in almost every lesson of this course. Each later topic is one or more of them in detail.",
+          "real": "A phone's cache is the hierarchy of memories, its many cores use parallelism, and a data center keeps working through a disk failure because of redundancy.",
           "explainAgain": {
-            "beginner": "You use a phone without knowing how its chip works. That is abstraction: you see only the layer you need."
+            "beginner": "They are eight habits good computer designers use: plan for fast change, hide detail, speed up the common case, do things together, overlap steps, guess ahead, keep things close, and have spares."
+          },
+          "deeper": {
+            "text": "Pipelining, prediction and the memory hierarchy each get their own lessons later in the course, so treat today as a map of the territory."
+          },
+          "notes": {
+            "explain": "Click each idea and ask which everyday system uses it. The names are the textbook's; the explanations here are our own.",
+            "terms": [
+              "**Pipelining**",
+              "**Prediction**",
+              "**Redundancy**"
+            ]
           }
+        },
+        {
+          "type": "mcq",
+          "concept": "architect",
+          "skill": "Understand",
+          "question": "A cache keeps recently used data close to the CPU so it can be reached quickly. Which great idea does this illustrate?",
+          "options": [
+            "Hierarchy of memories",
+            "Performance via pipelining",
+            "Dependability via redundancy",
+            "Performance via prediction"
+          ],
+          "answer": 0,
+          "why": "Keeping a small, fast memory near the processor in front of a large, slow one is the hierarchy of memories.",
+          "feedback": [
+            "",
+            "Pipelining overlaps the steps of different instructions. A cache is about where data is kept.",
+            "Redundancy adds spare parts for reliability, not speed.",
+            "Prediction guesses an outcome and starts early. A cache stores data that was already used."
+          ]
         },
         {
           "type": "tps",
@@ -590,7 +860,7 @@
     {
       "id": "practice",
       "label": "Practice",
-      "minutes": 9,
+      "minutes": 7,
       "steps": [
         {
           "type": "practice",
@@ -668,35 +938,25 @@
           "mistake": "Using the two words as if they meant the same thing, or describing only hardware."
         },
         {
-          "type": "practice",
-          "level": 4,
-          "exam": true,
-          "concept": "parts",
-          "skill": "Analyze",
-          "title": "Exam practice: diagram interpretation",
-          "think": 90,
-          "question": "A diagram (a simplified model) shows a keyboard connected to an I/O interface, and the I/O interface, the CPU and the memory all attached to one system bus. A student says the keyboard sends its data straight to the CPU. What is wrong with that, and what path does the data take?",
-          "answer": "Devices do not connect directly to the CPU. The keyboard's data goes through the I/O interface onto the system bus, and from there to the CPU or to memory.",
-          "solution": "In this model the system bus is the shared path. Every transfer between the CPU, memory and I/O devices uses the address, data and control lines of that bus.",
-          "mistake": "Drawing arrows between components that are really joined only through the bus."
-        },
-        {
-          "type": "practice",
-          "level": 4,
-          "concept": "architect",
-          "skill": "Evaluate",
-          "title": "Interview question",
-          "think": 90,
-          "question": "A friend with no technical background asks what a computer architect does. Explain it in three sentences.",
-          "answer": "An architect decides what a computer can do and how it is built. They balance speed, cost and power for a purpose such as a phone or a data center. They also keep old software working on new hardware.",
-          "solution": "A strong answer is jargon-free, covers what and how, and mentions the trade-offs between performance, cost and power."
+          "type": "arrange",
+          "concept": "iface",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put the journey from a program to the hardware in order.",
+          "items": [
+            "Write the program in C or Java",
+            "The compiler produces assembly language",
+            "The assembler produces binary machine code",
+            "The CPU fetches and executes the instructions"
+          ],
+          "why": "Each layer feeds the next: the program becomes assembly, assembly becomes binary, and binary is what the hardware runs."
         }
       ]
     },
     {
       "id": "review",
       "label": "Review",
-      "minutes": 5,
+      "minutes": 4,
       "steps": [
         {
           "type": "conceptmap",
@@ -710,17 +970,17 @@
             },
             {
               "label": "Components",
-              "example": "CPU · Memory · I/O · Interconnect",
+              "example": "CPU · Memory · I/O · Buses",
               "section": "components"
             },
             {
-              "label": "Buses",
-              "example": "Address · Data · Control",
-              "section": "interconnect"
+              "label": "Interface",
+              "example": "Code → machine instructions",
+              "section": "interface"
             },
             {
               "label": "The architect",
-              "example": "Balances performance, cost, power",
+              "example": "Balances four goals",
               "section": "architect"
             }
           ]
@@ -730,24 +990,11 @@
           "title": "What you should remember",
           "remember": [
             "Architecture is what the programmer sees; organization is how it is built.",
-            "A computer has four blocks: CPU, memory, I/O and an interconnect.",
-            "Instructions and data share memory (the stored-program idea).",
-            "The address bus says where, the data bus carries the value, the control bus says what to do.",
-            "An n-bit address bus can name 2^n locations.",
-            "Architects balance performance, cost and power, and keep old software working."
-          ]
-        },
-        {
-          "type": "review",
-          "title": "Understand and apply",
-          "understand": [
-            "Instructions and data share memory (stored program).",
-            "Address, data and control buses each have one job.",
-            "Architects balance performance, cost and power."
-          ],
-          "apply": [
-            "Classify a design decision as architecture or organization.",
-            "Work out how many locations an n-bit address bus can name."
+            "A computer has a CPU, memory, I/O devices and an interconnect (buses).",
+            "Programs become machine instructions through a compiler and an assembler.",
+            "Every instruction is fetched, decoded, executed and its result written.",
+            "The four design goals are performance, cost, power and reliability, and they trade against each other.",
+            "An architect balances them for a purpose and keeps old software working."
           ]
         },
         {
@@ -778,7 +1025,7 @@
     {
       "id": "quiz",
       "label": "Quiz",
-      "minutes": 8,
+      "minutes": 7,
       "steps": [
         {
           "type": "quiz",
@@ -940,5 +1187,19 @@
       ]
     }
   ],
-  "practiceLevels": 4
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "1",
+      "title": "Computer Abstractions and Technology",
+      "topics": "Eight great ideas in computer architecture; below your program; under the covers (components of a computer); classes of computing applications"
+    },
+    {
+      "book": "CAQA",
+      "chapter": "1",
+      "title": "Fundamentals of Computer Design",
+      "topics": "The task of a computer designer; defining computer architecture (instruction set, organization, hardware)"
+    }
+  ]
 }

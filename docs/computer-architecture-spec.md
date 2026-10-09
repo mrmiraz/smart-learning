@@ -80,6 +80,10 @@ The architecture must support all of these topics as lessons (data only, no per-
 - Accessibility: keyboard navigation, large fonts, high contrast, reduced motion (**Reduce Animation** in settings), clear focus indicators, screen-reader-friendly HTML, **never information by color alone**.
 - Works on desktop, laptop, projector, tablet and mobile. On mobile **reorganize** diagrams, do not just shrink them.
 
+## Textbooks (added by the course author)
+
+Follow the two reference books, Patterson and Hennessy *Computer Organization and Design* (`COD`) and Hennessy and Patterson *Computer Architecture: A Quantitative Approach* (`CAQA`), for structure, terminology, notation and the style of questions. Paraphrase; never copy their text, figures or exercises. Every lesson lists the chapters it follows in `references`. Details and the chapter map for all 24 classes: `docs/computer-architecture-references.md`.
+
 ## Content quality
 
 - Technically accurate terminology; explain terms before abbreviating; always distinguish architecture from organization; consistent notation; realistic examples; clearly label simplified models; do not oversimplify into incorrectness.

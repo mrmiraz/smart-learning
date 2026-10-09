@@ -1,0 +1,1327 @@
+{
+  "id": "ca-18-cache-organization",
+  "title": "Cache Organization and Mapping",
+  "subtitle": "Tags, indexes, offsets and the three ways to place a block.",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "5",
+      "title": "Large and Fast: Exploiting Memory Hierarchy",
+      "topics": "The basics of caches: direct-mapped caches, tags and valid bits, handling hits and misses; associative caches: set-associative and fully associative placement"
+    }
+  ],
+  "objectives": [
+    "Define block, line, tag, index, offset and valid bit",
+    "Split an address into tag, index and offset",
+    "Trace hits and misses in direct-mapped, set-associative and fully associative caches",
+    "Explain how associativity removes conflict misses",
+    "Calculate tag bits and total cache storage"
+  ],
+  "concepts": [
+    {
+      "id": "anatomy",
+      "label": "Anatomy of a cache",
+      "section": "anatomy"
+    },
+    {
+      "id": "direct",
+      "label": "Direct-mapped caches",
+      "section": "direct"
+    },
+    {
+      "id": "assoc",
+      "label": "Associative caches",
+      "section": "assoc"
+    },
+    {
+      "id": "size",
+      "label": "Sizes and storage",
+      "section": "size"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "Hook",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "A cache holds a few thousand blocks out of billions of addresses. How can the hardware check in a single cycle whether the one you want is there?",
+          "clues": [
+            "Each address maps to **one place** (or a small set of places).",
+            "A **tag** says which block currently lives there.",
+            "The address itself is cut into **tag, index and offset**."
+          ],
+          "notes": {
+            "explain": "Let students guess before revealing the clues."
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "Read the objectives aloud; they return in the learning report."
+          }
+        }
+      ]
+    },
+    {
+      "id": "anatomy",
+      "label": "Anatomy of a cache",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "anatomy",
+          "title": "The vocabulary",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Term",
+                "Meaning"
+              ],
+              "rows": [
+                [
+                  "Block",
+                  "The unit copied between memory and cache (several neighbouring bytes)"
+                ],
+                [
+                  "Line",
+                  "One place in the cache that can hold one block"
+                ],
+                [
+                  "Valid bit",
+                  "1 if the line holds real data, 0 if empty (e.g. at start-up)"
+                ],
+                [
+                  "Tag",
+                  "The high bits of the block address, stored with the line to say which block it is"
+                ],
+                [
+                  "Index",
+                  "The address bits that select the line (or set)"
+                ],
+                [
+                  "Offset",
+                  "The low address bits that select the byte inside the block"
+                ]
+              ]
+            }
+          ],
+          "why": "Every cache lookup uses exactly these pieces.",
+          "real": "Whenever a cache is described as \"32 KB, 8-way, 64-byte lines\" it is giving the numbers that fix these fields.",
+          "explainAgain": {
+            "beginner": "A hotel: the index is the floor, the tag is the guest's name on the register, and the offset is the bed in the room."
+          },
+          "notes": {
+            "terms": [
+              "**block** / **line**",
+              "**tag**",
+              "**index**",
+              "**offset**",
+              "**valid bit**"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "anatomy",
+          "title": "Cutting up an address",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Address",
+                  "sub": "n bits",
+                  "note": "The CPU sends one address."
+                },
+                {
+                  "label": "Offset",
+                  "sub": "low bits",
+                  "note": "log2(block size) bits: byte inside the block."
+                },
+                {
+                  "label": "Index",
+                  "sub": "next bits",
+                  "note": "log2(number of sets) bits: which line or set."
+                },
+                {
+                  "label": "Tag",
+                  "sub": "remaining high bits",
+                  "note": "Compared with the tag stored in the line."
+                }
+              ],
+              "zoom": true
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "offset bits = log2(block size in bytes)",
+                  "note": "e.g. 16-byte block: 4 bits"
+                },
+                {
+                  "t": "index bits = log2(number of sets)",
+                  "note": "sets = lines ÷ associativity"
+                },
+                {
+                  "t": "tag bits = address bits − index bits − offset bits",
+                  "note": "the rest"
+                }
+              ]
+            }
+          ],
+          "why": "The split is fixed by the cache design, so the hardware can pick out each field with wires, no calculation.",
+          "real": "This is why cache sizes and block sizes are always powers of two.",
+          "mistake": {
+            "wrong": "The index comes from the highest address bits.",
+            "right": "The tag takes the highest bits; the index sits just above the offset."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "anatomy",
+          "title": "Try it: split an address",
+          "blocks": [
+            {
+              "type": "walkthrough",
+              "title": "Tag, index and offset",
+              "inputs": [
+                {
+                  "id": "addr",
+                  "label": "Address (16 bits)",
+                  "value": 4660,
+                  "min": 0,
+                  "max": 65535,
+                  "step": 4
+                },
+                {
+                  "id": "ob",
+                  "label": "Offset bits (block = 2^n bytes)",
+                  "value": 4,
+                  "min": 2,
+                  "max": 6,
+                  "step": 1
+                },
+                {
+                  "id": "ib",
+                  "label": "Index bits (sets = 2^n)",
+                  "value": 3,
+                  "min": 0,
+                  "max": 6,
+                  "step": 1
+                }
+              ],
+              "stages": [
+                {
+                  "label": "Address",
+                  "text": "`{addr|hex4}` = `{addr|bin16}`"
+                },
+                {
+                  "label": "Offset",
+                  "text": "The low {ob} bits: **{mod(addr, pow(2, ob))}**"
+                },
+                {
+                  "label": "Index",
+                  "text": "The next {ib} bits: **{mod(floor(addr / pow(2, ob)), pow(2, ib))}**"
+                },
+                {
+                  "label": "Tag",
+                  "text": "The remaining {16 - ob - ib} bits: **{floor(addr / pow(2, ob + ib))}**"
+                }
+              ],
+              "result": "{addr|hex4}: tag {floor(addr / pow(2, ob + ib))}, index {mod(floor(addr / pow(2, ob)), pow(2, ib))}, offset {mod(addr, pow(2, ob))}",
+              "note": "The default is 0x1234 with 16-byte blocks and 8 lines (direct-mapped): tag 36, index 3, offset 4."
+            }
+          ],
+          "why": "Change the number of offset or index bits and watch which field grows."
+        },
+        {
+          "type": "predict",
+          "concept": "anatomy",
+          "skill": "Apply",
+          "question": "A direct-mapped cache has 8 lines and 16-byte blocks. Which index does address 0x1234 use?",
+          "options": [
+            "3",
+            "4",
+            "36",
+            "8"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Offset = 0x1234 mod 16 = 4. Block number = 0x1234 ÷ 16 = 291. Index = 291 mod 8 = **3**. Tag = 291 ÷ 8 = 36.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Index = block number mod number of sets."
+        },
+        {
+          "type": "mcq",
+          "concept": "anatomy",
+          "question": "A cache has 16-byte blocks. How many offset bits are there?",
+          "options": [
+            "4",
+            "16",
+            "2",
+            "8"
+          ],
+          "answer": 0,
+          "why": "log2(16) = 4 bits.",
+          "feedback": [
+            "",
+            "16 is the block size, not the number of bits.",
+            "That would be a 4-byte block.",
+            "8 bits would be a 256-byte block."
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "anatomy",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Match each field with its job.",
+          "pairs": [
+            {
+              "a": "Offset",
+              "b": "Selects the byte inside the block"
+            },
+            {
+              "a": "Index",
+              "b": "Selects the line or set"
+            },
+            {
+              "a": "Tag",
+              "b": "Identifies which block is stored"
+            },
+            {
+              "a": "Valid bit",
+              "b": "Says whether the line holds real data"
+            }
+          ],
+          "why": "A lookup uses all four."
+        }
+      ]
+    },
+    {
+      "id": "direct",
+      "label": "Direct-mapped caches",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "direct",
+          "title": "One block, one line",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Each memory block can go to **exactly one line**: index = block number mod number of lines",
+                "Lookup: use the index to read one line; compare its tag with the address tag; check the valid bit",
+                "Match and valid: **hit**. Otherwise **miss**: fetch the block and replace what was there",
+                "Simple, fast and cheap: only **one** tag comparison"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Step",
+                "Action"
+              ],
+              "rows": [
+                [
+                  "1",
+                  "Split the address"
+                ],
+                [
+                  "2",
+                  "Read the line at the index"
+                ],
+                [
+                  "3",
+                  "Valid and tags equal? Hit: use the offset to pick the data"
+                ],
+                [
+                  "4",
+                  "Otherwise miss: bring the block from the next level and store tag + data"
+                ]
+              ]
+            }
+          ],
+          "why": "Direct mapping gives the fastest lookup, at the cost of conflicts between blocks that share a line.",
+          "real": "Small, fast caches and TLBs sometimes use direct mapping.",
+          "mistake": {
+            "wrong": "A cache line can hold any block.",
+            "right": "In a direct-mapped cache each block has exactly one possible line."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "direct",
+          "title": "A trace",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Cache: **4 lines**, **4-byte blocks**, 8-bit addresses. Access addresses 0, 4, 8, 12, 0, 16, 0."
+            },
+            {
+              "type": "table",
+              "head": [
+                "Address",
+                "Block",
+                "Index",
+                "Tag",
+                "Result"
+              ],
+              "rows": [
+                [
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "miss (compulsory)"
+                ],
+                [
+                  "4",
+                  "1",
+                  "1",
+                  "0",
+                  "miss (compulsory)"
+                ],
+                [
+                  "8",
+                  "2",
+                  "2",
+                  "0",
+                  "miss (compulsory)"
+                ],
+                [
+                  "12",
+                  "3",
+                  "3",
+                  "0",
+                  "miss (compulsory)"
+                ],
+                [
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "**hit**"
+                ],
+                [
+                  "16",
+                  "4",
+                  "0",
+                  "1",
+                  "miss: replaces block 0"
+                ],
+                [
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "miss (conflict): block 4 replaced it"
+                ]
+              ]
+            }
+          ],
+          "why": "Blocks 0 and 4 both map to line 0, so they keep evicting each other. That is a **conflict miss**.",
+          "real": "Strided access patterns hit this problem often."
+        },
+        {
+          "type": "concept",
+          "concept": "direct",
+          "title": "Try it: direct-mapped",
+          "blocks": [
+            {
+              "type": "cache",
+              "title": "Direct-mapped cache",
+              "config": {
+                "blockBytes": 4,
+                "lines": 4,
+                "addrBits": 8,
+                "assoc": 1
+              },
+              "controls": [
+                "assoc",
+                "lines",
+                "block"
+              ],
+              "sequences": [
+                {
+                  "name": "Trace above",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    0,
+                    16,
+                    0
+                  ]
+                },
+                {
+                  "name": "Conflicts",
+                  "accesses": [
+                    0,
+                    16,
+                    0,
+                    16,
+                    0,
+                    16
+                  ]
+                },
+                {
+                  "name": "Sequential",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    16,
+                    20,
+                    24,
+                    28
+                  ]
+                },
+                {
+                  "name": "Reuse",
+                  "accesses": [
+                    0,
+                    4,
+                    0,
+                    4,
+                    8,
+                    0,
+                    4,
+                    8
+                  ]
+                }
+              ],
+              "hint": "Step through **Trace above**; then run **Conflicts** (addresses 0 and 16 share line 0)."
+            }
+          ],
+          "why": "The trace gives 1 hit and 6 misses. Conflicts: 0 hits in 6 accesses even though the cache is almost empty."
+        },
+        {
+          "type": "predict",
+          "concept": "direct",
+          "skill": "Apply",
+          "question": "Addresses 0 and 16 are read alternately, six accesses, in this direct-mapped cache (4 lines, 4-byte blocks). How many hits?",
+          "options": [
+            "0",
+            "2",
+            "4",
+            "6"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Both addresses map to line 0 (blocks 0 and 4, index 0). Each access evicts the other's block: **0 hits**, 6 misses, 4 of them conflict misses.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Three of the four lines stay empty. The problem is placement, not capacity."
+        },
+        {
+          "type": "find",
+          "concept": "direct",
+          "skill": "Analyze",
+          "title": "Find the mistake",
+          "prompt": "One statement about direct-mapped caches is wrong. Click it.",
+          "lines": [
+            "1. Each block can be placed in exactly one line.",
+            "2. The index is block number mod number of lines.",
+            "3. Two blocks with the same index can both stay in the cache.",
+            "4. Only one tag comparison is needed per lookup."
+          ],
+          "wrong": 2,
+          "explain": "Two blocks with the same index compete for one line, so only one can be present.",
+          "fix": "Blocks that share an index evict each other."
+        },
+        {
+          "type": "tf",
+          "concept": "direct",
+          "statement": "A valid bit of 0 means the line holds no usable data.",
+          "answer": true,
+          "why": "This is how an empty cache is recognised after start-up."
+        }
+      ]
+    },
+    {
+      "id": "assoc",
+      "label": "Associative caches",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "assoc",
+          "title": "More freedom in placement",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Organisation",
+                "Where a block may go",
+                "Comparisons per lookup"
+              ],
+              "rows": [
+                [
+                  "Direct mapped (1-way)",
+                  "One line",
+                  "1"
+                ],
+                [
+                  "n-way set associative",
+                  "Any of the n lines in one set (set = block mod number of sets)",
+                  "n"
+                ],
+                [
+                  "Fully associative",
+                  "Any line in the cache",
+                  "all the lines"
+                ]
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "sets = lines ÷ associativity",
+                  "note": "index selects a set, not a line"
+                },
+                {
+                  "t": "fully associative: 1 set, index bits = 0",
+                  "note": "tag = all bits above the offset"
+                }
+              ]
+            }
+          ],
+          "why": "More choices for each block means fewer evictions between blocks that happen to share an index.",
+          "real": "L1 caches are typically 4- or 8-way; L2 and L3 use more ways. Fully associative caches are used only when small (like a TLB).",
+          "explainAgain": {
+            "beginner": "Hotel with floors: direct mapped = one room per guest; 2-way = two rooms to pick from on your floor; fully associative = any room in the hotel."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "assoc",
+          "title": "Replacement: LRU",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "When a set is full a block must be **evicted**",
+                "**LRU** (least recently used) evicts the block unused for the longest time",
+                "LRU uses temporal locality: a block used recently is likely to be used again",
+                "Real caches approximate LRU to keep the hardware cheap"
+              ]
+            }
+          ],
+          "why": "Associativity needs a replacement policy; direct mapped has none, because each block has only one place.",
+          "real": "Random replacement is also used and performs nearly as well in large caches."
+        },
+        {
+          "type": "concept",
+          "concept": "assoc",
+          "title": "Try it: associativity",
+          "blocks": [
+            {
+              "type": "cache",
+              "title": "Same 4 lines, different associativity",
+              "config": {
+                "blockBytes": 4,
+                "lines": 4,
+                "addrBits": 8,
+                "assoc": 1
+              },
+              "controls": [
+                "assoc"
+              ],
+              "sequences": [
+                {
+                  "name": "Conflicts: 0,16,0,16,...",
+                  "accesses": [
+                    0,
+                    16,
+                    0,
+                    16,
+                    0,
+                    16
+                  ]
+                },
+                {
+                  "name": "Cycle of three blocks",
+                  "accesses": [
+                    0,
+                    16,
+                    32,
+                    0,
+                    16,
+                    32
+                  ]
+                },
+                {
+                  "name": "Trace",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    0,
+                    16,
+                    0
+                  ]
+                }
+              ],
+              "hint": "Switch **associativity** between 1-way, 2-way and fully associative (4 lines in total)."
+            }
+          ],
+          "why": "Conflicts: direct mapped 0 hits of 6; 2-way and fully associative 4 hits of 6. Cycle of three blocks: direct 0, 2-way 0, fully associative 3 hits."
+        },
+        {
+          "type": "predict",
+          "concept": "assoc",
+          "skill": "Apply",
+          "question": "Three blocks that map to the same set are read in a cycle: 0, 16, 32, 0, 16, 32. A 2-way LRU cache with 4 lines: how many hits?",
+          "options": [
+            "0",
+            "3",
+            "4",
+            "6"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "The set holds only 2 blocks but the cycle needs 3. With LRU the block about to be used is always the one just evicted: **0 hits**. A fully associative 4-line cache holds all three and gets 3 hits.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Associativity helps up to a point; a cycle bigger than the set still thrashes."
+        },
+        {
+          "type": "checkpoint",
+          "title": "Checkpoint",
+          "questions": [
+            {
+              "q": "What does the index select?",
+              "a": "The line (direct mapped) or the set (set associative).",
+              "concept": "anatomy"
+            },
+            {
+              "q": "Why do conflict misses occur in a direct-mapped cache?",
+              "a": "Several blocks share one line and evict each other.",
+              "concept": "direct"
+            },
+            {
+              "q": "What does associativity change?",
+              "a": "A block may go in several lines of a set, so fewer evictions.",
+              "concept": "assoc"
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "assoc",
+          "title": "Comparing the three",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Same 4-line cache",
+                "Conflicts (0,16 six times)",
+                "Cycle of three (6 accesses)",
+                "Trace 0,4,8,12,0,16,0"
+              ],
+              "rows": [
+                [
+                  "Direct mapped",
+                  "0 hits, 6 misses",
+                  "0 hits, 6 misses",
+                  "1 hit, 6 misses"
+                ],
+                [
+                  "2-way",
+                  "4 hits, 2 misses",
+                  "0 hits, 6 misses",
+                  "2 hits, 5 misses"
+                ],
+                [
+                  "Fully associative",
+                  "4 hits, 2 misses",
+                  "3 hits, 3 misses",
+                  "2 hits, 5 misses"
+                ]
+              ]
+            }
+          ],
+          "why": "Associativity removes conflict misses but costs more comparators, more power and a slower lookup.",
+          "real": "Doubling associativity gives diminishing returns beyond about 4 to 8 ways.",
+          "mistake": {
+            "wrong": "Higher associativity is always better.",
+            "right": "It reduces conflicts but makes the lookup slower and larger."
+          }
+        },
+        {
+          "type": "arrange",
+          "concept": "assoc",
+          "skill": "Understand",
+          "title": "Mini challenge",
+          "prompt": "Put a set-associative lookup in order.",
+          "items": [
+            "Split the address into tag, index and offset",
+            "Use the index to select a set",
+            "Compare the tag with every valid line in the set",
+            "Hit: use the offset to select the data. Miss: fetch the block and replace the LRU line"
+          ],
+          "why": "The index narrows the search before any comparison."
+        },
+        {
+          "type": "mcq",
+          "concept": "assoc",
+          "question": "A cache has 16 lines and is 4-way set associative. How many sets does it have?",
+          "options": [
+            "4",
+            "16",
+            "1",
+            "64"
+          ],
+          "answer": 0,
+          "why": "Sets = lines ÷ ways = 16 ÷ 4 = 4.",
+          "feedback": [
+            "",
+            "16 would be direct mapped.",
+            "One set means fully associative.",
+            "Sets cannot exceed the number of lines."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "size",
+      "label": "Sizes and storage",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "size",
+          "title": "How many bits does a cache really need?",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Each line stores **data**, a **tag** and a **valid bit**",
+                "Bits per line = 1 + tag bits + 8 × block bytes",
+                "Total bits = number of lines × bits per line",
+                "The tag and valid bits are **overhead**: the cache holds more bits than its data capacity"
+              ]
+            }
+          ],
+          "why": "The data capacity (for example 1 KiB) is only part of the real hardware cost.",
+          "real": "Larger blocks mean fewer tags per byte of data, so less overhead.",
+          "deeper": {
+            "text": "Real caches also keep LRU bits and, for write-back, a dirty bit (Class 19)."
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "size",
+          "title": "Calculate: bits and storage",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Cache bit counts",
+              "equation": "Everything follows from the sizes (all powers of two)",
+              "inputs": [
+                {
+                  "id": "ab",
+                  "label": "Address bits",
+                  "value": 32,
+                  "min": 16,
+                  "max": 40,
+                  "step": 1
+                },
+                {
+                  "id": "sz",
+                  "label": "Cache size = 2^n bytes, n =",
+                  "value": 10,
+                  "min": 6,
+                  "max": 16,
+                  "step": 1
+                },
+                {
+                  "id": "bl",
+                  "label": "Block size = 2^n bytes, n =",
+                  "value": 4,
+                  "min": 2,
+                  "max": 7,
+                  "step": 1
+                },
+                {
+                  "id": "al",
+                  "label": "Ways = 2^n, n = (0 means direct mapped)",
+                  "value": 0,
+                  "min": 0,
+                  "max": 4,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "Lines",
+                  "formula": "pow(2, sz - bl)",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Index bits",
+                  "formula": "sz - bl - al",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Offset bits",
+                  "formula": "bl",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Tag bits",
+                  "formula": "ab - (sz - bl - al) - bl",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Bits per line (valid + tag + data)",
+                  "formula": "1 + (ab - (sz - bl - al) - bl) + 8 * pow(2, bl)",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Total bits",
+                  "formula": "pow(2, sz - bl) * (1 + (ab - (sz - bl - al) - bl) + 8 * pow(2, bl))",
+                  "format": "num",
+                  "digits": 0
+                }
+              ]
+            }
+          ],
+          "why": "With the defaults (32-bit addresses, 1 KiB direct mapped, 16-byte blocks): 64 lines, 6 index bits, 4 offset bits, 22 tag bits, 151 bits per line, 9,664 bits in total. Raise the associativity and the tag grows by one bit per doubling."
+        },
+        {
+          "type": "predict",
+          "concept": "size",
+          "skill": "Apply",
+          "question": "1 KiB direct-mapped cache, 16-byte blocks, 32-bit addresses. How many tag bits?",
+          "options": [
+            "22",
+            "26",
+            "18",
+            "10"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Lines = 1024 ÷ 16 = 64, so index = 6 bits; offset = 4 bits; tag = 32 − 6 − 4 = **22 bits**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Doubling the associativity moves one bit from the index to the tag."
+        },
+        {
+          "type": "tps",
+          "title": "Think, pair, share",
+          "prompt": "Why does a cache with 64-byte blocks need fewer tag bits per byte of data than one with 4-byte blocks of the same size?",
+          "think": 20,
+          "pair": 40,
+          "answer": "There are 16 times fewer lines with 64-byte blocks, so only a sixteenth as many tags and valid bits for the same data capacity. Larger blocks also exploit spatial locality, but they raise the miss penalty (Class 19)."
+        },
+        {
+          "type": "discussion",
+          "title": "Discussion",
+          "concept": "assoc",
+          "question": "You have 4 KiB of cache. Would you choose direct mapped, 4-way or fully associative, and why?",
+          "seconds": 60,
+          "ideas": [
+            "Direct mapped: simplest and fastest, but conflict misses.",
+            "4-way: removes most conflict misses with a modest cost.",
+            "Fully associative: fewest conflicts but a slow, power-hungry comparison of every tag.",
+            "Most real L1 caches choose a middle value (4 to 8 ways)."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "Practice",
+      "minutes": 11,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "anatomy",
+          "question": "Name the three parts an address is split into for a cache lookup, from the low bits upward.",
+          "answer": "Offset, index, tag.",
+          "solution": "Offset (byte in the block), then index (which line or set), then the tag.",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "anatomy",
+          "question": "16-bit addresses, direct-mapped cache with 8 lines of 16 bytes. Split address 0x1234 into tag, index and offset.",
+          "answer": "Offset 4, index 3, tag 36 (0x24).",
+          "solution": "Offset = 0x1234 mod 16 = 4. Block = 291. Index = 291 mod 8 = 3. Tag = 291 ÷ 8 = 36. Bits: 9 + 3 + 4 = 16.",
+          "hint": "Offset bits = log2(16) = 4; index bits = log2(8) = 3.",
+          "mistake": "Taking the index from the top bits.",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "size",
+          "question": "32-bit addresses, 64 lines, 16-byte blocks, direct mapped. How many tag, index and offset bits?",
+          "answer": "Tag 22, index 6, offset 4.",
+          "solution": "Offset log2(16) = 4; index log2(64) = 6; tag 32 − 10 = 22.",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "size",
+          "question": "For the same cache, how many bits of storage are needed in total (valid bit, tag, data)?",
+          "answer": "9,664 bits.",
+          "solution": "Per line: 1 + 22 + 128 = 151. Total 64 × 151 = 9,664 bits (1,024 bytes = 8,192 data bits plus 1,472 bits of overhead).",
+          "hint": "Data per line is 8 × block bytes.",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "direct",
+          "question": "Cache: 4 lines, 4-byte blocks, direct mapped, 8-bit addresses. Accesses 0, 4, 8, 12, 0, 16, 0. Give hit or miss for each and the number of hits.",
+          "answer": "M M M M H M M; 1 hit. The last miss is a conflict miss.",
+          "solution": "Blocks 0 to 3 fill lines 0 to 3. Address 0 hits. Address 16 (block 4) maps to line 0 and evicts block 0, so the final 0 misses.",
+          "hint": "Index = block number mod 4.",
+          "think": 90
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "assoc",
+          "question": "Same accesses and cache size, but 2-way set associative with LRU. How many hits? Which accesses hit?",
+          "answer": "2 hits: the second access of address 0 and the last access of address 0.",
+          "solution": "Two sets; blocks 0 and 2 go in set 0, blocks 1 and 3 in set 1. Address 16 (block 4) also maps to set 0: it evicts block 2 (least recently used), not block 0, so the final 0 still hits.",
+          "mistake": "Evicting block 0 (the most recently used).",
+          "title": "Exam practice: trace",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "assoc",
+          "question": "Compare direct-mapped, 2-way and fully associative (4 lines in total) on 0, 16, 32, 0, 16, 32. Give the hits for each and explain the 2-way result.",
+          "answer": "Direct mapped 0, 2-way 0, fully associative 3.",
+          "solution": "Blocks 0, 4 and 8 map to the same set (set 0 for 2 sets). The cycle of three does not fit in 2 ways, so LRU always evicts the block needed next. The fully associative cache holds all three after the first round.",
+          "mistake": "Assuming 2-way always fixes conflict misses.",
+          "title": "Exam practice: conflicts",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "size",
+          "question": "A 4 KiB, 2-way set-associative cache with 32-byte blocks and 32-bit addresses. Give lines, sets, offset, index, tag bits and the total storage in bits.",
+          "answer": "128 lines, 64 sets; offset 5, index 6, tag 21; total 35,584 bits.",
+          "solution": "Lines = 4096 ÷ 32 = 128. Sets = 128 ÷ 2 = 64. Offset log2(32) = 5, index log2(64) = 6, tag 32 − 11 = 21. Bits per line 1 + 21 + 256 = 278; 128 × 278 = 35,584.",
+          "mistake": "Using the number of lines instead of the number of sets for the index.",
+          "title": "Exam practice: storage",
+          "think": 120,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "size",
+          "question": "A fully associative cache has 8 lines of 4 bytes and 16-bit addresses. Give the tag bits and the total storage in bits.",
+          "answer": "Tag 14 bits; total 376 bits.",
+          "solution": "Offset 2 bits; there is one set so index = 0 bits; tag = 16 − 2 = 14. Per line 1 + 14 + 32 = 47; 8 × 47 = 376.",
+          "mistake": "Giving it an index.",
+          "title": "Exam practice: fully associative",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "direct",
+          "question": "16-bit addresses, direct-mapped, 8 lines of 16 bytes. Accesses: 0x1234, 0x1238, 0x2234, 0x1234. Give hit or miss and the miss type for each.",
+          "answer": "Miss (compulsory), hit, miss (compulsory), miss (conflict).",
+          "solution": "0x1234 and 0x1238 are in the same block (index 3, tag 36). 0x2234 has index 3 but tag 68, so it replaces the first block. The final 0x1234 misses because its block was evicted.",
+          "mistake": "Treating 0x1238 as a miss: it is in the same 16-byte block.",
+          "title": "Exam practice: hit or miss",
+          "think": 105,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "How it all connects",
+          "root": "Cache organization",
+          "branches": [
+            {
+              "label": "Anatomy",
+              "example": "block, tag, index, offset",
+              "section": "anatomy"
+            },
+            {
+              "label": "Direct mapped",
+              "example": "one line per block",
+              "section": "direct"
+            },
+            {
+              "label": "Associative",
+              "example": "sets and LRU",
+              "section": "assoc"
+            },
+            {
+              "label": "Sizes",
+              "example": "tag bits and storage",
+              "section": "size"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "What you should remember",
+          "remember": [
+            "A block is the unit copied; a line holds one block with a valid bit and a tag.",
+            "Address = tag | index | offset. offset = log2(block bytes); index = log2(sets); tag = the rest.",
+            "Direct mapped: index = block mod lines; one comparison; conflict misses.",
+            "n-way set associative: sets = lines ÷ n; LRU replacement; fewer conflicts; n comparisons.",
+            "Fully associative: one set, any line, tag = all bits above the offset.",
+            "Total bits = lines × (1 + tag + 8 × block bytes)."
+          ]
+        },
+        {
+          "type": "review",
+          "title": "Common mistakes",
+          "mistakes": [
+            {
+              "wrong": "The index comes from the high bits.",
+              "right": "The tag takes the high bits; the index is just above the offset."
+            },
+            {
+              "wrong": "Associativity always helps.",
+              "right": "A cycle larger than the set still thrashes, and lookups get slower."
+            },
+            {
+              "wrong": "Cache size equals the bits stored.",
+              "right": "Tags and valid bits add overhead."
+            },
+            {
+              "wrong": "All bytes of a block are separate misses.",
+              "right": "A miss brings the whole block."
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "One-minute summary",
+          "summary": "An address is cut into tag, index and offset. In a direct-mapped cache each block has one possible line, giving a fast lookup but conflict misses. Set-associative and fully associative caches let a block go in several places, trading extra comparators for fewer conflicts. The tag, valid bit and data bits together set the real storage cost."
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "Quiz",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "Final quiz",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "anatomy",
+              "question": "Which address field selects the byte inside a block?",
+              "options": [
+                "Offset",
+                "Index",
+                "Tag",
+                "Valid bit"
+              ],
+              "answer": 0,
+              "why": "The offset selects the byte.",
+              "misconception": "The index selects the line or set."
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "direct",
+              "statement": "In a direct-mapped cache each block can go in exactly one line.",
+              "answer": true,
+              "why": "That is the definition.",
+              "misconception": "The index fixes the line."
+            },
+            {
+              "level": "easy",
+              "concept": "assoc",
+              "question": "Which cache lets a block go in any line?",
+              "options": [
+                "Fully associative",
+                "Direct mapped",
+                "2-way set associative",
+                "None"
+              ],
+              "answer": 0,
+              "why": "Fully associative: one set containing all lines.",
+              "misconception": "Direct mapped allows exactly one line."
+            },
+            {
+              "level": "medium",
+              "concept": "anatomy",
+              "question": "16-byte blocks, 8 lines, direct mapped, 16-bit addresses: which index does 0x1234 use?",
+              "options": [
+                "3",
+                "4",
+                "36",
+                "8"
+              ],
+              "answer": 0,
+              "why": "Block 291 mod 8 = 3.",
+              "misconception": "Tag is 36."
+            },
+            {
+              "level": "medium",
+              "concept": "size",
+              "question": "32-bit addresses, 64 lines of 16 bytes, direct mapped: tag bits?",
+              "options": [
+                "22",
+                "26",
+                "24",
+                "20"
+              ],
+              "answer": 0,
+              "why": "32 − 6 − 4 = 22.",
+              "misconception": "Index 6, offset 4."
+            },
+            {
+              "level": "medium",
+              "concept": "direct",
+              "question": "4 lines, 4-byte blocks, direct mapped: 0,16,0,16,0,16 gives how many hits?",
+              "options": [
+                "0",
+                "2",
+                "4",
+                "6"
+              ],
+              "answer": 0,
+              "why": "0 and 16 share line 0 and evict each other.",
+              "misconception": "They are conflict misses."
+            },
+            {
+              "level": "hard",
+              "concept": "assoc",
+              "question": "0,16,32,0,16,32 on a 2-way LRU cache with 4 lines (all in one set): hits?",
+              "options": [
+                "0",
+                "3",
+                "4",
+                "6"
+              ],
+              "answer": 0,
+              "why": "A cycle of three thrashes a 2-way set.",
+              "misconception": "Fully associative would give 3 hits."
+            },
+            {
+              "level": "hard",
+              "concept": "size",
+              "question": "4 KiB, 2-way, 32-byte blocks, 32-bit addresses: how many sets?",
+              "options": [
+                "64",
+                "128",
+                "32",
+                "256"
+              ],
+              "answer": 0,
+              "why": "4096 ÷ 32 = 128 lines; 128 ÷ 2 = 64 sets.",
+              "misconception": "Sets = lines ÷ ways."
+            },
+            {
+              "level": "challenge",
+              "concept": "size",
+              "question": "1 KiB direct-mapped, 16-byte blocks, 32-bit addresses: total storage in bits including valid bit and tag?",
+              "options": [
+                "9,664",
+                "8,192",
+                "9,216",
+                "10,240"
+              ],
+              "answer": 0,
+              "why": "64 lines × (1 + 22 + 128) = 9,664.",
+              "misconception": "8,192 is the data alone."
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "Can you remember?",
+          "items": [
+            {
+              "q": "Name tag, index, offset.",
+              "a": "Tag identifies the block, index picks the set, offset picks the byte.",
+              "concept": "anatomy"
+            },
+            {
+              "q": "How many index bits for S sets?",
+              "a": "log2(S).",
+              "concept": "anatomy"
+            },
+            {
+              "q": "Why do conflict misses occur in direct-mapped caches?",
+              "a": "Several blocks map to one line and evict each other.",
+              "concept": "direct"
+            },
+            {
+              "q": "What does LRU do?",
+              "a": "Evicts the least recently used block of a set.",
+              "concept": "assoc"
+            },
+            {
+              "q": "Total cache bits formula?",
+              "a": "Lines × (1 + tag + 8 × block bytes).",
+              "concept": "size"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "Your learning report"
+        }
+      ]
+    }
+  ]
+}

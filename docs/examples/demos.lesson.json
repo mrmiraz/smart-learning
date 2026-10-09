@@ -1,0 +1,785 @@
+{
+  "id": "demo-blocks",
+  "title": "Interactive demo blocks (example)",
+  "level": "Reference",
+  "duration": 60,
+  "course": "Examples",
+  "objectives": [
+    "See every interactive block",
+    "Copy a configuration into a real lesson",
+    "Check the controls work",
+    "Know the options each block takes"
+  ],
+  "concepts": [
+    {
+      "id": "demo",
+      "label": "Demos",
+      "section": "demos"
+    }
+  ],
+  "sections": [
+    {
+      "id": "demos",
+      "label": "Demos",
+      "minutes": 60,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "walkthrough: addressing modes",
+          "blocks": [
+            {
+              "type": "walkthrough",
+              "title": "Effective address",
+              "modes": [
+                {
+                  "name": "Base + displacement",
+                  "inputs": [
+                    {
+                      "id": "base",
+                      "label": "Base register $s1",
+                      "value": 4096,
+                      "min": 0,
+                      "max": 8192,
+                      "step": 4
+                    },
+                    {
+                      "id": "off",
+                      "label": "Offset",
+                      "value": 8,
+                      "min": -16,
+                      "max": 64,
+                      "step": 4
+                    }
+                  ],
+                  "stages": [
+                    {
+                      "label": "Instruction",
+                      "text": "`lw $t0, {off}($s1)`"
+                    },
+                    {
+                      "label": "Address calculation",
+                      "text": "{base} + {off} = **{base+off}** ({base+off|hex8})"
+                    },
+                    {
+                      "label": "Memory",
+                      "text": "Read the word at {base+off|hex8}"
+                    },
+                    {
+                      "label": "Data",
+                      "text": "The word goes to `$t0`"
+                    }
+                  ],
+                  "note": "The effective address is the base plus the sign-extended offset."
+                },
+                {
+                  "name": "PC-relative branch",
+                  "inputs": [
+                    {
+                      "id": "pc",
+                      "label": "PC of the branch",
+                      "value": 4194304,
+                      "min": 4194304,
+                      "max": 4194400,
+                      "step": 4
+                    },
+                    {
+                      "id": "w",
+                      "label": "Offset field (words)",
+                      "value": 3,
+                      "min": -8,
+                      "max": 8,
+                      "step": 1
+                    }
+                  ],
+                  "stages": [
+                    {
+                      "label": "Branch at",
+                      "text": "PC = {pc|hex8}"
+                    },
+                    {
+                      "label": "PC + 4",
+                      "text": "{pc+4|hex8}"
+                    },
+                    {
+                      "label": "Offset in bytes",
+                      "text": "{w} words × 4 = {w*4} bytes"
+                    },
+                    {
+                      "label": "Target",
+                      "text": "**{pc+4+w*4|hex8}**"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "bits: number representation",
+          "blocks": [
+            {
+              "type": "bits",
+              "title": "Number representation",
+              "modes": [
+                "twos",
+                "add",
+                "ieee",
+                "endian",
+                "mul",
+                "div"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "encoder: instruction builder",
+          "blocks": [
+            {
+              "type": "encoder",
+              "title": "MIPS instruction builder"
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "mips: simulator",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "Sum 1 to 10",
+              "editable": true,
+              "program": "li $t0, 0\nli $t1, 1\nloop: add $t0, $t0, $t1\naddi $t1, $t1, 1\nslti $t2, $t1, 11\nbne $t2, $zero, loop\nsw $t0, 0($s1)",
+              "registers": {
+                "$s1": 268500992
+              },
+              "watch": [
+                "$t0",
+                "$t1",
+                "$t2",
+                "$s1"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "diagram: datapath fragment",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "A tiny datapath",
+              "width": 820,
+              "height": 300,
+              "nodes": [
+                {
+                  "id": "pc",
+                  "label": "PC",
+                  "kind": "reg",
+                  "x": 20,
+                  "y": 170,
+                  "w": 70,
+                  "h": 60
+                },
+                {
+                  "id": "im",
+                  "label": "Instruction\nmemory",
+                  "kind": "mem",
+                  "x": 140,
+                  "y": 150,
+                  "w": 120,
+                  "h": 100
+                },
+                {
+                  "id": "rf",
+                  "label": "Register\nfile",
+                  "kind": "reg",
+                  "x": 330,
+                  "y": 140,
+                  "w": 120,
+                  "h": 120
+                },
+                {
+                  "id": "alu",
+                  "label": "ALU",
+                  "kind": "alu",
+                  "x": 520,
+                  "y": 150,
+                  "w": 90,
+                  "h": 100
+                },
+                {
+                  "id": "dm",
+                  "label": "Data\nmemory",
+                  "kind": "mem",
+                  "x": 670,
+                  "y": 150,
+                  "w": 110,
+                  "h": 100
+                },
+                {
+                  "id": "add4",
+                  "label": "+4",
+                  "kind": "adder",
+                  "x": 60,
+                  "y": 50,
+                  "w": 60,
+                  "h": 44
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_pc_im",
+                  "from": "pc",
+                  "to": "im",
+                  "label": "address"
+                },
+                {
+                  "id": "e_im_rf",
+                  "from": "im",
+                  "to": "rf",
+                  "label": "rs, rt"
+                },
+                {
+                  "id": "e_rf_alu",
+                  "from": "rf",
+                  "to": "alu",
+                  "label": "data"
+                },
+                {
+                  "id": "e_alu_dm",
+                  "from": "alu",
+                  "to": "dm",
+                  "label": "address"
+                },
+                {
+                  "id": "e_pc_add",
+                  "points": [
+                    [
+                      55,
+                      170
+                    ],
+                    [
+                      55,
+                      72
+                    ],
+                    [
+                      60,
+                      72
+                    ]
+                  ],
+                  "arrow": false
+                },
+                {
+                  "id": "e_add_pc",
+                  "points": [
+                    [
+                      120,
+                      72
+                    ],
+                    [
+                      160,
+                      72
+                    ],
+                    [
+                      160,
+                      120
+                    ],
+                    [
+                      10,
+                      120
+                    ],
+                    [
+                      10,
+                      200
+                    ],
+                    [
+                      20,
+                      200
+                    ]
+                  ],
+                  "label": "PC + 4",
+                  "labelAt": [
+                    85,
+                    112
+                  ]
+                }
+              ],
+              "labels": [
+                {
+                  "x": 410,
+                  "y": 290,
+                  "text": "(fragment: build step by step, then run an instruction)"
+                }
+              ],
+              "steps": [
+                {
+                  "show": [
+                    "pc",
+                    "e_pc_im",
+                    "im"
+                  ],
+                  "text": "First the **PC** and the instruction memory."
+                },
+                {
+                  "show": [
+                    "rf",
+                    "e_im_rf"
+                  ],
+                  "text": "The instruction names registers in the **register file**."
+                },
+                {
+                  "show": [
+                    "alu",
+                    "e_rf_alu"
+                  ],
+                  "text": "The **ALU** computes."
+                },
+                {
+                  "show": [
+                    "dm",
+                    "e_alu_dm",
+                    "add4",
+                    "e_pc_add",
+                    "e_add_pc"
+                  ],
+                  "text": "Data memory and the PC update complete the picture."
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "add $s0, $s1, $s2",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "pc",
+                        "e_pc_im",
+                        "im"
+                      ],
+                      "text": "**Fetch**: the PC addresses the instruction memory.",
+                      "values": {
+                        "pc": "0x00400000"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "im",
+                        "e_im_rf",
+                        "rf"
+                      ],
+                      "text": "**Decode**: read $s1 and $s2.",
+                      "values": {
+                        "rf": "$s1=5, $s2=7"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "rf",
+                        "e_rf_alu",
+                        "alu"
+                      ],
+                      "text": "**Execute**: the ALU adds 5 + 7.",
+                      "values": {
+                        "alu": "12"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "add4",
+                        "e_pc_add",
+                        "e_add_pc",
+                        "pc"
+                      ],
+                      "text": "The PC moves to PC + 4."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "pipeline: hazard simulator",
+          "blocks": [
+            {
+              "type": "pipeline",
+              "title": "Pipeline timing",
+              "controls": [
+                "forwarding",
+                "branch",
+                "memory",
+                "compare"
+              ],
+              "scenarios": [
+                {
+                  "name": "Independent",
+                  "instructions": [
+                    "add $s0,$s1,$s2",
+                    "sub $s3,$s4,$s5",
+                    "and $s6,$s7,$t0",
+                    "or $t1,$t2,$t3"
+                  ],
+                  "note": "No dependences: one instruction completes per cycle once the pipeline is full."
+                },
+                {
+                  "name": "Load-use",
+                  "instructions": [
+                    "lw $t0, 0($s0)",
+                    "add $t1,$t0,$t2",
+                    "sub $t3,$t1,$t4"
+                  ],
+                  "note": "Even with forwarding, a load followed by a user of the loaded value needs one stall."
+                },
+                {
+                  "name": "Branch",
+                  "instructions": [
+                    "add $t1,$s1,$s2",
+                    {
+                      "t": "beq $t1,$t2,L",
+                      "taken": true
+                    },
+                    "add $s0,$s1,$s2",
+                    "sub $s3,$s4,$s5"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "scheduler: in-order vs out-of-order",
+          "blocks": [
+            {
+              "type": "scheduler",
+              "title": "Dynamic scheduling",
+              "instructions": [
+                {
+                  "t": "DIV F0,F2,F4",
+                  "dest": "F0",
+                  "srcs": [
+                    "F2",
+                    "F4"
+                  ],
+                  "lat": 10
+                },
+                {
+                  "t": "ADD F10,F0,F8",
+                  "dest": "F10",
+                  "srcs": [
+                    "F0",
+                    "F8"
+                  ],
+                  "lat": 2
+                },
+                {
+                  "t": "MUL F6,F8,F14",
+                  "dest": "F6",
+                  "srcs": [
+                    "F8",
+                    "F14"
+                  ],
+                  "lat": 4
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "predictor: branch prediction",
+          "blocks": [
+            {
+              "type": "predictor",
+              "title": "1-bit and 2-bit predictors"
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "cache: simulator",
+          "blocks": [
+            {
+              "type": "cache",
+              "title": "Cache simulator",
+              "config": {
+                "blockBytes": 4,
+                "lines": 4,
+                "assoc": 1,
+                "addrBits": 8
+              },
+              "controls": [
+                "assoc",
+                "lines",
+                "block",
+                "write"
+              ],
+              "amat": {
+                "hitTime": 1,
+                "missPenalty": 20
+              },
+              "sequences": [
+                {
+                  "name": "Sequential",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    16,
+                    20,
+                    24,
+                    28
+                  ]
+                },
+                {
+                  "name": "Conflicts",
+                  "accesses": [
+                    0,
+                    16,
+                    0,
+                    16,
+                    0,
+                    16
+                  ]
+                },
+                {
+                  "name": "Reuse",
+                  "accesses": [
+                    0,
+                    4,
+                    0,
+                    4,
+                    8,
+                    0,
+                    4,
+                    8
+                  ]
+                },
+                {
+                  "name": "With writes",
+                  "accesses": [
+                    {
+                      "addr": 0,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 4,
+                      "op": "R"
+                    },
+                    {
+                      "addr": 16,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 0,
+                      "op": "R"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "hierarchy: levels and locality",
+          "blocks": [
+            {
+              "type": "hierarchy",
+              "title": "The memory hierarchy",
+              "levels": [
+                {
+                  "name": "Registers",
+                  "speed": "under 1 ns",
+                  "capacity": "hundreds of bytes",
+                  "cost": "highest per bit",
+                  "purpose": "Values the CPU is using right now",
+                  "example": "The 32 MIPS registers"
+                },
+                {
+                  "name": "L1 cache",
+                  "speed": "about 1 ns",
+                  "capacity": "tens of KB",
+                  "cost": "very high",
+                  "purpose": "Recently used instructions and data",
+                  "example": "A core's private cache"
+                },
+                {
+                  "name": "Main memory (DRAM)",
+                  "speed": "tens of ns",
+                  "capacity": "GBs",
+                  "cost": "medium",
+                  "purpose": "All running programs",
+                  "example": "The RAM sticks"
+                },
+                {
+                  "name": "SSD / HDD",
+                  "speed": "microseconds to milliseconds",
+                  "capacity": "hundreds of GB to TBs",
+                  "cost": "lowest",
+                  "purpose": "Files that persist",
+                  "example": "Your laptop's drive"
+                }
+              ],
+              "locality": {
+                "title": "Which pattern is it?",
+                "blockWords": 4,
+                "levels": [
+                  {
+                    "name": "L1 cache",
+                    "blocks": 2
+                  },
+                  {
+                    "name": "L2 cache",
+                    "blocks": 8
+                  }
+                ],
+                "patterns": [
+                  {
+                    "name": "Nearby (array walk)",
+                    "seq": [
+                      0,
+                      1,
+                      2,
+                      3,
+                      4,
+                      5,
+                      6,
+                      7,
+                      8,
+                      9,
+                      10,
+                      11
+                    ]
+                  },
+                  {
+                    "name": "Repeated (one variable)",
+                    "seq": [
+                      5,
+                      5,
+                      5,
+                      5,
+                      5,
+                      5,
+                      5,
+                      5
+                    ]
+                  },
+                  {
+                    "name": "Scattered",
+                    "seq": [
+                      3,
+                      90,
+                      41,
+                      17,
+                      64,
+                      2,
+                      77,
+                      30
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "vm: virtual memory",
+          "blocks": [
+            {
+              "type": "vm",
+              "title": "Address translation",
+              "config": {
+                "pageBytes": 4096,
+                "tlbEntries": 2,
+                "frames": 3,
+                "vaBits": 16,
+                "pageTable": {
+                  "0": {
+                    "valid": true,
+                    "ppn": 2
+                  }
+                }
+              },
+              "sequence": [
+                100,
+                5000,
+                4200,
+                9000,
+                13000,
+                100
+              ]
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "raid: levels",
+          "blocks": [
+            {
+              "type": "raid",
+              "title": "RAID levels",
+              "levels": [
+                "0",
+                "1",
+                "5",
+                "6",
+                "10"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "coherence: caches",
+          "blocks": [
+            {
+              "type": "coherence",
+              "title": "Cache coherence",
+              "cores": 2
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "race: shared counter",
+          "blocks": [
+            {
+              "type": "race",
+              "title": "Two threads, one counter"
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "demo",
+          "title": "simd: vector add",
+          "blocks": [
+            {
+              "type": "simd",
+              "title": "Vector add"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
