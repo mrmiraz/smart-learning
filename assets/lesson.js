@@ -979,6 +979,21 @@
   }
   ['mousemove', 'keydown', 'touchstart', 'pointerdown'].forEach((ev) => addEventListener(ev, pokeUI, { passive: true }));
   document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('button'); if (b && e.detail > 0 && !b.closest('.settings')) b.blur(); });
+  // Presentation on a touch screen: tap the right half of the slide for next, the left half for previous.
+  // Taps on anything interactive (buttons, links, inputs, demos, anything with a pointer cursor) keep their own behaviour.
+  let tapType = '';
+  el.stage.addEventListener('pointerdown', (e) => { tapType = e.pointerType; }, { passive: true });
+  el.stage.addEventListener('click', (e) => {
+    if (tapType !== 'touch' || S.mode !== 'presentation' || !S.started || wb || e.defaultPrevented) return;
+    if (window.getSelection && String(window.getSelection())) return;
+    for (let n = e.target; n && n !== el.stage; n = n.parentElement) {
+      if (n.matches && n.matches('button, a, input, select, textarea, summary, label, canvas, video, audio, [role="button"], [tabindex], [contenteditable], [draggable="true"]')) return;
+      if (getComputedStyle(n).cursor === 'pointer') return;
+    }
+    const r = el.stage.getBoundingClientRect(), rtl = getComputedStyle(document.documentElement).direction === 'rtl';
+    const right = e.clientX >= r.left + r.width / 2;
+    if (right !== rtl) next(); else prev();
+  });
   addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target; if (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || !S.started) return;
