@@ -65,6 +65,18 @@ code, pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 .lesson.ui-off .topnav, .lesson.ui-off .toolbar { opacity: 0; pointer-events: none; }
 .lesson.ui-off { cursor: none; }
 @media (max-width: 800px) { .tb .lbl, .hud .pill.opt-pill { display: none; } .statusline { min-width: 0; } }
+/* toolbar: playback + status on the left, tools on the right; on a phone they become two rows and the tools scroll sideways */
+.tb-left, .tools { display: flex; align-items: center; gap: .4rem; min-width: 0; } .tools { margin-left: auto; }
+.tb, .tools .pill { flex: none; } .tools .pill { white-space: nowrap; }
+.statusline { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.statusline > * { overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 700px) {
+  .toolbar { flex-wrap: wrap; row-gap: .35rem; padding: .45rem .6rem; }
+  .tb-left { flex: 1 1 100%; }
+  .statusline { flex: 1 1 0; padding: 0 .2rem; }
+  .tools { flex: 1 1 100%; margin-left: 0; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .tools::-webkit-scrollbar { display: none; }
+}
 
 /* ---------- panels ---------- */
 .settings { position: absolute; right: 1rem; bottom: 4rem; z-index: 40; width: min(320px, calc(100vw - 2rem)); padding: 1rem; border-radius: 1rem; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); display: grid; gap: .8rem; }
@@ -254,8 +266,8 @@ details.deeper > div { padding-bottom: .8rem; }
 .lines.codey button { background: var(--code-bg); color: var(--code-fg); font-family: ui-monospace, monospace; font-size: .95rem; border-top-color: rgba(255, 255, 255, .06); }
 .lines button .num { width: 1.8rem; color: #64748b; text-align: right; }
 .lines button:hover:not([disabled]) { outline: 2px solid var(--accent); outline-offset: -2px; }
-.lines button.right { box-shadow: inset 5px 0 0 var(--good); } .lines button.right::after { content: "\2713 found it"; margin-left: auto; color: #4ade80; font-family: system-ui; font-size: .8rem; font-weight: 700; }
-.lines button.wrong { box-shadow: inset 5px 0 0 var(--bad); opacity: .65; } .lines button.wrong::after { content: "\2717 fine"; margin-left: auto; color: #f87171; font-family: system-ui; font-size: .8rem; font-weight: 700; }
+.lines button.right { box-shadow: inset 5px 0 0 var(--good); } .lines button.right::after { content: "\2713 " var(--t-found, "found it"); margin-left: auto; color: #4ade80; font-family: system-ui; font-size: .8rem; font-weight: 700; }
+.lines button.wrong { box-shadow: inset 5px 0 0 var(--bad); opacity: .65; } .lines button.wrong::after { content: "\2717 " var(--t-fine, "fine"); margin-left: auto; color: #f87171; font-family: system-ui; font-size: .8rem; font-weight: 700; }
 
 /* checkpoint / meter */
 .cp { display: grid; gap: .8rem; }
@@ -423,7 +435,7 @@ details.refs summary { cursor: pointer; font-weight: 700; color: var(--accent); 
 
 /* encoder */
 .efields { display: flex; gap: 3px; } .efield { display: grid; gap: .15rem; place-items: center; padding: .5rem .3rem; border-radius: .6rem; border: 1px solid var(--line); background: var(--card); min-width: 0; text-align: center; }
-.efield small { font-size: .7rem; color: var(--muted); } .efield b { font-size: 1.1rem; } .efield code { font-size: .72rem; overflow-wrap: anywhere; }
+.efield small { font-size: .7rem; color: var(--muted); } .efield b { font-size: 1.1rem; } .efield code { font-size: .72rem; overflow-wrap: break-word; }
 .efield.op { background: color-mix(in srgb, #ef4444 14%, var(--card)); } .efield.rs { background: color-mix(in srgb, #3b82f6 14%, var(--card)); } .efield.rt { background: color-mix(in srgb, #22c55e 14%, var(--card)); } .efield.rd { background: color-mix(in srgb, #f59e0b 16%, var(--card)); } .efield.shamt, .efield.funct { background: color-mix(in srgb, #a855f7 14%, var(--card)); } .efield.immediate, .efield.target { background: color-mix(in srgb, #14b8a6 16%, var(--card)); }
 
 /* mips */
@@ -483,3 +495,38 @@ details.refs summary { cursor: pointer; font-weight: 700; color: var(--accent); 
 
 .cachetbl th:first-child { width: 6rem; }
 .cachetbl td { min-width: 6rem; }
+
+/* language switcher on the cover card */
+.cover-lang { display: flex; justify-content: flex-end; margin: -.4rem 0 .4rem; }
+.topnav .lang-switch { flex: none; }
+@media (max-width: 720px) { .topnav .lang-switch button { padding: .38rem .55rem; } }
+@media print { .cover-lang { display: none !important; } }
+
+.menu-btn { cursor: pointer; font: inherit; font-size: .8rem; font-weight: 600; }
+
+/* small screens: the top bar keeps back / menu / sections / language / theme (progress is already in the bar below it),
+   and flow cards fit the width instead of overflowing */
+@media (max-width: 700px) {
+  .topnav { gap: .4rem; padding: .5rem .6rem; }
+  .topnav .hud, .topnav .menu-btn, .topnav .theme { display: none; }
+  /* two rows: back link, language and the three-dot button on top; the section tabs get their own full-width row below */
+  .topnav { flex-wrap: wrap; row-gap: .4rem; }
+  .topnav .back { order: 1; margin-right: auto; }
+  .topnav [data-lang-switch] { order: 2; }
+  .topnav .more-btn { order: 3; }
+  .topnav nav { order: 4; flex: 1 1 100% !important; }
+  .more-btn { display: grid; }
+  .topnav nav { min-width: 0; }
+  .flow.grid { grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
+  .node { min-width: 0; max-width: none; padding: .7rem .8rem; }
+  .flow:not(.grid):not(.column) .node { flex: 1 1 9rem; }
+}
+
+.more-btn { display: none; }
+@media (max-width: 700px) { .more-btn { display: grid; } }
+
+/* never let one wide child push a screen past the viewport: grid/flex items may shrink, long words wrap */
+.step-wrap, .step, .step > *, .body, .match, .match > *, .opts, .arrange, .compare > *, .transform > *, .card, .callout, .calc, .cresults, .cinputs { min-width: 0; max-width: 100%; }
+.match { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.opt, .otxt, .q, .title, .text, .pre, td, th, li { overflow-wrap: break-word; }
+@media (max-width: 700px) { .match { grid-template-columns: minmax(0, 1fr); } table { display: block; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; } th, td { padding: .45rem .6rem; font-size: .88em; } }

@@ -57,3 +57,30 @@ footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 0 
 .qrbtn { flex: none; padding: 0 .8rem; border-radius: 12px; border: 1px solid var(--line); background: var(--chip); color: var(--muted); font: 700 .75rem ui-sans-serif, system-ui, sans-serif; letter-spacing: .06em; cursor: pointer; }
 .qrbtn:hover { border-color: var(--accent); color: var(--accent); }
 .qrbtn:focus-visible { outline: 3px solid rgba(79, 70, 229, .45); outline-offset: 2px; }
+
+/* course cards on the home page link to the course page; the course page shows the topic list */
+a.card-link { display: flex; flex-direction: column; color: inherit; text-decoration: none; transition: transform .12s, border-color .12s, box-shadow .12s; }
+a.card-link:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 24px 44px -26px rgba(79, 70, 229, .7); }
+a.card-link:focus-visible { outline: 3px solid rgba(79, 70, 229, .45); outline-offset: 3px; }
+a.card-link > p { flex: 1; margin-bottom: 14px; }
+.course .open { font-weight: 700; font-size: .92rem; color: var(--accent); } .card-link:hover .open { text-decoration: underline; }
+.crumbs { padding: 22px 0 0; } .crumbs a { color: var(--muted); font-size: .9rem; font-weight: 600; text-decoration: none; } .crumbs a:hover { color: var(--accent); }
+.course-hero { display: flex; gap: 18px; align-items: center; padding: 26px 0 28px; }
+.course-hero .badge { width: 64px; height: 64px; border-radius: 18px; font-size: 1.7rem; flex: none; }
+.course-hero h1 { margin: 0 0 6px; font-size: clamp(1.7rem, 4vw, 2.5rem); line-height: 1.15; letter-spacing: -.03em; }
+.course-hero p { margin: 0 0 6px; color: var(--muted); line-height: 1.55; max-width: 640px; }
+#course > .course { margin-bottom: 64px; }
+
+/* phones: the topic list and cards use the full width; the tag moves under the title instead of forcing the row wider */
+@media (max-width: 700px) {
+  .wrap { padding: 0 14px; }
+  .course { padding: 16px; border-radius: 16px; }
+  .course-hero { gap: 12px; padding: 18px 0 20px; }
+  .course-hero .badge { width: 48px; height: 48px; font-size: 1.3rem; border-radius: 14px; }
+  .topics li { gap: .4rem; }
+  .topics li > a { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: 10px; row-gap: 6px; padding: 10px 12px; overflow-wrap: anywhere; }
+  .topics a::after { display: none; }
+  .topics a .tag { grid-column: 2; justify-self: start; margin: 0; }
+  .qrbtn { padding: 0 .6rem; }
+  .hero { padding: 28px 0 24px; }
+}

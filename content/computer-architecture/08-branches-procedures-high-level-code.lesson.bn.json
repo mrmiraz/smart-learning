@@ -1,0 +1,1387 @@
+{
+  "id": "ca-08-branches-procedures",
+  "title": "ব্রাঞ্চ, প্রসিডিউর এবং হাই-লেভেল কোডের অনুবাদ",
+  "subtitle": "if, লুপ, অ্যারে ও ফাংশন কল কীভাবে অ্যাসেম্বলি হয়ে যায়।",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "2",
+      "title": "Instructions: Language of the Computer",
+      "topics": "সিদ্ধান্ত নেওয়ার instruction; হার্ডওয়্যারে প্রসিডিউর সাপোর্ট (স্ট্যাক, $ra, spilling); লুপ ও অ্যারের অনুবাদ"
+    }
+  ],
+  "objectives": [
+    "ব্রাঞ্চ instruction ব্যবহার করে if ও if-else স্টেটমেন্টকে MIPS-এ অনুবাদ করুন",
+    "while ও for লুপ এবং অ্যারে ট্র্যাভার্সাল অনুবাদ করুন",
+    "জাম্প instruction ব্যবহার করুন: j, jal ও jr",
+    "প্রসিডিউর কল ও রিটার্ন কীভাবে $ra ব্যবহার করে, তা ব্যাখ্যা করুন",
+    "রেজিস্টার সেভ করতে স্ট্যাক ব্যবহার করুন এবং register spilling ব্যাখ্যা করুন"
+  ],
+  "concepts": [
+    {
+      "id": "branch",
+      "label": "সিদ্ধান্ত",
+      "section": "branch"
+    },
+    {
+      "id": "loops",
+      "label": "লুপ ও অ্যারে",
+      "section": "loops"
+    },
+    {
+      "id": "procedures",
+      "label": "প্রসিডিউর কল",
+      "section": "procedures"
+    },
+    {
+      "id": "stack",
+      "label": "স্ট্যাক ও spilling",
+      "section": "stack"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "সূচনা",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "একটি প্রসেসর শুধু যোগ, load, store ও তুলনা করতে পারে। তাহলে সে `if`, `while` ও ফাংশন কল চালায় কীভাবে?",
+          "clues": [
+            "একটি `if` হলো এমন **ব্রাঞ্চ**, যা কয়েকটি instruction এড়িয়ে যায়।",
+            "একটি লুপ হলো এমন ব্রাঞ্চ, যা **পেছনের দিকে** জাম্প করে।",
+            "একটি ফাংশন কল হলো **এমন জাম্প, যা মনে রাখে কোথায় ফিরে আসতে হবে**।"
+          ],
+          "notes": {
+            "explain": "ক্লু দেখানোর আগে শিক্ষার্থীদের অনুমান করতে দিন।"
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "উদ্দেশ্যগুলো জোরে পড়ুন; এগুলো লার্নিং রিপোর্টে আবার আসবে।"
+          }
+        }
+      ]
+    },
+    {
+      "id": "branch",
+      "label": "সিদ্ধান্ত",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "branch",
+          "title": "ব্রাঞ্চ ও জাম্প instruction",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "কী করে",
+                "ধরন"
+              ],
+              "rows": [
+                [
+                  "`beq rs, rt, label`",
+                  "rs ও rt সমান হলে label-এ যাও",
+                  "শর্তসাপেক্ষ ব্রাঞ্চ"
+                ],
+                [
+                  "`bne rs, rt, label`",
+                  "rs ও rt আলাদা হলে label-এ যাও",
+                  "শর্তসাপেক্ষ ব্রাঞ্চ"
+                ],
+                [
+                  "`slt rd, rs, rt`",
+                  "rs < rt হলে rd = 1, নইলে 0",
+                  "তুলনা (জাম্প নয়)"
+                ],
+                [
+                  "`j label`",
+                  "সবসময় label-এ যাও",
+                  "জাম্প"
+                ],
+                [
+                  "`jal label`",
+                  "label-এ যাও এবং রিটার্ন অ্যাড্রেস $ra-তে সেভ করো",
+                  "জাম্প"
+                ],
+                [
+                  "`jr rs`",
+                  "rs-এ থাকা অ্যাড্রেসে যাও",
+                  "জাম্প (রেজিস্টার)"
+                ]
+              ]
+            }
+          ],
+          "why": "শর্তসাপেক্ষ ব্রাঞ্চ শুধু সমতা পরীক্ষা করে। বাকি সব (ছোট, বড়) তৈরি হয় `slt` ও একটি ব্রাঞ্চ মিলিয়ে।",
+          "real": "প্রোগ্রামের প্রতিটি `if`, লুপের শর্ত ও ফাংশন কল এই ছয়টি instruction-এর কোনো একটিতে রূপান্তরিত হয়।",
+          "mistake": {
+            "wrong": "MIPS-এ একটিমাত্র instruction আছে, যা a < b হলে ব্রাঞ্চ করে।",
+            "right": "আগে slt দিয়ে তুলনা করুন, তারপর 0 বা 1 ফলাফলের ওপর beq বা bne দিয়ে ব্রাঞ্চ করুন।"
+          },
+          "explainAgain": {
+            "beginner": "হার্ডওয়্যারে সমতা পরীক্ষা করা সস্তা; ছোট-কিনা জানতে বিয়োগ লাগে। তাই MIPS ব্রাঞ্চকে সহজ রাখে এবং তুলনার জন্য slt ব্যবহার করে।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "branch",
+          "title": "if-else অনুবাদ",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Java / C",
+                "items": [
+                  "`if (a < b)`",
+                  "`    x = y;`",
+                  "`else`",
+                  "`    x = z;`"
+                ]
+              },
+              "right": {
+                "title": "MIPS",
+                "items": [
+                  "a=$s0 b=$s1 x=$s2 y=$s3 z=$s4",
+                  "`slt $t0, $s0, $s1`",
+                  "`beq $t0, $zero, else`",
+                  "`add $s2, $zero, $s3`",
+                  "`j done`",
+                  "`else: add $s2, $zero, $s4`",
+                  "`done:`"
+                ]
+              }
+            }
+          ],
+          "why": "ব্রাঞ্চ শর্তের উল্টোটা পরীক্ষা করে: a < b মিথ্যা হলে then-অংশ এড়িয়ে যাও।",
+          "deeper": {
+            "text": "then-অংশের পরে `j done` অপরিহার্য। এটি না থাকলে else-অংশও চলবে।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "branch",
+          "title": "আগে অনুমান করুন, তারপর চালান",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "if (a < b) x = y; else x = z;",
+              "program": "slt $t0, $s0, $s1\nbeq $t0, $zero, else\nadd $s2, $zero, $s3\nj done\nelse: add $s2, $zero, $s4\ndone:",
+              "registers": {
+                "$s0": 3,
+                "$s1": 7,
+                "$s3": 111,
+                "$s4": 222
+              },
+              "watch": [
+                "$s0",
+                "$s1",
+                "$t0",
+                "$s2"
+              ],
+              "hint": "a = 3 ও b = 7। $s0 বদলে 9 এবং $s1 বদলে 2 করে আবার চালান।",
+              "editable": true
+            }
+          ],
+          "why": "একই প্রোগ্রাম ভিন্ন ডেটার জন্য ভিন্ন পথে চলে।"
+        },
+        {
+          "type": "predict",
+          "concept": "branch",
+          "skill": "Apply",
+          "question": "a = 3 ও b = 7 হলে প্রোগ্রাম শেষে `$s2`-এর মান কত?",
+          "options": [
+            "111 (x = y)",
+            "222 (x = z)",
+            "0",
+            "7"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "3 < 7, তাই `slt` $t0 = 1 করে, `beq` কার্যকর হয় না এবং `add $s2, $zero, $s3` চলে; ফল **111**। এরপর `j done` else-অংশ এড়িয়ে যায়।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "a = 9 ও b = 2 নিয়ে দেখুন কী হয়: $t0 = 0, ব্রাঞ্চ কার্যকর হয় এবং x = 222।"
+        },
+        {
+          "type": "concept",
+          "concept": "branch",
+          "title": "else ছাড়া if",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Java / C",
+                "items": [
+                  "`if (a == b)`",
+                  "`    c = c + 1;`"
+                ]
+              },
+              "right": {
+                "title": "MIPS",
+                "items": [
+                  "`bne $s0, $s1, skip`",
+                  "`addi $s2, $s2, 1`",
+                  "`skip:`"
+                ]
+              }
+            }
+          ],
+          "why": "এখানেও ব্রাঞ্চ শর্তের উল্টোটা পরীক্ষা করে: সমান না হলে ইনক্রিমেন্ট এড়িয়ে যাও।",
+          "real": "কোনো কাজ করার আগে এরর কোড বা অনুপস্থিত মান পরীক্ষা করতে ঠিক এই কাঠামোই ব্যবহার হয়।"
+        },
+        {
+          "type": "concept",
+          "concept": "branch",
+          "title": "else ছাড়া if চালান",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "if (a == b) c = c + 1;",
+              "program": "bne $s0, $s1, skip\naddi $s2, $s2, 1\nskip:",
+              "registers": {
+                "$s0": 4,
+                "$s1": 4,
+                "$s2": 10
+              },
+              "watch": [
+                "$s0",
+                "$s1",
+                "$s2"
+              ],
+              "hint": "মান সমান হলে $s2 = 11। $s1 বদলে 5 করুন, তাহলে $s2 থাকবে 10।",
+              "editable": true
+            }
+          ],
+          "why": "এগিয়ে যাওয়ার আগে দুটি ফলাফলই চেষ্টা করুন।"
+        },
+        {
+          "type": "mcq",
+          "concept": "branch",
+          "question": "কোন instruction জোড়া `a < b` পরীক্ষা করে এবং সত্য হলে `L`-এ জাম্প করে?",
+          "options": [
+            "slt $t0,$s0,$s1 তারপর bne $t0,$zero,L",
+            "beq $s0,$s1,L",
+            "slt $t0,$s0,$s1 তারপর beq $t0,$s0,L",
+            "j L"
+          ],
+          "answer": 0,
+          "why": "a < b হলেই slt $t0 = 1 করে, আর $zero-এর সাথে bne করলে $t0 শূন্য না হলে ব্রাঞ্চ হয়।",
+          "feedback": [
+            "",
+            "beq শুধু সমতা পরীক্ষা করে।",
+            "তুলনা $zero-এর সাথে হতে হবে, কারণ $t0 হলো 0 বা 1 ফ্ল্যাগ।",
+            "j সবসময় জাম্প করে, কোনো পরীক্ষা ছাড়াই।"
+          ]
+        },
+        {
+          "type": "find",
+          "concept": "branch",
+          "skill": "Analyze",
+          "title": "ভুলটি খুঁজুন",
+          "prompt": "এই if-else অনুবাদে একটি বাগ আছে। ভুল লাইনটিতে ক্লিক করুন।",
+          "lines": [
+            "1. slt $t0, $s0, $s1",
+            "2. beq $t0, $zero, else",
+            "3. add $s2, $zero, $s3",
+            "4. else: add $s2, $zero, $s4",
+            "5. done:"
+          ],
+          "wrong": 3,
+          "explain": "then-অংশের পরে `else`-এর আগে `j done` দরকার; নইলে else-অংশও চলে এবং x ওভাররাইট করে।",
+          "fix": "3 নম্বর লাইনের পরে `j done` বসান।",
+          "lang": "asm"
+        }
+      ]
+    },
+    {
+      "id": "loops",
+      "label": "লুপ ও অ্যারে",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "loops",
+          "title": "লুপ হলো পেছনমুখী ব্রাঞ্চ",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Java / C",
+                "MIPS-এর ধারণা"
+              ],
+              "rows": [
+                [
+                  "`while (i < 5)`",
+                  "শুরুতে পরীক্ষা করো; পরীক্ষা ব্যর্থ হলে বেরিয়ে যাও"
+                ],
+                [
+                  "`i = i + 1`",
+                  "কাউন্টার আপডেট করো"
+                ],
+                [
+                  "বডির শেষ",
+                  "`j loop` আবার পরীক্ষায় ফিরে যায়"
+                ]
+              ]
+            },
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "পরীক্ষা",
+                  "sub": "slt + beq",
+                  "note": "শর্ত মিথ্যা হলে লুপ ছেড়ে বেরিয়ে যাও।"
+                },
+                {
+                  "label": "বডি",
+                  "sub": "লুপের কাজ",
+                  "note": "প্রতিবার যে instruction-গুলো চলে।"
+                },
+                {
+                  "label": "আপডেট",
+                  "sub": "কাউন্টার বদলানো",
+                  "note": "সাধারণত addi।"
+                },
+                {
+                  "label": "আবার জাম্প",
+                  "sub": "j loop",
+                  "note": "পরীক্ষায় ফিরে যায়।"
+                }
+              ],
+              "zoom": true
+            }
+          ],
+          "why": "সব লুপ (while, for, do-while) হলো শর্তসাপেক্ষ ব্রাঞ্চ ও একটি পেছনমুখী জাম্পের সমন্বয়।",
+          "real": "লক্ষ লক্ষ আইটেমের ওপর চলা একটি for লুপ আসলে একই কয়েকটি instruction বারবার চালানো।",
+          "explainAgain": {
+            "beginner": "একটি রেস ট্র্যাকের কথা ভাবুন: শেষের জাম্প আপনাকে স্টার্ট লাইনে ফিরিয়ে আনে, আর পরীক্ষা হলো সেই গেট, যা আপনাকে ট্র্যাক থেকে বের হতে দেয়।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "loops",
+          "title": "while: পাঁচবার দ্বিগুণ করা",
+          "blocks": [
+            {
+              "type": "code",
+              "lang": "java",
+              "code": "int t = 1; int i = 0;\nwhile (i < 5) {\n    t = t * 2;\n    i = i + 1;\n}",
+              "steps": [
+                {
+                  "lines": [
+                    1
+                  ],
+                  "note": "শুরুর মান: $t1 = 1 ও $t0 = 0।"
+                },
+                {
+                  "lines": [
+                    2
+                  ],
+                  "note": "পরীক্ষা: slt/slti এবং লুপ ছাড়তে beq।"
+                },
+                {
+                  "lines": [
+                    3,
+                    4
+                  ],
+                  "note": "বডি: 1 দিয়ে sll করলে $t1 দ্বিগুণ হয়; addi $t0-তে 1 যোগ করে।"
+                },
+                {
+                  "lines": [
+                    5
+                  ],
+                  "note": "j loop: পরীক্ষায় ফিরে যাও।"
+                }
+              ]
+            },
+            {
+              "type": "mips",
+              "title": "while (i < 5) { t = t * 2; i++; }",
+              "program": "addi $t0, $zero, 0\naddi $t1, $zero, 1\nloop: slti $t2, $t0, 5\nbeq $t2, $zero, end\nsll $t1, $t1, 1\naddi $t0, $t0, 1\nj loop\nend:",
+              "watch": [
+                "$t0",
+                "$t1",
+                "$t2"
+              ],
+              "hint": "ধাপে ধাপে চালান এবং দেখুন প্রতিবার $t1 কীভাবে দ্বিগুণ হয়। শেষ $t1 কত হবে তা অনুমান করুন।",
+              "editable": true
+            }
+          ],
+          "why": "1 বিট বামে শিফট করলে মান 2 গুণ হয়, তাই পাঁচ ইটারেশনে 2^5 = 32।"
+        },
+        {
+          "type": "predict",
+          "concept": "loops",
+          "skill": "Apply",
+          "question": "while লুপ শেষে `$t0` ও `$t1`-এর মান কত?",
+          "options": [
+            "$t0 = 5, $t1 = 32",
+            "$t0 = 6, $t1 = 64",
+            "$t0 = 5, $t1 = 16",
+            "$t0 = 4, $t1 = 32"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "লুপ চলে i = 0, 1, 2, 3, 4 এর জন্য: পাঁচ ইটারেশন। $t0 = 5, আর $t1 = 1 × 2⁵ = **32**।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "i যখন 5 হয়, পরীক্ষা ব্যর্থ হয়, তাই বডি আর ষষ্ঠবার চলে না।"
+        },
+        {
+          "type": "concept",
+          "concept": "loops",
+          "title": "for: 0 থেকে 5 পর্যন্ত যোগফল",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Java / C",
+                "items": [
+                  "`for (i = 0; i < 6; i++)`",
+                  "`    sum = sum + i;`"
+                ]
+              },
+              "right": {
+                "title": "MIPS",
+                "items": [
+                  "`addi $t0, $zero, 0`",
+                  "`for: slti $t2, $t0, 6`",
+                  "`beq $t2, $zero, end`",
+                  "`add $t1, $t1, $t0`",
+                  "`addi $t0, $t0, 1`",
+                  "`j for`"
+                ]
+              }
+            }
+          ],
+          "why": "for লুপ হলো এমন while লুপ, যেখানে শুরুর মান ও আপডেট এক জায়গায় লেখা হয়।"
+        },
+        {
+          "type": "concept",
+          "concept": "loops",
+          "title": "for লুপ চালান",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "for (i = 0; i < 6; i++) sum += i;",
+              "program": "addi $t0, $zero, 0\naddi $t1, $zero, 0\nfor: slti $t2, $t0, 6\nbeq $t2, $zero, end\nadd $t1, $t1, $t0\naddi $t0, $t0, 1\nj for\nend:",
+              "watch": [
+                "$t0",
+                "$t1"
+              ],
+              "hint": "$t1 জমা করে 0 + 1 + 2 + 3 + 4 + 5।",
+              "editable": true
+            }
+          ],
+          "why": "যোগফল 15 কি না এবং i শেষে 5 নয়, 6 হয়েছে কি না, দেখে নিন।"
+        },
+        {
+          "type": "concept",
+          "concept": "loops",
+          "title": "অ্যারে: ইন্ডেক্স থেকে অ্যাড্রেস",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "address = base + index × 4",
+                  "note": "প্রতিটি int 4 byte (এক word) জায়গা নেয়"
+                },
+                {
+                  "t": "sll $t2, $t0, 2",
+                  "note": "2 বিট বামে শিফট করে index × 4"
+                },
+                {
+                  "t": "add $t2, $t2, $s0",
+                  "note": "অ্যারের বেস অ্যাড্রেস যোগ করো"
+                },
+                {
+                  "t": "lw $t4, 0($t2)",
+                  "note": "এলিমেন্টটি পড়ো"
+                }
+              ]
+            }
+          ],
+          "why": "মেমরির অ্যাড্রেস byte হিসেবে দেওয়া হয়, তাই int অ্যারের i-তম এলিমেন্ট শুরু থেকে 4 × i byte পরে থাকে।",
+          "real": "Java, C বা Python-এর প্রতিটি a[i] কম্পাইল হয়ে এই গুণ-ও-যোগে পরিণত হয়।",
+          "mistake": {
+            "wrong": "i-তম এলিমেন্ট আছে base + i-তে।",
+            "right": "এলিমেন্ট 4 byte চওড়া, তাই অফসেট হলো 4 × i।"
+          },
+          "explainAgain": {
+            "beginner": "0, 4, 8, 12... নম্বরযুক্ত এক সারি ডাকবাক্স। i-তম বাক্সের নম্বর 4i।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "loops",
+          "title": "অ্যারে ট্র্যাভার্সাল",
+          "blocks": [
+            {
+              "type": "code",
+              "lang": "java",
+              "code": "int[] a = {4, 8, 15, 16, 23};\nint sum = 0;\nfor (int i = 0; i < 5; i++)\n    sum += a[i];"
+            },
+            {
+              "type": "mips",
+              "title": "অ্যারে a[0..4]-এর যোগফল বের করুন",
+              "program": "addi $t0, $zero, 0\nlui $s0, 0x1001\nadd $t3, $zero, $zero\nloop: slti $t1, $t0, 5\nbeq $t1, $zero, end\nsll $t2, $t0, 2\nadd $t2, $t2, $s0\nlw $t4, 0($t2)\nadd $t3, $t3, $t4\naddi $t0, $t0, 1\nj loop\nend:",
+              "memory": {
+                "0x10010000": 4,
+                "0x10010004": 8,
+                "0x10010008": 15,
+                "0x1001000C": 16,
+                "0x10010010": 23
+              },
+              "watch": [
+                "$t0",
+                "$t2",
+                "$t4",
+                "$t3"
+              ],
+              "hint": "অ্যারে শুরু হয় 0x10010000 থেকে। $t3 যোগফল জমা করে।",
+              "editable": true
+            }
+          ],
+          "why": "$s0-তে বেস অ্যাড্রেস থাকে; প্রতিবার এলিমেন্টের অ্যাড্রেস হিসাব করা হয়, সেটি load করা হয় এবং যোগ করা হয়।"
+        },
+        {
+          "type": "predict",
+          "concept": "loops",
+          "skill": "Apply",
+          "question": "অ্যারে ট্র্যাভার্সালের পরে `$t3`-এর মান কত?",
+          "options": [
+            "66",
+            "45",
+            "23",
+            "15"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "4 + 8 + 15 + 16 + 23 = **66**.",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "পাঁচটি এলিমেন্ট যোগ করুন। 45 হতো শুধু প্রথম চারটির যোগফল।"
+        },
+        {
+          "type": "arrange",
+          "concept": "loops",
+          "skill": "Understand",
+          "title": "ছোট চ্যালেঞ্জ",
+          "prompt": "অ্যারে-যোগফল লুপের বডির ধাপগুলো ক্রমানুসারে সাজান।",
+          "items": [
+            "i < 5 পরীক্ষা করো এবং মিথ্যা হলে বেরিয়ে যাও",
+            "sll দিয়ে i × 4 হিসাব করো",
+            "বেস অ্যাড্রেস যোগ করো",
+            "lw দিয়ে এলিমেন্ট load করো",
+            "এটিকে যোগফলে যোগ করো, তারপর i = i + 1 করে আবার জাম্প করো"
+          ],
+          "why": "load করার জন্য ব্যবহারের আগে অ্যাড্রেস তৈরি করতে হবে।"
+        },
+        {
+          "type": "tf",
+          "concept": "loops",
+          "statement": "`for` লুপের জন্য `while` লুপের চেয়ে আলাদা হার্ডওয়্যার instruction লাগে।",
+          "answer": false,
+          "why": "দুটোই একই compare, ব্রাঞ্চ ও জাম্প instruction দিয়ে তৈরি।"
+        },
+        {
+          "type": "checkpoint",
+          "title": "চেকপয়েন্ট",
+          "questions": [
+            {
+              "q": "লুপ কেন পেছনমুখী জাম্প দিয়ে শেষ হয়?",
+              "a": "যাতে এক্সিকিউশন পরীক্ষায় ফিরে আসে এবং পুনরাবৃত্তি হয়।",
+              "concept": "loops"
+            },
+            {
+              "q": "int অ্যারের a[i]-এর অ্যাড্রেস কীভাবে হিসাব করবেন?",
+              "a": "base + 4 × i (2 দিয়ে sll, তারপর add)।",
+              "concept": "loops"
+            },
+            {
+              "q": "a < b হলে কীভাবে ব্রাঞ্চ করবেন?",
+              "a": "slt দিয়ে 0/1 ফ্ল্যাগ বানান, তারপর $zero-এর সাথে bne বা beq করুন।",
+              "concept": "branch"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "procedures",
+      "label": "প্রসিডিউর কল",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "procedures",
+          "title": "কল ও রিটার্ন",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "কলার আর্গুমেন্ট সেট করে",
+                  "sub": "$a0 থেকে $a3",
+                  "note": "আর্গুমেন্ট রেজিস্টারে মান রাখো।"
+                },
+                {
+                  "label": "jal",
+                  "sub": "jump and link",
+                  "note": "PC + 4 কে $ra-তে সেভ করে, তারপর প্রসিডিউরে জাম্প করে।"
+                },
+                {
+                  "label": "প্রসিডিউর চলে",
+                  "sub": "$a ব্যবহার করে, $v0-তে ফেরত দেয়",
+                  "note": "কাজ করে এবং ফলাফল $v0 ও $v1-এ রাখে।"
+                },
+                {
+                  "label": "jr $ra",
+                  "sub": "রিটার্ন",
+                  "note": "jal-এর পরের instruction-এ ফিরে যায়।"
+                }
+              ],
+              "zoom": true
+            },
+            {
+              "type": "table",
+              "head": [
+                "রেজিস্টার",
+                "ভূমিকা"
+              ],
+              "rows": [
+                [
+                  "$a0 - $a3",
+                  "আর্গুমেন্ট (ইনপুট)"
+                ],
+                [
+                  "$v0 - $v1",
+                  "ফলাফল (আউটপুট)"
+                ],
+                [
+                  "$ra",
+                  "রিটার্ন অ্যাড্রেস"
+                ],
+                [
+                  "$s0 - $s7",
+                  "callee-কে অবশ্যই অক্ষত রাখতে হয়"
+                ],
+                [
+                  "$t0 - $t9",
+                  "অস্থায়ী; ওভাররাইট হতে পারে"
+                ]
+              ]
+            }
+          ],
+          "why": "`jal` ও `jr $ra` দিয়ে যেকোনো কোড যেকোনো জায়গা থেকে প্রসিডিউর কল করতে পারে এবং সঠিক জায়গায় ফিরে আসতে পারে।",
+          "real": "Java, C বা Python-এর প্রতিটি ফাংশন ও মেথড কল এভাবেই হয়।",
+          "mistake": {
+            "wrong": "jr $ra একটি বিশেষ রিটার্ন instruction।",
+            "right": "এটি রেজিস্টারে একটি সাধারণ জাম্প; ঘটনাচক্রে $ra-তে রিটার্ন অ্যাড্রেস থাকে।"
+          },
+          "explainAgain": {
+            "beginner": "বুকমার্কের মতো: jal $ra-তে বুকমার্ক রাখে, আর jr $ra সেখানে ফিরে যায়।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "procedures",
+          "title": "লিফ প্রসিডিউর",
+          "blocks": [
+            {
+              "type": "code",
+              "lang": "java",
+              "code": "int addtwice(int a, int b) {\n    return (a + b) * 2;\n}\n// caller:  s = addtwice(6, 7);"
+            },
+            {
+              "type": "mips",
+              "title": "jal ও jr $ra",
+              "program": "addi $a0, $zero, 6\naddi $a1, $zero, 7\njal addtwice\naddi $s0, $v0, 0\nj end\naddtwice: add $t0, $a0, $a1\nsll $v0, $t0, 1\njr $ra\nend:",
+              "watch": [
+                "$a0",
+                "$a1",
+                "$v0",
+                "$ra",
+                "$s0"
+              ],
+              "hint": "jal-এর পরে $ra দেখুন। এতে কলের পরের instruction-এর অ্যাড্রেস থাকে।",
+              "editable": true
+            }
+          ],
+          "why": "যে প্রসিডিউর অন্য কোনো প্রসিডিউর কল করে না, তার স্ট্যাক লাগে না: এটিই লিফ।"
+        },
+        {
+          "type": "predict",
+          "concept": "procedures",
+          "skill": "Apply",
+          "question": "0x00400008 অ্যাড্রেসে `jal addtwice`-এর পরে `$ra`-তে কী থাকে?",
+          "options": [
+            "0x0040000C",
+            "0x00400008",
+            "0x00400004",
+            "0x00400020"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "jal সেভ করে **PC + 4**, অর্থাৎ পরের instruction-এর অ্যাড্রেস: 0x00400008 + 4 = **0x0040000C**।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "রিটার্ন অ্যাড্রেস হলো কলের পরের instruction, কল নিজে নয়।"
+        },
+        {
+          "type": "mcq",
+          "concept": "procedures",
+          "question": "`jr $ra` কী করে?",
+          "options": [
+            "$ra-তে রাখা অ্যাড্রেসে জাম্প করে",
+            "রিটার্ন অ্যাড্রেস সেভ করে",
+            "ra নামের label-এ জাম্প করে",
+            "একটি প্রসিডিউর কল করে"
+          ],
+          "answer": 0,
+          "why": "এটি $ra থেকে PC load করে এবং কলারের কাছে ফিরে যায়।",
+          "feedback": [
+            "",
+            "সেভ করার কাজ jal-এর।",
+            "$ra একটি রেজিস্টার; jr এর ভেতরের মান ব্যবহার করে, label নয়।",
+            "jal কল করে; jr ফিরে আসে।"
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "procedures",
+          "skill": "Understand",
+          "title": "ছোট চ্যালেঞ্জ",
+          "prompt": "প্রতিটি আইটেমকে তার ভূমিকার সাথে মেলান।",
+          "pairs": [
+            {
+              "a": "jal",
+              "b": "জাম্প করো এবং PC + 4 কে $ra-তে সেভ করো"
+            },
+            {
+              "a": "jr $ra",
+              "b": "কলারের কাছে ফিরে যাও"
+            },
+            {
+              "a": "$a0 - $a3",
+              "b": "আর্গুমেন্ট"
+            },
+            {
+              "a": "$v0",
+              "b": "ফলাফল"
+            }
+          ],
+          "why": "এই চারটি আইটেম মিলে একটি সম্পূর্ণ কল বোঝায়।"
+        }
+      ]
+    },
+    {
+      "id": "stack",
+      "label": "স্ট্যাক ও spilling",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "স্ট্যাক",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "স্ট্যাক হলো মেমরির একটি অংশ, যার অ্যাড্রেস দেওয়া হয় **$sp** (স্ট্যাক পয়েন্টার) দিয়ে",
+                "এটি **নিচের দিকে বাড়ে**: push করতে $sp থেকে বিয়োগ করুন, তারপর store করুন",
+                "pop করতে আগে load করুন, তারপর $sp-তে আবার যোগ করুন",
+                "এই সিমুলেটরে $sp শুরু হয় 0x7FFF0000 থেকে",
+                "রেজিস্টার ফিরিয়ে দিতে হবে, যাতে কলার কিছু টের না পায়"
+              ]
+            },
+            {
+              "type": "code",
+              "lang": "asm",
+              "code": "addi $sp, $sp, -4   # make room\nsw   $s0, 0($sp)    # save $s0\n...                 # procedure uses $s0\nlw   $s0, 0($sp)    # restore $s0\naddi $sp, $sp, 4    # free the room\njr   $ra"
+            }
+          ],
+          "why": "একটি প্রসিডিউর $s রেজিস্টার ব্যবহার করতে পারে শুধু তখনই, যদি ফেরার আগে সে কলারের মানগুলো আবার জায়গায় বসিয়ে দেয়।",
+          "real": "চলমান প্রোগ্রামের প্রতিটি ফাংশন কল এভাবেই একটি স্ট্যাক ফ্রেম push করে।",
+          "mistake": {
+            "wrong": "স্ট্যাক মেমরিতে ওপরের দিকে বাড়ে।",
+            "right": "MIPS-এ এটি নিচের দিকে, কম অ্যাড্রেসের দিকে বাড়ে।"
+          },
+          "explainAgain": {
+            "beginner": "প্লেটের স্তূপের মতো: ওপরে প্লেট রাখা ও তোলা হয়, আর প্রতিটি কলারের প্লেট নিচে থাকে।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "$s0 সেভ ও রিস্টোর করা",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "স্ট্যাকে $s0 সংরক্ষণ",
+              "program": "addi $s0, $zero, 99\naddi $a0, $zero, 5\njal usess\nj end\nusess: addi $sp, $sp, -4\nsw $s0, 0($sp)\nadd $s0, $a0, $a0\nadd $v0, $s0, $zero\nlw $s0, 0($sp)\naddi $sp, $sp, 4\njr $ra\nend:",
+              "watch": [
+                "$s0",
+                "$a0",
+                "$v0",
+                "$sp"
+              ],
+              "hint": "$s0 শুরুতে 99, প্রসিডিউরের ভেতরে অন্য কাজে ব্যবহৃত হয়, আর শেষে আবার 99 হয়ে যায়।",
+              "editable": true
+            }
+          ],
+          "why": "প্রসিডিউর $s0 অন্য কাজে ব্যবহার করার সময় 99 মানটি 0x7FFEFFFC-তে জমা থাকে।"
+        },
+        {
+          "type": "predict",
+          "concept": "stack",
+          "skill": "Apply",
+          "question": "প্রসিডিউর ফিরে আসার পরে `$s0`-এ কী থাকে?",
+          "options": [
+            "99",
+            "10",
+            "5",
+            "0"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "প্রসিডিউর 99 সেভ করেছে, $s0-কে স্ক্র্যাচ রেজিস্টার হিসেবে ব্যবহার করেছে (10), তারপর রিস্টোর করেছে। কলার আবার **99** দেখে।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "ফলাফল 10 ফেরত আসে $v0-তে, $s0-তে নয়।"
+        },
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "নেস্টেড কল: $ra সেভ করুন",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "$ra সেভ না করলে",
+                "items": [
+                  "`outer` jal দিয়ে `inner` কল করে",
+                  "jal $ra ওভাররাইট করে",
+                  "`outer` আর ফিরতে পারে না",
+                  "প্রোগ্রাম চিরকাল লুপে ঘুরতে থাকে"
+                ]
+              },
+              "right": {
+                "title": "$ra সেভ করলে",
+                "items": [
+                  "jal-এর আগে `sw $ra, 0($sp)`",
+                  "তার পরে `lw $ra, 0($sp)`",
+                  "`jr $ra` সঠিকভাবে ফিরে আসে",
+                  "স্ট্যাক প্রতিটি রিটার্ন অ্যাড্রেস ধরে রাখে"
+                ]
+              }
+            }
+          ],
+          "why": "যে প্রসিডিউর অন্যটিকে কল করে, তাকে $ra সেভ করতেই হবে, কারণ ভেতরের jal সেটি ওভাররাইট করে।",
+          "deeper": {
+            "text": "রিকার্শনও একইভাবে কাজ করে: প্রতিটি সক্রিয় কলের নিজস্ব রিটার্ন অ্যাড্রেস ও আর্গুমেন্ট স্ট্যাকে থাকে।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "একটি বাগ: $ra সেভ করতে ভুলে যাওয়া",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "$ra সেভ না করে নেস্টেড কল",
+              "program": "addi $a0, $zero, 3\njal outer\nj end\nouter: addi $sp, $sp, -4\naddi $a0, $a0, 1\njal inner\naddi $sp, $sp, 4\njr $ra\ninner: sll $v0, $a0, 2\njr $ra\nend:",
+              "expectError": true,
+              "watch": [
+                "$ra",
+                "$sp",
+                "$v0"
+              ],
+              "hint": "প্রোগ্রাম কখনো শেষ হয় না; সিমুলেটর 10,000 ধাপ পরে এটি থামিয়ে দেয়।",
+              "editable": true
+            }
+          ],
+          "why": "যে সংস্করণ $ra সেভ করে, তার সাথে তুলনা করুন; এখানে বাইরের রিটার্ন ভুল জায়গায় যায়।"
+        },
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "সঠিক নেস্টেড কল",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "$ra সেভ করে নেস্টেড কল",
+              "program": "addi $a0, $zero, 3\njal outer\nj end\nouter: addi $sp, $sp, -4\nsw $ra, 0($sp)\naddi $a0, $a0, 1\njal inner\nlw $ra, 0($sp)\naddi $sp, $sp, 4\njr $ra\ninner: sll $v0, $a0, 2\njr $ra\nend:",
+              "watch": [
+                "$ra",
+                "$sp",
+                "$a0",
+                "$v0"
+              ],
+              "hint": "outer-এর রিটার্ন অ্যাড্রেস স্ট্যাকে 0x7FFEFFFC-তে জমা থাকে।",
+              "editable": true
+            }
+          ],
+          "why": "ভেতরের কল যখন $ra ওভাররাইট করে, তখন স্ট্যাক রিটার্ন অ্যাড্রেসটি ধরে রাখে।"
+        },
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "Register spilling",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "একটি প্রোগ্রামে 32টি রেজিস্টারের চেয়ে বেশি লাইভ মান থাকতে পারে। কম্পাইলার কিছু মান স্ট্যাকে **spill** করে এবং দরকার হলে আবার load করে আনে।"
+            },
+            {
+              "type": "compare",
+              "left": {
+                "title": "রেজিস্টারে",
+                "items": [
+                  "দ্রুত",
+                  "সীমিত সংখ্যক"
+                ]
+              },
+              "right": {
+                "title": "মেমরিতে spill করা",
+                "items": [
+                  "ধীর (একটি load ও একটি store)",
+                  "প্রায় সীমাহীন"
+                ]
+              }
+            }
+          ],
+          "why": "রেজিস্টার ফুরিয়ে যাওয়ার মূল্যই spilling; এ কারণেই কম্পাইলার লেখকদের কাছে রেজিস্টার অ্যালোকেশন গুরুত্বপূর্ণ।",
+          "real": "অপ্টিমাইজিং কম্পাইলার লুপের ঘন ঘন ব্যবহৃত মানগুলো রেজিস্টারে রাখতে যথাসাধ্য চেষ্টা করে।"
+        },
+        {
+          "type": "concept",
+          "concept": "stack",
+          "title": "Spill ও reload",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "$t2 spill করুন, আবার ব্যবহার করুন, তারপর reload করুন",
+              "program": "addi $t0, $zero, 5\naddi $t1, $zero, 7\nadd $t2, $t0, $t1\naddi $sp, $sp, -4\nsw $t2, 0($sp)\naddi $t0, $zero, 2\naddi $t1, $zero, 3\nadd $t2, $t0, $t1\nlw $t3, 0($sp)\naddi $sp, $sp, 4\nsub $t4, $t3, $t2",
+              "watch": [
+                "$t2",
+                "$t3",
+                "$t4",
+                "$sp"
+              ],
+              "hint": "(5 + 7) spill করা হয়, একই রেজিস্টারে (2 + 3) হিসাব করা হয়, তারপর বিয়োগ করা হয়।",
+              "editable": true
+            }
+          ],
+          "why": "12 স্ট্যাকে সেভ হয়, $t2 আবার 5-এর জন্য ব্যবহৃত হয়, আর reload করলে পাই 12 − 5 = 7।"
+        },
+        {
+          "type": "mcq",
+          "concept": "stack",
+          "question": "কোন ক্রম `$t2`-কে স্ট্যাকে push করে?",
+          "options": [
+            "addi $sp,$sp,-4 তারপর sw $t2,0($sp)",
+            "sw $t2,0($sp) তারপর addi $sp,$sp,-4",
+            "addi $sp,$sp,4 তারপর sw $t2,0($sp)",
+            "lw $t2,0($sp) তারপর addi $sp,$sp,4"
+          ],
+          "answer": 0,
+          "why": "আগে জায়গা বানান (স্ট্যাক নিচে বাড়ে), তারপর store করুন।",
+          "feedback": [
+            "",
+            "$sp সরানোর আগে store করলে আগের ফ্রেমের ওপর লেখা হয়ে যায়।",
+            "4 যোগ করলে $sp ওপরে সরে, ফলে push না হয়ে pop হয়।",
+            "এটি একটি pop।"
+          ]
+        },
+        {
+          "type": "tps",
+          "title": "ভাবুন, জোড়ায় আলোচনা করুন, শেয়ার করুন",
+          "prompt": "রিটার্ন অ্যাড্রেস নির্দিষ্ট কোনো মেমরি লোকেশনে না রেখে স্ট্যাকে সেভ করা হয় কেন?",
+          "think": 20,
+          "pair": 40,
+          "answer": "নির্দিষ্ট লোকেশন পরের কলে ওভাররাইট হয়ে যেত, ফলে রিকার্শন ও নেস্টেড কল তাদের রিটার্ন অ্যাড্রেস হারাত। স্ট্যাক প্রতিটি সক্রিয় কলকে নিজস্ব জায়গা দেয়, আর কল ফিরে এলে সেটি আপনাআপনি খালি হয়ে যায়।"
+        },
+        {
+          "type": "discussion",
+          "title": "আলোচনা",
+          "concept": "procedures",
+          "question": "একটি কলের আর্গুমেন্ট, লোকাল ভেরিয়েবল ও রিটার্ন অ্যাড্রেস কোথায় থাকে: রেজিস্টারে, নাকি মেমরিতে?",
+          "seconds": 60,
+          "ideas": [
+            "রেজিস্টার সবচেয়ে দ্রুত, কিন্তু সংখ্যায় কম।",
+            "মেমরি (স্ট্যাক) সীমাহীন, কিন্তু ধীর।",
+            "কলিং কনভেনশন কাজ ভাগ করে দেয়: কয়েকটি আর্গুমেন্ট রেজিস্টারে, বাকিগুলো স্ট্যাকে।",
+            "কনভেনশন থাকায় ভিন্ন ভিন্ন প্রোগ্রামারের কোড একসাথে কাজ করতে পারে।"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "অনুশীলন",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "procedures",
+          "question": "`jal`-এর পরে কোন রেজিস্টারে রিটার্ন অ্যাড্রেস থাকে?",
+          "answer": "$ra (রেজিস্টার 31)।",
+          "solution": "jal PC + 4 কে $ra-তে রাখে।",
+          "think": 15
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "branch",
+          "question": "`if (i == j) f = g + h;` অনুবাদ করুন, যেখানে f,g,h,i,j আছে $s0 থেকে $s4-এ।",
+          "answer": "bne $s3, $s4, skip\nadd $s0, $s1, $s2\nskip:",
+          "solution": "উল্টো শর্ত (সমান নয়) পরীক্ষা করুন এবং add এড়িয়ে যান। রেজিস্টার: f=$s0, g=$s1, h=$s2, i=$s3, j=$s4।",
+          "hint": "কোন ব্রাঞ্চ instruction সমান নয় পরীক্ষা করে?",
+          "mistake": "beq ব্যবহার করা এবং মান সমান হলে এড়িয়ে যাওয়া।",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "loops",
+          "question": "অ্যারে-যোগফল প্রোগ্রামে `lw` কতবার এক্সিকিউট হয় এবং `$t3` কত?",
+          "answer": "5 বার; $t3 = 66।",
+          "solution": "লুপের বডি i = 0 থেকে 4 পর্যন্ত চলে এবং 4, 8, 15, 16 ও 23 load করে; এদের যোগফল 66।",
+          "hint": "i যখন 5 হয়, পরীক্ষা ব্যর্থ হয়।",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "stack",
+          "question": "$ra সেভ করা নেস্টেড কলে `outer`-এর রিটার্ন অ্যাড্রেস কোথায় জমা হয় এবং মানটি কত?",
+          "answer": "0x7FFEFFFC-তে; মান 0x00400008।",
+          "solution": "$sp শুরু হয় 0x7FFF0000 থেকে। addi $sp,$sp,-4 দিলে হয় 0x7FFEFFFC। jal outer ছিল 0x00400004-এ, তাই $ra = 0x00400008।",
+          "hint": "$sp থেকে 4 বিয়োগ করুন, তারপর jal-এর অ্যাড্রেস ব্যবহার করুন।",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "loops",
+          "question": "`for (i = 0; i < 6; i++) sum += i;` লুপটি ট্রেস করুন এবং শেষে $t0 (i) ও $t1 (sum) কত, তা বলুন।",
+          "answer": "$t0 = 6 এবং $t1 = 15।",
+          "solution": "বডি i = 0 থেকে 5 পর্যন্ত চলে: 0+1+2+3+4+5 = 15। i = 6 হলে পরীক্ষা ব্যর্থ হয়, তাই i শেষে 6।",
+          "mistake": "i শেষে 5 বলা।",
+          "title": "পরীক্ষার অনুশীলন: কোড ট্রেসিং",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "branch",
+          "question": "a=$s0, b=$s1, x=$s2, y=$s3, z=$s4 ধরে `if (a < b) x = y; else x = z;` অনুবাদ করুন।",
+          "answer": "slt $t0,$s0,$s1; beq $t0,$zero,else; add $s2,$zero,$s3; j done; else: add $s2,$zero,$s4; done:",
+          "solution": "slt দিয়ে ফ্ল্যাগ সেট করুন, 0 হলে else-এ এড়িয়ে যান, then-অংশ চালান, তারপর else-অংশ ডিঙিয়ে জাম্প করুন।",
+          "mistake": "j done ভুলে যাওয়া।",
+          "title": "পরীক্ষার অনুশীলন: অনুবাদ",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "stack",
+          "question": "একটি প্রসিডিউর স্ট্যাকে দুটি word push করে। $sp ছিল 0x7FFF0000। push-এর পরে এবং মিলে যাওয়া pop-এর পরে $sp কত?",
+          "answer": "push-এর পরে 0x7FFEFFF8; pop-এর পরে 0x7FFF0000।",
+          "solution": "দুটি word = 8 byte। 0x7FFF0000 − 8 = 0x7FFEFFF8। pop আবার 8 যোগ করে।",
+          "mistake": "বিয়োগের বদলে 8 যোগ করা।",
+          "title": "পরীক্ষার অনুশীলন: সংখ্যাভিত্তিক",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "procedures",
+          "question": "ব্যাখ্যা করুন, যে প্রসিডিউর অন্য প্রসিডিউর কল করে তাকে কেন $ra সেভ করতে হয়, আর যে কাউকে কল করে না (লিফ) তার কেন দরকার নেই।",
+          "answer": "jal নতুন রিটার্ন অ্যাড্রেস দিয়ে $ra ওভাররাইট করে, তাই একটি নেস্টেড কল নিজের কলারের কাছে ফেরার পথ হারাবে, যদি না $ra স্ট্যাকে সেভ করে jr $ra-এর আগে রিস্টোর করা হয়। লিফ কোনো jal করে না, তাই $ra কখনো বদলায় না এবং jr $ra সরাসরি কাজ করে।",
+          "solution": "ভালো উত্তরে jal-এর ওভাররাইট এবং নিরাপদ জায়গা হিসেবে স্ট্যাকের কথা থাকে।",
+          "mistake": "$ra সেভ করা হয় কারণ এটি একটি saved রেজিস্টার ($s) - এমন বলা।",
+          "title": "পরীক্ষার অনুশীলন: ধারণাভিত্তিক",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "রিভিউ",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "সবকিছু কীভাবে যুক্ত",
+          "root": "ব্রাঞ্চ ও প্রসিডিউর",
+          "branches": [
+            {
+              "label": "সিদ্ধান্ত",
+              "example": "slt, beq, bne",
+              "section": "branch"
+            },
+            {
+              "label": "লুপ",
+              "example": "পেছনমুখী ব্রাঞ্চ",
+              "section": "loops"
+            },
+            {
+              "label": "প্রসিডিউর",
+              "example": "jal ও jr",
+              "section": "procedures"
+            },
+            {
+              "label": "স্ট্যাক",
+              "example": "সেভ ও spill",
+              "section": "stack"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "যা মনে রাখবেন",
+          "remember": [
+            "if ও if-else: slt এবং beq/bne যে কোড চলা উচিত নয় তা এড়িয়ে যায়।",
+            "লুপ হলো ওপরে একটি পরীক্ষা এবং নিচে একটি পেছনমুখী জাম্প।",
+            "a[i] আছে base + 4 × i-তে (2 দিয়ে sll, তারপর add)।",
+            "jal PC + 4 কে $ra-তে সেভ করে; jr $ra ফিরে আসে।",
+            "আর্গুমেন্ট যায় $a0-$a3-তে এবং ফলাফল $v0-$v1-এ।",
+            "স্ট্যাক নিচের দিকে বাড়ে: push করতে $sp থেকে বিয়োগ করুন।",
+            "নেস্টেড প্রসিডিউরকে $ra সেভ করতে হয়; বাড়তি মান স্ট্যাকে spill করা হয়।"
+          ]
+        },
+        {
+          "type": "review",
+          "title": "সাধারণ ভুল",
+          "mistakes": [
+            {
+              "wrong": "MIPS-এ ব্রাঞ্চ-যদি-ছোট instruction আছে।",
+              "right": "slt ব্যবহার করুন, তারপর bne বা beq।"
+            },
+            {
+              "wrong": "int অ্যারের i-তম এলিমেন্ট আছে base + i-তে।",
+              "right": "এটি আছে base + 4 × i-তে।"
+            },
+            {
+              "wrong": "স্ট্যাক ওপরের দিকে বাড়ে।",
+              "right": "এটি নিচের দিকে বাড়ে।"
+            },
+            {
+              "wrong": "jr $ra একটি বিশেষ রিটার্ন instruction।",
+              "right": "এটি রেজিস্টারে একটি সাধারণ জাম্প।"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "এক মিনিটের সারসংক্ষেপ",
+          "summary": "সিদ্ধান্ত হয় slt এবং beq বা bne দিয়ে, লুপ হলো পেছনমুখী জাম্পসহ পরীক্ষা, আর অ্যারেতে base + 4i অ্যাড্রেসিং ব্যবহার হয়। প্রসিডিউর jal দিয়ে PC + 4 কে $ra-তে সেভ করে এবং jr দিয়ে ফিরে আসে। নেস্টেড কল ও বাড়তি মানের জন্য স্ট্যাক ব্যবহার হয়, যা $sp থেকে নিচের দিকে বাড়ে।"
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "কুইজ",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "ফাইনাল কুইজ",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "branch",
+              "question": "কোন instruction একটি label-এ জাম্প করে এবং রিটার্ন অ্যাড্রেস সেভ করে?",
+              "options": [
+                "jal",
+                "j",
+                "jr",
+                "beq"
+              ],
+              "answer": 0,
+              "why": "jal PC + 4 কে $ra-তে রাখে এবং জাম্প করে।",
+              "misconception": "j রিটার্ন অ্যাড্রেস সেভ করে না।"
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "stack",
+              "statement": "MIPS স্ট্যাক কম অ্যাড্রেসের দিকে বাড়ে।",
+              "answer": true,
+              "why": "push করতে $sp থেকে বিয়োগ করতে হয়।",
+              "misconception": "4 বিয়োগ করলে একটি word-এর জায়গা তৈরি হয়।"
+            },
+            {
+              "level": "easy",
+              "concept": "loops",
+              "question": "while লুপ কী শেষ করে?",
+              "options": [
+                "একটি শর্তসাপেক্ষ ব্রাঞ্চ, যার পরীক্ষা ব্যর্থ হয়",
+                "j instruction",
+                "jr $ra",
+                "lw"
+              ],
+              "answer": 0,
+              "why": "শর্ত মিথ্যা হলে পরীক্ষা লুপ থেকে বেরিয়ে যায়।",
+              "misconception": "শুধু পেছনমুখী জাম্প থাকলে লুপ চিরকাল চলত।"
+            },
+            {
+              "level": "medium",
+              "concept": "loops",
+              "question": "int অ্যারে 0x10010000 থেকে শুরু হলে a[3] কোথায়?",
+              "options": [
+                "0x1001000C",
+                "0x10010003",
+                "0x10010004",
+                "0x10010030"
+              ],
+              "answer": 0,
+              "why": "অফসেট = 3 × 4 = 12 = 0xC।",
+              "misconception": "প্রতিটি int 4 byte।"
+            },
+            {
+              "level": "medium",
+              "concept": "branch",
+              "question": "`if (a == b) c++;`-এ কোন ব্রাঞ্চ ইনক্রিমেন্ট এড়িয়ে যায়?",
+              "options": [
+                "bne a, b, skip",
+                "beq a, b, skip",
+                "slt তারপর beq",
+                "j skip"
+              ],
+              "answer": 0,
+              "why": "মান সমান না হলে এড়িয়ে যাও।",
+              "misconception": "ব্রাঞ্চ শর্তের উল্টোটা পরীক্ষা করে।"
+            },
+            {
+              "level": "medium",
+              "concept": "procedures",
+              "question": "jal আছে 0x00400010-এ। এরপর $ra কত?",
+              "options": [
+                "0x00400014",
+                "0x00400010",
+                "0x0040000C",
+                "0x00400018"
+              ],
+              "answer": 0,
+              "why": "PC + 4 = 0x00400014।",
+              "misconception": "$ra পরের instruction-এর দিকে নির্দেশ করে।"
+            },
+            {
+              "level": "hard",
+              "concept": "stack",
+              "question": "$sp হলো 0x7FFF0000। তিনটি word push করার পরে এটি কত?",
+              "options": [
+                "0x7FFEFFF4",
+                "0x7FFEFFFC",
+                "0x7FFF000C",
+                "0x7FFEFFF0"
+              ],
+              "answer": 0,
+              "why": "তিনটি word মানে 12 byte: 0x7FFF0000 − 12 = 0x7FFEFFF4।",
+              "misconception": "স্ট্যাক নিচের দিকে বাড়ে।"
+            },
+            {
+              "level": "hard",
+              "concept": "stack",
+              "question": "নেস্টেড প্রসিডিউর কেন $ra সেভ করে?",
+              "options": [
+                "ভেতরের jal এটি ওভাররাইট করে",
+                "$ra একটি saved রেজিস্টার",
+                "jr-এর জন্য স্ট্যাক দরকার",
+                "$ra প্রতিটি instruction-এ বদলায়"
+              ],
+              "answer": 0,
+              "why": "jal $ra বদলে দেয়, ফলে বাইরের রিটার্ন অ্যাড্রেস হারিয়ে যেত।",
+              "misconception": "শুধু যে প্রসিডিউর অন্যদের কল করে, তাকেই $ra সেভ করতে হয়।"
+            },
+            {
+              "level": "challenge",
+              "concept": "loops",
+              "question": "`for (i = 0; i < 6; i++)`-এর বডি কতবার চলে এবং পরে i কত?",
+              "options": [
+                "6 বার; i = 6",
+                "5 বার; i = 5",
+                "6 বার; i = 5",
+                "7 বার; i = 6"
+              ],
+              "answer": 0,
+              "why": "i 0 থেকে 5 পর্যন্ত মান নেয় (6 ইটারেশন); i = 6 হলে পরীক্ষা ব্যর্থ হয়।",
+              "misconception": "শেষ মানটি হলো সেই মান, যা পরীক্ষায় ব্যর্থ হয়েছে।"
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "মনে আছে?",
+          "items": [
+            {
+              "q": "MIPS-এ `if (a < b)` কীভাবে পরীক্ষা করা হয়?",
+              "a": "slt দিয়ে 0/1 ফ্ল্যাগ বানিয়ে, তারপর beq বা bne।",
+              "concept": "branch"
+            },
+            {
+              "q": "jal কী করে?",
+              "a": "PC + 4 কে $ra-তে সেভ করে এবং label-এ জাম্প করে।",
+              "concept": "procedures"
+            },
+            {
+              "q": "স্ট্যাক কোন দিকে বাড়ে?",
+              "a": "নিচের দিকে, কম অ্যাড্রেসের দিকে।",
+              "concept": "stack"
+            },
+            {
+              "q": "a[i]-এর অ্যাড্রেস কীভাবে হিসাব করেন?",
+              "a": "base + 4 × i।",
+              "concept": "loops"
+            },
+            {
+              "q": "Register spilling কী?",
+              "a": "রেজিস্টার ফুরিয়ে যাওয়ায় লাইভ মান স্ট্যাকে রেখে দেওয়া।",
+              "concept": "stack"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "আপনার শেখার রিপোর্ট"
+        }
+      ]
+    }
+  ]
+}

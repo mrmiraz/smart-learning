@@ -1,0 +1,40 @@
+{
+  "java": {
+    "title": "জাভা",
+    "description": "প্রথম প্রোগ্রাম থেকে অবজেক্ট-ওরিয়েন্টেড ডিজাইন পর্যন্ত।",
+    "topics": {
+      "01-introduction": "জাভা পরিচিতি",
+      "02-variables-and-types": "ভেরিয়েবল ও ডেটা টাইপ"
+    }
+  },
+  "computer-architecture": {
+    "title": "কম্পিউটার আর্কিটেকচার",
+    "description": "কম্পিউটার কীভাবে তৈরি হয় এবং কীভাবে প্রোগ্রাম চালায়।",
+    "topics": {
+      "01-introduction-to-computer-architecture": "কম্পিউটার আর্কিটেকচার ও কম্পিউটার ডিজাইনের পরিচিতি",
+      "02-technology-trends-moores-law-performance": "প্রযুক্তির গতিপথ, মুরের সূত্র ও কম্পিউটারের পারফরম্যান্স",
+      "03-quantitative-principles-performance-measurement": "পরিমাণগত নীতি ও পারফরম্যান্স পরিমাপ",
+      "04-isa-fundamentals-risc-vs-cisc": "ISA-এর মৌলিক ধারণা, RISC বনাম CISC",
+      "05-mips-instructions-registers-operands": "MIPS ইন্সট্রাকশন, রেজিস্টার ও অপারেন্ড",
+      "06-addressing-modes-memory-access": "অ্যাড্রেসিং মোড ও মেমোরি অ্যাক্সেস",
+      "07-instruction-encoding-assembly": "ইন্সট্রাকশন এনকোডিং ও অ্যাসেম্বলি প্রোগ্রামিং",
+      "08-branches-procedures-high-level-code": "ব্রাঞ্চ, প্রসিডিউর ও হাই-লেভেল কোডের অনুবাদ",
+      "09-computer-arithmetic-floating-point": "কম্পিউটার অ্যারিথমেটিক ও ফ্লোটিং পয়েন্ট",
+      "10-datapath-single-cycle-cpu": "CPU ডেটাপাথ ও সিঙ্গেল-সাইকেল প্রসেসর",
+      "11-multi-cycle-datapath-control": "মাল্টি-সাইকেল ডেটাপাথ ও কন্ট্রোল",
+      "12-pipelining-fundamentals": "পাইপলাইনিংয়ের মৌলিক ধারণা",
+      "13-pipeline-hazards": "পাইপলাইন হ্যাজার্ড ও তার সমাধান",
+      "14-ilp-advanced-pipelining": "ইন্সট্রাকশন-লেভেল প্যারালালিজম ও উন্নত পাইপলাইনিং",
+      "15-dynamic-scheduling-out-of-order": "ডায়নামিক শিডিউলিং ও আউট-অব-অর্ডার এক্সিকিউশন",
+      "16-branch-prediction-speculation": "ব্রাঞ্চ প্রেডিকশন ও স্পেকুলেটিভ এক্সিকিউশন",
+      "17-memory-hierarchy-locality": "মেমোরি হায়ারার্কি ও লোকালিটি",
+      "18-cache-organization-mapping": "ক্যাশ সংগঠন ও ম্যাপিং",
+      "19-cache-performance": "ক্যাশ মিস, হিট টাইম ও মিস পেনাল্টি",
+      "20-main-memory-virtual-memory": "মেইন মেমোরি, ভার্চুয়াল মেমোরি ও TLB",
+      "21-storage-systems-io": "স্টোরেজ সিস্টেম ও I/O",
+      "22-buses-reliability-raid": "বাস, নির্ভরযোগ্যতা, প্রাপ্যতা ও RAID",
+      "23-multiprocessors-shared-memory": "মাল্টিকোর ও শেয়ার্ড-মেমোরি মাল্টিপ্রসেসর",
+      "24-vector-risc-x86-review": "ভেক্টর প্রসেসিং, RISC/x86 ও কোর্সের পুনরালোচনা"
+    }
+  }
+}

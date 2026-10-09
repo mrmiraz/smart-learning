@@ -1,0 +1,1239 @@
+{
+  "id": "ca-04-isa-risc-cisc",
+  "title": "ISA-র মৌলিক ধারণা, RISC বনাম CISC",
+  "subtitle": "সফটওয়্যার ও হার্ডওয়্যারের মধ্যকার চুক্তি, আর তা ডিজাইন করার দুটি পদ্ধতি।",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "2",
+      "title": "Instructions: Language of the Computer",
+      "topics": "কম্পিউটার হার্ডওয়্যারের অপারেশন ও অপারেন্ড; চারটি ডিজাইন নীতি; MIPS; বাস্তব উদাহরণ: ARM ও x86 ইন্সট্রাকশন সেট"
+    },
+    {
+      "book": "CAQA",
+      "chapter": "2",
+      "title": "Instruction Set Principles and Examples",
+      "topics": "ইন্সট্রাকশন সেট আর্কিটেকচারের শ্রেণিবিভাগ (stack, accumulator, register); ইন্সট্রাকশন সেটের অপারেশন; RISC বনাম CISC"
+    }
+  ],
+  "objectives": [
+    "ইন্সট্রাকশন সেট আর্কিটেকচার (ISA) কী এবং কেন এটি সফটওয়্যার ও হার্ডওয়্যারের মধ্যকার ইন্টারফেস, তা ব্যাখ্যা করুন",
+    "ইন্সট্রাকশনের প্রধান শ্রেণিগুলোর নাম বলুন এবং সেগুলো কী ধরনের অপারেন্ড ব্যবহার করে তা বলুন",
+    "stack, accumulator, register-memory ও load/store আর্কিটেকচারের তুলনা করুন",
+    "MIPS-এর মতো register-ভিত্তিক load/store ডিজাইন ব্যাখ্যা করুন",
+    "RISC ও CISC-এর তুলনা করুন এবং CPU পারফরম্যান্স সমীকরণ দিয়ে ট্রেড-অফটি ব্যাখ্যা করুন"
+  ],
+  "concepts": [
+    {
+      "id": "isa",
+      "label": "ISA কী",
+      "section": "isa"
+    },
+    {
+      "id": "classes",
+      "label": "ইন্সট্রাকশনের শ্রেণি ও অপারেন্ড",
+      "section": "classes"
+    },
+    {
+      "id": "styles",
+      "label": "অপারেন্ড কোথায় থাকে",
+      "section": "styles"
+    },
+    {
+      "id": "loadstore",
+      "label": "Load/store ও register",
+      "section": "styles"
+    },
+    {
+      "id": "risc",
+      "label": "RISC বনাম CISC",
+      "section": "risc"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "সূচনা",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "ফোনের চিপের জন্য বানানো প্রোগ্রাম বেশিরভাগ Windows ল্যাপটপে সরাসরি চলে না কেন, যদিও দুটোই দ্রুত কম্পিউটার?",
+          "clues": [
+            "দুটোই কোটি কোটি ট্রানজিস্টর দিয়ে তৈরি এবং একই ওয়েব পেজ খুলতে পারে।",
+            "কিন্তু এরা আলাদা আলাদা মেশিন ইন্সট্রাকশনের সেট বোঝে।",
+            "সেই ইন্সট্রাকশনের সেট এবং তার চারপাশের নিয়মগুলোই হলো **instruction set architecture** (ISA)।"
+          ],
+          "notes": {
+            "explain": "শিক্ষার্থীদের অনুমান করতে দিন। সাধারণ অনুমান: আলাদা গতি, আলাদা অপারেটিং সিস্টেম। দুটোই কিছুটা কারণ, কিন্তু গভীর কারণ হলো ISA।",
+            "ask": "আপনার কী মনে হয়, একটি প্রসেসর আসলে কী 'বোঝে'?",
+            "difficulty": "সহজ।"
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "পাঁচটি উদ্দেশ্য পড়ুন। এই ক্লাস ব্যবহারিক ক্লাসগুলোর প্রবেশদ্বার: ক্লাস 5 থেকে আমরা MIPS instruction লিখব।"
+          }
+        }
+      ]
+    },
+    {
+      "id": "isa",
+      "label": "ISA",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "isa",
+          "title": "ISA কী?",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "সফটওয়্যার",
+                  "sub": "প্রোগ্রাম, কম্পাইলার, অপারেটিং সিস্টেম",
+                  "note": "কম্পাইলার প্রোগ্রামকে সেই instruction-এ রূপান্তর করে যা ISA নির্ধারণ করে।",
+                  "example": "একটি C প্রোগ্রাম থেকে তৈরি MIPS instruction।"
+                },
+                {
+                  "label": "ISA",
+                  "sub": "চুক্তি",
+                  "note": "**instruction set architecture** নির্ধারণ করে সফটওয়্যার কোন instruction, register, মেমরি মডেল ও ডেটা টাইপ ব্যবহার করতে পারবে।",
+                  "example": "MIPS, Arm, x86-64।",
+                  "links": [
+                    0,
+                    2
+                  ]
+                },
+                {
+                  "label": "হার্ডওয়্যার",
+                  "sub": "যে প্রসেসর এটি বাস্তবায়ন করে",
+                  "note": "যে প্রসেসর ISA বাস্তবায়ন করে সে একই প্রোগ্রাম চালাতে পারে, ভেতরে তা যেভাবেই তৈরি হোক।",
+                  "example": "দুটি আলাদা MIPS চিপ একই প্রোগ্রাম চালায়।"
+                }
+              ]
+            }
+          ],
+          "why": "ISA হলো মানুষ যে সফটওয়্যার লেখে আর যে হার্ডওয়্যার বানায়, তাদের মধ্যকার একমাত্র স্থিতিশীল সংযোগস্থল।",
+          "real": "ফোন ও Apple ল্যাপটপ Arm ISA ব্যবহার করে। বেশিরভাগ Windows ল্যাপটপ ও সার্ভার x86-64 ব্যবহার করে। এই কোর্সে MIPS ব্যবহার করা হয়, কারণ এটি সহজ ও পরিচ্ছন্ন।",
+          "mistake": {
+            "wrong": "ISA হলো হার্ডওয়্যার।",
+            "right": "ISA হলো স্পেসিফিকেশন। অনেক আলাদা হার্ডওয়্যার ডিজাইন একই ISA বাস্তবায়ন করতে পারে।"
+          },
+          "explainAgain": {
+            "beginner": "ISA হলো একটি মেনু, যেখানে কম্পিউটার কী কী কাজ করার প্রতিশ্রুতি দেয় তা লেখা থাকে। মেনুর প্রতিটি পদ ঠিকমতো তৈরি হলে রান্নাঘর (হার্ডওয়্যার) যেভাবেই বানানো হোক, কিছু যায় আসে না।",
+            "technical": "ISA হলো আর্কিটেকচারে দৃশ্যমান ইন্টারফেস: ইন্সট্রাকশন সেট, register file, অ্যাড্রেসিং মোড, ডেটা টাইপ ও exception মডেল। এর নিচের স্তরে microarchitecture আলাদা হতে পারে।"
+          },
+          "deeper": {
+            "text": "1978 সালের 8086-এর জন্য লেখা x86 প্রোগ্রাম আজও আধুনিক x86-64 প্রসেসরে চলে। এই backward compatibility কম্পিউটিংয়ের অন্যতম শক্তিশালী শক্তি, এবং ISA স্থিতিশীল রাখার একটি জোরালো কারণ।"
+          },
+          "notes": {
+            "explain": "ক্লাস 1 মনে করুন: আর্কিটেকচার বনাম অর্গানাইজেশন। ISA হলো ঠিক সেই 'আর্কিটেকচার' অংশ। প্রতিটি বক্সে ক্লিক করুন।",
+            "terms": [
+              "**ISA**",
+              "**Compatibility**"
+            ],
+            "misconceptions": [
+              "শিক্ষার্থীরা মনে করে ISA চিপের একটি ভৌত অংশ।"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "isa",
+          "title": "ISA কী কী নির্ধারণ করে",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "অংশ",
+                "যে প্রশ্নের উত্তর দেয়",
+                "উদাহরণ (MIPS)"
+              ],
+              "rows": [
+                [
+                  "Instruction",
+                  "কোন কোন অপারেশন আছে?",
+                  "add, lw, beq"
+                ],
+                [
+                  "Register",
+                  "সফটওয়্যার নাম ধরে কতগুলো দ্রুত স্টোরেজ ব্যবহার করতে পারে?",
+                  "32টি general-purpose register"
+                ],
+                [
+                  "মেমরি মডেল",
+                  "মেমরির অ্যাড্রেস কীভাবে দেওয়া হয়?",
+                  "Byte অ্যাড্রেস, 32-bit word"
+                ],
+                [
+                  "ডেটা টাইপ",
+                  "কোন কোন সাইজ ও ফরম্যাট সমর্থিত?",
+                  "32-bit integer, floating point"
+                ],
+                [
+                  "Instruction ফরম্যাট",
+                  "Instruction কীভাবে এনকোড করা হয়?",
+                  "প্রতিটি instruction 32 bit লম্বা"
+                ]
+              ]
+            }
+          ],
+          "why": "এগুলোর কোনোটি আলাদা হলে এক মেশিনের জন্য বানানো সফটওয়্যার অন্যটিতে চলবে না।",
+          "notes": {
+            "explain": "একবারে একটি সারি দেখান। এনকোডিং ঠিকমতো পড়ব ক্লাস 7-এ।"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "isa",
+          "skill": "Understand",
+          "question": "আলাদা কোম্পানির দুটি প্রসেসর হুবহু একই কম্পাইল করা প্রোগ্রাম চালায়। এদের কী অবশ্যই এক হতে হবে?",
+          "options": [
+            "ইন্সট্রাকশন সেট আর্কিটেকচার",
+            "একই অভ্যন্তরীণ সার্কিট",
+            "একই উৎপাদন প্রক্রিয়া",
+            "একই ক্লক রেট"
+          ],
+          "answer": 0,
+          "why": "কম্পাইল করা প্রোগ্রাম শুধু ISA-র ওপর নির্ভর করে, চিপ কীভাবে তৈরি তার ওপর নয়।",
+          "feedback": [
+            "",
+            "আলাদা কোম্পানি সাধারণত একই ISA-র জন্য আলাদা সার্কিট বানায়।",
+            "উৎপাদন প্রক্রিয়া গতি ও খরচকে প্রভাবিত করে, কোন প্রোগ্রাম চলবে তাকে নয়।",
+            "ক্লক রেট গতিকে প্রভাবিত করে, compatibility-কে নয়।"
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "isa",
+          "skill": "Understand",
+          "statement": "প্রসেসরের ISA বদলানো আর তার অর্গানাইজেশন বদলানো একই রকম: পুরনো প্রোগ্রাম চলতেই থাকে।",
+          "answer": false,
+          "why": "নতুন অর্গানাইজেশন একই প্রোগ্রাম আরও দ্রুত চালায়। নতুন ISA হলে পুরনো instruction না রাখলে পুরনো প্রোগ্রাম আর চলে না।"
+        }
+      ]
+    },
+    {
+      "id": "classes",
+      "label": "Instruction",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "classes",
+          "title": "Instruction-এর শ্রেণি",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "শ্রেণি",
+                "কী করে",
+                "MIPS উদাহরণ"
+              ],
+              "rows": [
+                [
+                  "Arithmetic",
+                  "সংখ্যা যোগ, বিয়োগ ও গুণ করে",
+                  "add, sub, addi"
+                ],
+                [
+                  "Logical",
+                  "Bitwise AND, OR, shift",
+                  "and, or, sll"
+                ],
+                [
+                  "Data transfer",
+                  "মেমরি ও register-এর মধ্যে ডেটা সরায়",
+                  "lw (load), sw (store)"
+                ],
+                [
+                  "Control flow",
+                  "পরবর্তী কোন instruction চলবে তা বদলায়",
+                  "beq, bne, j"
+                ]
+              ]
+            }
+          ],
+          "why": "যত বড়ই হোক, প্রতিটি প্রোগ্রাম অল্প কয়েকটি instruction শ্রেণি দিয়ে তৈরি।",
+          "real": "আপনি কোনো কী চাপলে অ্যাপ মান তুলনা করে (control flow), ডেটা কপি করে (data transfer) এবং হিসাব করে (arithmetic), সবই এরকম instruction দিয়ে।",
+          "mistake": {
+            "wrong": "প্রোগ্রামের বেশিরভাগই arithmetic instruction।",
+            "right": "একটি সাধারণ প্রোগ্রামের বড় অংশ ডেটা সরানো ও control flow, তাই এগুলো দ্রুত হওয়া দরকার।"
+          },
+          "notes": {
+            "explain": "এগুলোর অনেকগুলো আমরা ক্লাস 5 থেকে 8-এ লিখব। আজ শুধু শ্রেণিবিভাগ করছি।",
+            "terms": [
+              "**Load** — মেমরি থেকে register-এ",
+              "**Store** — register থেকে মেমরিতে"
+            ]
+          }
+        },
+        {
+          "type": "match",
+          "concept": "classes",
+          "skill": "Understand",
+          "title": "ছোট চ্যালেঞ্জ",
+          "prompt": "প্রতিটি MIPS instruction-কে তার শ্রেণির সাথে মেলান।",
+          "pairs": [
+            {
+              "a": "add",
+              "b": "Arithmetic"
+            },
+            {
+              "a": "and",
+              "b": "Logical"
+            },
+            {
+              "a": "lw",
+              "b": "Data transfer"
+            },
+            {
+              "a": "beq",
+              "b": "Control flow"
+            }
+          ],
+          "why": "নাম থেকেই কাজ বোঝা যায়: add হিসাব করে, lw মেমরি থেকে load করে, beq সমান হলে branch করে।"
+        },
+        {
+          "type": "concept",
+          "concept": "classes",
+          "title": "অপারেন্ড: ডেটা কোথা থেকে আসে",
+          "blocks": [
+            {
+              "type": "flow",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "Register অপারেন্ড",
+                  "sub": "CPU register-এ",
+                  "note": "মানটি CPU-র দ্রুত register-গুলোর একটিতে থাকে।",
+                  "example": "add $t0, $s1, $s2 তিনটি register ব্যবহার করে।"
+                },
+                {
+                  "label": "মেমরি অপারেন্ড",
+                  "sub": "মূল মেমরিতে",
+                  "note": "মানটি মেমরিতে থাকে, যেখানে পৌঁছাতে বেশি সময় লাগে, তাই আগে load করতে হয়।",
+                  "example": "lw $t0, 8($s1) $s1-এর অ্যাড্রেসের 8 byte পরের word আনে।"
+                },
+                {
+                  "label": "Immediate অপারেন্ড",
+                  "sub": "instruction-এর ভেতরের একটি ধ্রুবক",
+                  "note": "মানটি instruction-এরই অংশ, তাই register বা মেমরি অ্যাক্সেসের দরকার হয় না।",
+                  "example": "addi $t0, $s1, 4 ধ্রুবক 4 যোগ করে।"
+                }
+              ]
+            }
+          ],
+          "why": "অপারেন্ড কোথায় থাকে তার ওপর নির্ভর করে একটি instruction কত দ্রুত চলতে পারে এবং কত bit লাগে।",
+          "explainAgain": {
+            "beginner": "অপারেন্ড হলো instruction-এর একটি ইনপুট মাত্র: এটি হতে পারে আপনার হাতে (register), ঘরের ওপারের তাকে (মেমরি), অথবা instruction-এর গায়েই লেখা (immediate)।"
+          },
+          "notes": {
+            "explain": "আজ MIPS সিনট্যাক্স হালকা রাখুন। Register নিয়ে ক্লাস 5 এবং অ্যাড্রেসিং নিয়ে ক্লাস 6-এ বিস্তারিত আছে।"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "classes",
+          "skill": "Apply",
+          "question": "`addi $t0, $s1, 4` instruction-এ 4 সংখ্যাটি কোন ধরনের অপারেন্ড?",
+          "options": [
+            "Immediate অপারেন্ড",
+            "Register অপারেন্ড",
+            "মেমরি অপারেন্ড",
+            "অ্যাড্রেস অপারেন্ড"
+          ],
+          "answer": 0,
+          "why": "ধ্রুবক 4 instruction-এর ভেতরেই লেখা, যা একটি immediate অপারেন্ড।",
+          "feedback": [
+            "",
+            "Register অপারেন্ডের নাম হতো $s1-এর মতো।",
+            "মেমরি অপারেন্ডের জন্য lw-এর মতো একটি load লাগত।",
+            "এই instruction-এ কোনো অ্যাড্রেস নেই।"
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "চেকপয়েন্ট",
+          "questions": [
+            {
+              "q": "ISA কী?",
+              "a": "যে instruction, register, মেমরি মডেল ও ডেটা টাইপ দিয়ে সফটওয়্যার হার্ডওয়্যারকে নিয়ন্ত্রণ করে, তার সমষ্টি। এটি সফটওয়্যার ও হার্ডওয়্যারের মধ্যকার ইন্টারফেস।",
+              "concept": "isa"
+            },
+            {
+              "q": "চারটি প্রধান instruction শ্রেণির নাম বলুন।",
+              "a": "Arithmetic, logical, data transfer ও control flow।",
+              "concept": "classes"
+            },
+            {
+              "q": "অপারেন্ড কত রকমের এবং কী কী?",
+              "a": "তিন রকমের: register, মেমরি ও immediate।",
+              "concept": "classes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "styles",
+      "label": "অপারেন্ড স্টোরেজ",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "styles",
+          "title": "অপারেন্ড কোথায় থাকে?",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                {
+                  "text": "**Stack**",
+                  "sub": "অপারেন্ড অন্তর্নিহিতভাবে stack-এর শীর্ষে থাকে।"
+                },
+                {
+                  "text": "**Accumulator**",
+                  "sub": "একটি অন্তর্নিহিত register একটি অপারেন্ড ও ফলাফল ধরে রাখে।"
+                },
+                {
+                  "text": "**Register-memory**",
+                  "sub": "সাধারণ instruction সরাসরি মেমরি অপারেন্ড নিতে পারে।"
+                },
+                {
+                  "text": "**Load/store**",
+                  "sub": "Arithmetic শুধু register ব্যবহার করে; আলাদা load ও store instruction মেমরিতে পৌঁছায়।"
+                }
+              ]
+            }
+          ],
+          "why": "এই একটি সিদ্ধান্তই ঠিক করে দেয় instruction সংখ্যা, instruction-এর দৈর্ঘ্য এবং হার্ডওয়্যারকে দ্রুত করা কতটা সহজ।",
+          "real": "MIPS ও Arm হলো load/store ডিজাইন। x86 হলো register-memory।",
+          "explainAgain": {
+            "beginner": "ভাবুন, একটি খাতায় লেখা দুটি সংখ্যা যোগ করতে হবে। হয় আগে সেগুলো হাতে কপি করে তারপর যোগ করবেন (load/store), নয়তো যোগ করার যন্ত্র নিজেই খাতা পড়তে পারে (register-memory)।"
+          },
+          "notes": {
+            "explain": "চারটি নাম পরিচয় করিয়ে দিন, তারপর পরের স্ক্রিনে একটি এক্সপ্রেশনে সেগুলোর তুলনা করুন।",
+            "terms": [
+              "**Load/store আর্কিটেকচার**",
+              "**Accumulator**"
+            ]
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "styles",
+          "skill": "Apply",
+          "question": "আমরা x = y + z চাই, যেখানে x, y ও z তিনটিই মেমরিতে। একটি load/store মেশিনকে load, add ও store করতে হয়। এতে কতগুলো instruction লাগে?",
+          "options": [
+            "2",
+            "3",
+            "4",
+            "5"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "ধরন",
+                "x = y + z-এর instruction",
+                "সংখ্যা"
+              ],
+              "rows": [
+                [
+                  "Stack",
+                  "push y; push z; add; pop x",
+                  "4"
+                ],
+                [
+                  "Accumulator",
+                  "load y; add z; store x",
+                  "3"
+                ],
+                [
+                  "Register-memory",
+                  "load r1, y; add r1, r1, z; store r1, x",
+                  "3"
+                ],
+                [
+                  "Load/store",
+                  "load r1, y; load r2, z; add r3, r1, r2; store r3, x",
+                  "4"
+                ]
+              ]
+            }
+          ],
+          "result": "Load/store-এ লাগে 4টি: দুটি load, একটি add ও একটি store। কম instruction মানেই দ্রুত নয়, পরের স্ক্রিনগুলো তা দেখাবে।"
+        },
+        {
+          "type": "concept",
+          "concept": "styles",
+          "title": "কেন load/store জিতল",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Register-memory (CISC ধাঁচ)",
+                "items": [
+                  "প্রতি কাজে কম instruction",
+                  "Instruction-এর দৈর্ঘ্য ও সময়ে অনেক পার্থক্য",
+                  "Pipeline-এ ওভারল্যাপ করা কঠিনতর"
+                ]
+              },
+              "right": {
+                "title": "Load/store (RISC ধাঁচ)",
+                "items": [
+                  "প্রতি কাজে বেশি instruction",
+                  "প্রতিটি instruction দৈর্ঘ্য ও সময়ে প্রায় একই রকম",
+                  "Pipeline করা ও দ্রুত করা সহজ"
+                ]
+              }
+            }
+          ],
+          "why": "সরল, নিয়মিত instruction হার্ডওয়্যারের জন্য ওভারল্যাপ করা সহজ, যা ক্লাস 12 ও 13-এর বিষয়।",
+          "mistake": {
+            "wrong": "কম instruction মানেই সবসময় দ্রুততর প্রোগ্রাম।",
+            "right": "Time = instruction count × CPI × clock cycle time, তাই instruction বেশি হলেও সরল instruction জিততে পারে।"
+          }
+        },
+        {
+          "type": "tps",
+          "title": "ভাবুন, জোড়ায় আলোচনা করুন, শেয়ার করুন",
+          "concept": "styles",
+          "prompt": "একই কাজের জন্য load/store ডিজাইনে বেশি instruction লাগে। তবু এটি প্রোগ্রামটি দ্রুত চালাতে পারে কীভাবে?",
+          "think": 20,
+          "pair": 40,
+          "answer": "CPU time = instruction count × CPI × clock cycle time। সরল, নিয়মিত instruction কম CPI ও ছোট clock cycle দিতে পারে, এবং এগুলো ভালোভাবে pipeline হয়। এই সুবিধা যদি বেশি instruction count-এর ক্ষতির চেয়ে বড় হয়, তবে প্রোগ্রাম আগে শেষ হয়।",
+          "notes": {
+            "explain": "শিক্ষার্থীদের ক্লাস 3-এর CPU সমীকরণে ফিরিয়ে নিন। উত্তরে তিনটি ফ্যাক্টরের কথাই থাকতে হবে।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "loadstore",
+          "title": "Register: ছোট ও দ্রুত কর্মক্ষেত্র",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "MIPS-এ আছে **32টি general-purpose register**, প্রতিটি 32 bit চওড়া",
+                "Register হলো CPU-র ভেতরের **সবচেয়ে দ্রুত স্টোরেজ**",
+                "32টির মধ্যে একটি register-এর নাম দিতে লাগে **5 bit**, কারণ 2⁵ = 32",
+                "Register বেশি হলে ধীর মেমরি অ্যাক্সেস কমে, কিন্তু প্রতিটি instruction-এ বেশি bit লাগে এবং register file ধীর হয়"
+              ]
+            }
+          ],
+          "why": "কম্পাইলার সবচেয়ে বেশি ব্যবহৃত ভেরিয়েবল register-এ রাখে, তাই register-এর ভালো সংখ্যা একটি ট্রেড-অফ, বিনামূল্যের লাভ নয়।",
+          "real": "MIPS কোডে `$s0` বা `$t1` দেখলে সেটি একটি register-এর নাম।",
+          "explainAgain": {
+            "beginner": "Register হলো আপনার ডেস্কের নম্বর দেওয়া খোপ। বড় ডেস্কে বেশি রাখা যায়, কিন্তু লেবেল লম্বা লাগে এবং জিনিস খুঁজতেও বেশি সময় লাগে।"
+          },
+          "notes": {
+            "explain": "এটি 'smaller is faster' ডিজাইন নীতির বাস্তব রূপ। Register নিয়ে পড়ব ক্লাস 5-এ।",
+            "terms": [
+              "**Register file**",
+              "**General-purpose register**"
+            ]
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "loadstore",
+          "skill": "Apply",
+          "question": "একটি ISA-তে 16টি register আছে। একটি register-এর নাম দিতে কত bit লাগে?",
+          "options": [
+            "2",
+            "4",
+            "8",
+            "16"
+          ],
+          "answer": 1,
+          "why": "2⁴ = 16, তাই 4 bit যথেষ্ট।",
+          "feedback": [
+            "2 bit দিয়ে মাত্র 4টি register-এর নাম দেওয়া যায়।",
+            "",
+            "8 bit দিয়ে 256টি register-এর নাম দেওয়া যায়, যা প্রয়োজনের চেয়ে অনেক বেশি।",
+            "16 হলো register-এর সংখ্যা, bit-এর সংখ্যা নয়।"
+          ]
+        },
+        {
+          "type": "arrange",
+          "concept": "loadstore",
+          "skill": "Understand",
+          "title": "ছোট চ্যালেঞ্জ",
+          "prompt": "x = y + z-এর load/store ক্রমটি সাজান।",
+          "items": [
+            "মেমরি থেকে y একটি register-এ load করুন",
+            "মেমরি থেকে z আরেকটি register-এ load করুন",
+            "দুটি register যোগ করে তৃতীয় register-এ রাখুন",
+            "ফলাফল মেমরিতে x-এ আবার store করুন"
+          ],
+          "why": "যোগের আগে ডেটা register-এ থাকতে হবে, আর মেমরিতে পৌঁছাতে ফলাফল store করতে হবে।"
+        }
+      ]
+    },
+    {
+      "id": "risc",
+      "label": "RISC বনাম CISC",
+      "minutes": 11,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "risc",
+          "title": "RISC ও CISC",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "RISC (reduced instruction set)",
+                "items": [
+                  "সরল instruction, প্রতিটির একটি স্পষ্ট কাজ",
+                  "নির্দিষ্ট দৈর্ঘ্য (MIPS: 32 bit)",
+                  "Load/store: শুধু load ও store মেমরি ছোঁয়",
+                  "অনেক register",
+                  "সরল হার্ডওয়্যার, pipeline করা সহজ"
+                ]
+              },
+              "right": {
+                "title": "CISC (complex instruction set)",
+                "items": [
+                  "শক্তিশালী instruction, প্রতিটিতে একাধিক ধাপ",
+                  "পরিবর্তনশীল দৈর্ঘ্য (x86: 1 থেকে 15 byte)",
+                  "সাধারণ instruction মেমরি ব্যবহার করতে পারে",
+                  "ঐতিহাসিকভাবে কম register",
+                  "আরও জটিল হার্ডওয়্যার"
+                ]
+              }
+            }
+          ],
+          "why": "দুটি ধারা বিপরীত বাজি ধরে: পরিশ্রম কোথায় দেওয়া হবে, instruction-এ না হার্ডওয়্যারে।",
+          "real": "ফোন ও Apple ল্যাপটপ Arm ব্যবহার করে, যা একটি RISC ডিজাইন। বেশিরভাগ Windows ল্যাপটপ ও সার্ভার x86-64 ব্যবহার করে, যা CISC ধাঁচের ISA।",
+          "mistake": [
+            {
+              "wrong": "RISC প্রোগ্রাম CISC প্রোগ্রামের চেয়ে ছোট।",
+              "right": "RISC প্রোগ্রামে সাধারণত বেশি instruction লাগে, কিন্তু প্রতিটি instruction সরল ও দ্রুত।"
+            },
+            {
+              "wrong": "বেশি শক্তিশালী instruction মানে বেশি পারফরম্যান্স।",
+              "right": "পারফরম্যান্স নির্ভর করে instruction count, CPI ও clock cycle time তিনটির সম্মিলিত ফলের ওপর।"
+            }
+          ],
+          "explainAgain": {
+            "beginner": "RISC হলো সরল যন্ত্রের একটি টুলবক্স, যেগুলো আপনি জুড়ে ব্যবহার করেন। CISC হলো বহুমুখী চমকপ্রদ যন্ত্রে ভরা টুলবক্স। সরল যন্ত্র হাতে নেওয়া সহজ; বহুমুখী যন্ত্র ধাপ বাঁচায়, কিন্তু ব্যবহারে ধীর।"
+          },
+          "notes": {
+            "explain": "কোনো বিজয়ী ঘোষণা করবেন না। সৎ উত্তরটি আসে পরের স্ক্রিনগুলোর CPU সমীকরণ থেকে।",
+            "terms": [
+              "**RISC**",
+              "**CISC**",
+              "**Microcode**"
+            ],
+            "misconceptions": [
+              "শিক্ষার্থীরা মনে করে RISC-এর প্রোগ্রামে instruction কম থাকে।"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "risc",
+          "title": "MIPS-এর পেছনের চারটি ডিজাইন নীতি",
+          "blocks": [
+            {
+              "type": "flow",
+              "layout": "grid",
+              "cols": 2,
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "সরলতা নিয়মিততাকে সমর্থন করে",
+                  "sub": "একই আকারের instruction",
+                  "note": "নিয়মিত instruction বানানো সহজ এবং দ্রুততর।",
+                  "example": "MIPS arithmetic instruction-এ সবসময় তিনটি অপারেন্ড থাকে।"
+                },
+                {
+                  "label": "ছোট মানেই দ্রুত",
+                  "sub": "সবকিছু ছোট রাখুন",
+                  "note": "দ্রুত স্টোরেজের একটি ছোট সেটে পৌঁছানো বড় সেটের চেয়ে দ্রুত।",
+                  "example": "MIPS-এ 32টি register আছে, হাজার হাজার নয়।"
+                },
+                {
+                  "label": "সাধারণ ক্ষেত্রকে দ্রুত করুন",
+                  "sub": "যা সবচেয়ে বেশি ঘটে তাকে উন্নত করুন",
+                  "note": "ঘন ঘন ঘটা ক্ষেত্র বিশেষ সহায়তা পাওয়ার যোগ্য।",
+                  "example": "ধ্রুবক খুব সাধারণ, তাই add-immediate instruction আছে।"
+                },
+                {
+                  "label": "ভালো ডিজাইনে চাই ভালো আপস",
+                  "sub": "লক্ষ্যগুলোর ভারসাম্য রাখুন",
+                  "note": "প্রতিটি দিকে নিখুঁত হওয়া অসম্ভব, তাই ডিজাইনাররা একটি যুক্তিসংগত মাঝামাঝি বেছে নেন।",
+                  "example": "MIPS প্রতিটি instruction 32 bit রাখে এবং মাত্র কয়েকটি ফরম্যাট ব্যবহার করে।"
+                }
+              ]
+            }
+          ],
+          "why": "প্রথম, দ্বিতীয় ও চতুর্থ নীতি ব্যাখ্যা করে RISC কেন এমন দেখায়; তৃতীয়টি Amdahl's Law-এ দেখা একই ধারণা।",
+          "notes": {
+            "explain": "এই নীতির নামগুলো পাঠ্যবই থেকে নেওয়া। শিক্ষার্থীরা উদাহরণ দিলে নিজেদের উদাহরণ ব্যবহার করুন।"
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "risc",
+          "skill": "Analyze",
+          "question": "একটি CISC ধাঁচের প্রোগ্রামে instruction কম লাগে, কিন্তু প্রতিটি বেশি cycle নেয়। একটি RISC ধাঁচের প্রোগ্রামে instruction বেশি লাগে, প্রতিটি আরও সরল। কোনটি দ্রুত চলে?",
+          "options": [
+            "CISC সবসময় জেতে কারণ এতে instruction কম",
+            "RISC সবসময় জেতে কারণ এর CPI কম",
+            "এটি instruction count, CPI ও clock cycle time তিনটির সম্মিলিত ফলের ওপর নির্ভর করে",
+            "দুটির সময় সবসময় সমান"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "",
+                "Instruction count",
+                "CPI",
+                "Clock cycle time"
+              ],
+              "rows": [
+                [
+                  "CISC ধাঁচ",
+                  "কম",
+                  "বেশি",
+                  "প্রায়ই দীর্ঘতর"
+                ],
+                [
+                  "RISC ধাঁচ",
+                  "বেশি",
+                  "কম",
+                  "প্রায়ই ছোট"
+                ]
+              ]
+            },
+            {
+              "type": "text",
+              "text": "CPU time = **Instruction count × CPI × Clock cycle time**: তিনটি ফ্যাক্টরই গুরুত্বপূর্ণ।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "কোনো একটি ফ্যাক্টর একা সিদ্ধান্ত নেয় না। ক্লাস 3-এর মতোই তিনটিকে গুণ করতে হবে।"
+        },
+        {
+          "type": "concept",
+          "concept": "risc",
+          "title": "নিজে করে দেখুন: RISC বনাম CISC",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "দুই ধাঁচের CPU time (কাল্পনিক সংখ্যা, প্রকৃত চিপ নয়)",
+              "equation": "**CPU time = Instruction count × CPI ÷ Clock rate**",
+              "inputs": [
+                {
+                  "id": "icc",
+                  "label": "CISC instruction count",
+                  "value": 100,
+                  "min": 50,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "million"
+                },
+                {
+                  "id": "cpic",
+                  "label": "CISC CPI",
+                  "value": 3,
+                  "min": 1,
+                  "max": 6,
+                  "step": 0.1
+                },
+                {
+                  "id": "clkc",
+                  "label": "CISC clock rate",
+                  "value": 2,
+                  "min": 1,
+                  "max": 4,
+                  "step": 0.1,
+                  "unit": "GHz"
+                },
+                {
+                  "id": "icr",
+                  "label": "RISC instruction count",
+                  "value": 130,
+                  "min": 50,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "million"
+                },
+                {
+                  "id": "cpir",
+                  "label": "RISC CPI",
+                  "value": 1.4,
+                  "min": 1,
+                  "max": 6,
+                  "step": 0.1
+                },
+                {
+                  "id": "clkr",
+                  "label": "RISC clock rate",
+                  "value": 2.4,
+                  "min": 1,
+                  "max": 4,
+                  "step": 0.1,
+                  "unit": "GHz"
+                }
+              ],
+              "results": [
+                {
+                  "label": "CISC ধাঁচের CPU time",
+                  "formula": "icc*1e6*cpic/(clkc*1e9)",
+                  "format": "time",
+                  "better": "lower"
+                },
+                {
+                  "label": "RISC ধাঁচের CPU time",
+                  "formula": "icr*1e6*cpir/(clkr*1e9)",
+                  "format": "time",
+                  "better": "lower"
+                },
+                {
+                  "label": "RISC ধাঁচ যত গুণ দ্রুত",
+                  "formula": "(icc*cpic/clkc)/(icr*cpir/clkr)",
+                  "format": "x",
+                  "digits": 2
+                }
+              ],
+              "trace": "CISC {r0}   RISC {r1}   RISC speedup {r2}"
+            }
+          ],
+          "why": "একবারে একটি স্লাইডার নাড়ান। RISC instruction count বাড়লে তা কম CPI বা দ্রুততর ক্লক দিয়ে পুষিয়ে যেতে পারে।",
+          "notes": {
+            "explain": "শিক্ষার্থীদের বলুন শুধু একটি স্লাইডার বদলে CISC-কে জেতাতে। তারপর জিজ্ঞেস করুন সেই সেটিং বাস্তবসম্মত কি না।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "risc",
+          "title": "আজকের x86 ও Arm",
+          "blocks": [
+            {
+              "type": "timeline",
+              "items": [
+                {
+                  "when": "1978",
+                  "label": "Intel 8086",
+                  "note": "x86 পরিবারের সূচনা"
+                },
+                {
+                  "when": "1985",
+                  "label": "MIPS R2000",
+                  "note": "একটি প্রাথমিক বাণিজ্যিক RISC প্রসেসর"
+                },
+                {
+                  "when": "1985",
+                  "label": "প্রথম Arm প্রসেসর",
+                  "note": "Arm শুরু হয়েছিল একটি RISC ডিজাইন হিসেবে"
+                },
+                {
+                  "when": "1995",
+                  "label": "Pentium Pro",
+                  "note": "x86 চিপ জটিল instruction-কে সরলতর অভ্যন্তরীণ অপারেশনে রূপান্তর করতে শুরু করে"
+                },
+                {
+                  "when": "2003",
+                  "label": "x86-64",
+                  "note": "x86-এর 64-bit সম্প্রসারণ, যা প্রথম এনেছিল AMD"
+                }
+              ]
+            }
+          ],
+          "why": "আধুনিক x86 প্রসেসর সীমারেখা ঝাপসা করে দিয়েছে: ISA CISC ধাঁচের, কিন্তু ভেতরে চলে RISC-সদৃশ সরল অপারেশন।",
+          "deeper": {
+            "text": "প্রোগ্রামার যে ISA দেখেন আর হার্ডওয়্যার আসলে যে অপারেশন চালায়, তা আলাদা হতে পারে। Intel ও AMD চিপ প্রতিটি x86 instruction-কে এক বা একাধিক সরলতর অভ্যন্তরীণ অপারেশনে ডিকোড করে।"
+          },
+          "notes": {
+            "explain": "তারিখগুলো আনুমানিক এবং শুধু ধারণা দেওয়ার জন্য।"
+          }
+        },
+        {
+          "type": "discussion",
+          "title": "আলোচনা",
+          "concept": "risc",
+          "question": "ফোন নির্মাতারা RISC ISA বেছে নেয়, অথচ PC নির্মাতারা x86 ধরে রাখে কেন?",
+          "seconds": 60,
+          "ideas": [
+            "RISC ডিজাইন সরল, যা পাওয়ার দক্ষতায় সাহায্য করে।",
+            "x86 কয়েক দশকের বিদ্যমান সফটওয়্যার চালু রাখে।",
+            "আধুনিক x86 চিপ সরল অভ্যন্তরীণ অপারেশনে রূপান্তর করে, তাই ব্যবধান দেখতে যতটা, আসলে ততটা নয়।",
+            "ISA-র লেবেলের চেয়ে বাস্তবায়নের মানই প্রায়ই বেশি গুরুত্বপূর্ণ।"
+          ],
+          "notes": {
+            "explain": "ধারণাগুলো দেখানোর আগে দলগুলোকে দুই পক্ষে তর্ক করতে দিন।"
+          }
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "অনুশীলন",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "isa",
+          "skill": "Remember",
+          "think": 25,
+          "question": "ISA কী, এবং একে কেন সফটওয়্যার/হার্ডওয়্যার ইন্টারফেস বলা হয়?",
+          "answer": "ISA হলো সেই instruction, register, মেমরি মডেল ও ডেটা টাইপের সেট, যা দিয়ে সফটওয়্যার হার্ডওয়্যারকে নিয়ন্ত্রণ করে। এটি সফটওয়্যারের (যা এর ওপর ভিত্তি করে তৈরি) আর হার্ডওয়্যারের (যা একে বাস্তবায়ন করে) মাঝখানে থাকে।",
+          "solution": "কম্পাইলার ISA-নির্ধারিত instruction তৈরি করে; ISA বাস্তবায়নকারী যেকোনো প্রসেসর সেগুলো চালাতে পারে। এই সাধারণ সীমানার কারণেই একে ইন্টারফেস বলা হয়।"
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "classes",
+          "skill": "Apply",
+          "think": 40,
+          "question": "প্রতিটি MIPS instruction-কে arithmetic, logical, data transfer বা control flow হিসেবে শ্রেণিবদ্ধ করুন:\n(a) add  (b) lw  (c) beq  (d) and  (e) sw  (f) j",
+          "answer": "(a) arithmetic, (b) data transfer, (c) control flow, (d) logical, (e) data transfer, (f) control flow।",
+          "solution": "add হিসাব করে; lw ও sw মেমরি ও register-এর মধ্যে ডেটা সরায়; beq ও j পরবর্তী কোন instruction চলবে তা বদলায়; and একটি bitwise logical অপারেশন।",
+          "mistake": "lw অ্যাড্রেস হিসাব করে বলে একে arithmetic instruction বলা।"
+        },
+        {
+          "type": "find",
+          "concept": "loadstore",
+          "skill": "Analyze",
+          "title": "ভুলটি খুঁজুন",
+          "prompt": "একটি বক্তব্য ভুল। সেটিতে ক্লিক করুন।",
+          "lines": [
+            "1. Load/store আর্কিটেকচারে arithmetic instruction সরাসরি মেমরি অপারেন্ড ব্যবহার করতে পারে।",
+            "2. Load/store আর্কিটেকচারে শুধু load ও store মেমরি অ্যাক্সেস করে।",
+            "3. MIPS-এ 32টি general-purpose register আছে।",
+            "4. 32টি register-এর একটির নাম দিতে 5 bit লাগে।"
+          ],
+          "wrong": 0,
+          "explain": "Load/store আর্কিটেকচারে arithmetic instruction শুধু register-এর ওপর কাজ করে। Register-memory ডিজাইনে মেমরি অপারেন্ড অনুমোদিত।",
+          "fix": "Arithmetic instruction শুধু register ব্যবহার করে; load ও store মেমরি অ্যাক্সেস করে।"
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "styles",
+          "skill": "Analyze",
+          "think": 75,
+          "question": "a = b + c − d-এর জন্য (চারটি ভেরিয়েবলই মেমরিতে), (i) একটি load/store মেশিন ও (ii) একটি accumulator মেশিনের কতগুলো instruction লাগে তা গুনুন।",
+          "hint": "Load/store: প্রতিটি অপারেন্ড আগে register-এ load করতে হবে। Accumulator: একটি অপারেন্ড আগে থেকেই accumulator-এ আছে।",
+          "answer": "Load/store: 6টি instruction। Accumulator: 4টি instruction।",
+          "solution": "Load/store: load b; load c; add; load d; subtract; store a = 6।\nAccumulator: load b; add c; subtract d; store a = 4।",
+          "mistake": "শেষের store ভুলে যাওয়া, অথবা d দরকারের আগেই load করা।"
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "loadstore",
+          "skill": "Apply",
+          "title": "পরীক্ষার অনুশীলন: সংখ্যাভিত্তিক",
+          "think": 75,
+          "question": "একটি নতুন ডিজাইন করা ISA-তে 32-এর বদলে 64টি register আছে। একটি register-এর নাম দিতে কত bit লাগে, এবং তিনটি register-এর নাম থাকা একটি instruction কত bit বাড়ে?",
+          "answer": "5-এর বদলে প্রতি register-এ 6 bit, তাই তিন-register instruction 3 bit বাড়ে (18 বনাম 15)।",
+          "solution": "2⁶ = 64, তাই প্রতি register-এ 6 bit। তিনটি register-এ 15-এর বদলে 18 bit লাগে, অর্থাৎ 3 bit বৃদ্ধি।",
+          "mistake": "bit-এর সংখ্যার বদলে 64 বা 32 (register-এর সংখ্যা) লেখা।"
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "risc",
+          "skill": "Evaluate",
+          "title": "পরীক্ষার অনুশীলন: পারফরম্যান্স হিসাব",
+          "think": 120,
+          "question": "একটি প্রোগ্রামের CISC ধাঁচের সংস্করণ CPI 3.5-এ 8 × 10⁸ instruction এক্সিকিউট করে। RISC ধাঁচের সংস্করণ CPI 1.5-এ 1.2 × 10⁹ instruction এক্সিকিউট করে। দুটি মেশিনই 2 GHz-এ চলে। কোনটি দ্রুত, এবং কতটা?",
+          "hint": "CPU time = instruction count × CPI ÷ clock rate।",
+          "answer": "RISC ধাঁচের সংস্করণ দ্রুত: প্রায় 1.56 গুণ (0.9 s বনাম 1.4 s)।",
+          "solution": "CISC: 8×10⁸ × 3.5 ÷ (2×10⁹) = 1.4 s।\nRISC: 1.2×10⁹ × 1.5 ÷ (2×10⁹) = 0.9 s।\nSpeedup = 1.4 ÷ 0.9 ≈ 1.56।",
+          "mistake": "instruction কম বলে CISC বেছে নেওয়া।"
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "risc",
+          "skill": "Understand",
+          "title": "পরীক্ষার অনুশীলন: ধারণাভিত্তিক",
+          "think": 90,
+          "question": "চারটি বিষয়ে RISC ও CISC-এর তুলনা করুন: instruction-এর জটিলতা, instruction-এর দৈর্ঘ্য, মেমরি অ্যাক্সেস ও হার্ডওয়্যারের জটিলতা।",
+          "answer": "RISC: সরল instruction, নির্দিষ্ট দৈর্ঘ্য, শুধু load ও store মেমরি অ্যাক্সেস করে, সরল হার্ডওয়্যার। CISC: জটিল instruction, পরিবর্তনশীল দৈর্ঘ্য, সাধারণ instruction মেমরি অ্যাক্সেস করতে পারে, জটিলতর হার্ডওয়্যার।",
+          "solution": "ভালো উত্তরে চারটি বিষয়ই থাকে এবং ট্রেড-অফটিও যোগ হয়: RISC-এ instruction বেশি লাগে কিন্তু প্রতিটি সরল; CISC-এ instruction কম লাগে কিন্তু প্রতিটি জটিলতর। কোনটি দ্রুত তা ঠিক করে CPU সমীকরণ।",
+          "mistake": "RISC প্রোগ্রামে instruction কম বলা।"
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "classes",
+          "skill": "Apply",
+          "title": "পরীক্ষার অনুশীলন: MIPS-এ রূপান্তর",
+          "think": 90,
+          "question": "ভেরিয়েবল x, y, z ও w যথাক্রমে register $s0, $s1, $s2 ও $s3-এ আছে। x = (y + z) − w-এর জন্য MIPS instruction লিখুন। অস্থায়ী register হিসেবে $t0 ব্যবহার করতে পারেন।",
+          "hint": "আগে যোগ করুন এবং মধ্যবর্তী ফলাফল $t0-তে রাখুন।",
+          "answer": "add $t0, $s1, $s2\nsub $s0, $t0, $s3",
+          "solution": "add y + z-কে $t0-তে রাখে। এরপর sub $t0 থেকে w ($s3) বিয়োগ করে ফলাফল x-এ ($s0) রাখে। MIPS arithmetic instruction-এ সবসময় ঠিক তিনটি অপারেন্ড থাকে, তাই দুটি instruction লাগে।",
+          "mistake": "চারটি অপারেন্ডসহ একটি instruction লেখার চেষ্টা করা।"
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "পর্যালোচনা",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "সবকিছু কীভাবে যুক্ত",
+          "root": "Instruction set architecture",
+          "branches": [
+            {
+              "label": "ISA",
+              "example": "সফটওয়্যার/হার্ডওয়্যার চুক্তি",
+              "section": "isa"
+            },
+            {
+              "label": "Instruction",
+              "example": "Arithmetic · Logic · Data transfer · Control",
+              "section": "classes"
+            },
+            {
+              "label": "অপারেন্ড স্টোরেজ",
+              "example": "Stack · Accumulator · Register-memory · Load/store",
+              "section": "styles"
+            },
+            {
+              "label": "RISC বনাম CISC",
+              "example": "সরল বনাম জটিল",
+              "section": "risc"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "যা মনে রাখবেন",
+          "remember": [
+            "ISA হলো সফটওয়্যার/হার্ডওয়্যার ইন্টারফেস: instruction, register, মেমরি মডেল, ডেটা টাইপ।",
+            "অনেক আলাদা হার্ডওয়্যার ডিজাইন একটি ISA বাস্তবায়ন করতে পারে।",
+            "Instruction arithmetic, logical, data transfer ও control flow শ্রেণিতে পড়ে।",
+            "অপারেন্ড থাকে register-এ, মেমরিতে অথবা immediate হিসেবে।",
+            "MIPS একটি load/store আর্কিটেকচার, 32টি register সহ; একটির নাম দিতে 5 bit লাগে।",
+            "RISC: সরল, নির্দিষ্ট দৈর্ঘ্য, load/store। CISC: জটিল, পরিবর্তনশীল দৈর্ঘ্য, মেমরি অপারেন্ড।",
+            "কোনটি দ্রুত তা শুধু CPU সমীকরণই বলে দেয়।"
+          ]
+        },
+        {
+          "type": "review",
+          "title": "সাধারণ ভুল",
+          "mistakes": [
+            {
+              "wrong": "ISA চিপের একটি অংশ।",
+              "right": "ISA হলো স্পেসিফিকেশন; চিপ তা বাস্তবায়ন করে।"
+            },
+            {
+              "wrong": "RISC প্রোগ্রাম ছোট।",
+              "right": "RISC প্রোগ্রামে সাধারণত বেশি instruction লাগে।"
+            },
+            {
+              "wrong": "কম instruction মানেই সবসময় দ্রুত।",
+              "right": "CPU time নির্ভর করে instruction count, CPI ও cycle time তিনটির সম্মিলিত ফলের ওপর।"
+            },
+            {
+              "wrong": "MIPS-এ arithmetic instruction মেমরি পড়ে।",
+              "right": "MIPS arithmetic register ব্যবহার করে; শুধু lw ও sw মেমরি অ্যাক্সেস করে।"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "এক মিনিটের সারসংক্ষেপ",
+          "summary": "Instruction set architecture হলো সফটওয়্যার ও হার্ডওয়্যারের মধ্যকার চুক্তি: সফটওয়্যার যে instruction, register, মেমরি মডেল ও ডেটা টাইপ ব্যবহার করতে পারে। Instruction হয় arithmetic, logical, data transfer বা control flow, এবং অপারেন্ড থাকে register-এ, মেমরিতে বা instruction-এর ভেতরে। MIPS একটি load/store ডিজাইন, 32টি register সহ। RISC ও CISC বিপরীত বাজি ধরে, আর কোনটি জিতবে তা নির্দিষ্ট ডিজাইনের জন্য CPU পারফরম্যান্স সমীকরণ ঠিক করে।"
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "কুইজ",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "চূড়ান্ত কুইজ",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "isa",
+              "question": "Instruction set architecture কী?",
+              "options": [
+                "যে instruction, register ও নিয়ম দিয়ে সফটওয়্যার হার্ডওয়্যারকে নিয়ন্ত্রণ করে",
+                "চিপ যে উপাদান দিয়ে তৈরি",
+                "ক্লকের গতি",
+                "মেমরির সাইজ"
+              ],
+              "answer": 0,
+              "why": "ISA হলো সফটওয়্যার/হার্ডওয়্যার ইন্টারফেস।",
+              "misconception": "অন্য অপশনগুলো হার্ডওয়্যারের খুঁটিনাটি বর্ণনা করে, সফটওয়্যার যে ইন্টারফেসের ওপর নির্ভর করে তা নয়।"
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "classes",
+              "statement": "MIPS instruction lw একটি data transfer instruction।",
+              "answer": true,
+              "why": "lw মেমরি থেকে একটি word register-এ load করে।",
+              "misconception": "যে instruction মেমরি ও register-এর মধ্যে ডেটা সরায়, সেগুলো data transfer instruction।"
+            },
+            {
+              "level": "easy",
+              "concept": "styles",
+              "question": "Load/store আর্কিটেকচারে কোন instruction মেমরি অ্যাক্সেস করতে পারে?",
+              "options": [
+                "শুধু load ও store",
+                "সব arithmetic instruction",
+                "শুধু branch",
+                "প্রতিটি instruction"
+              ],
+              "answer": 0,
+              "why": "শুধু load ও store মেমরিতে পৌঁছায়; arithmetic register-এর ওপর কাজ করে।",
+              "misconception": "Arithmetic-কে সরাসরি মেমরি ব্যবহার করতে দেওয়া হলো register-memory মেশিনের বর্ণনা।"
+            },
+            {
+              "level": "medium",
+              "concept": "loadstore",
+              "question": "4 bit দিয়ে কতগুলো register-এর নাম দেওয়া যায়?",
+              "options": [
+                "4",
+                "8",
+                "16",
+                "32"
+              ],
+              "answer": 2,
+              "why": "2⁴ = 16।",
+              "misconception": "নামের সংখ্যা হলো 2-এর পাওয়ার bit-সংখ্যা, bit-সংখ্যা নিজে নয়।"
+            },
+            {
+              "level": "medium",
+              "concept": "classes",
+              "question": "`lw $t0, 8($s1)`-এ ডেটা কোথা থেকে load হচ্ছে?",
+              "options": [
+                "মূল মেমরি",
+                "একটি register",
+                "instruction নিজে",
+                "প্রোগ্রাম কাউন্টার"
+              ],
+              "answer": 0,
+              "why": "$s1-এর মানের সাথে 8 যোগ করে যে মেমরি অ্যাড্রেস পাওয়া যায়, lw সেখান থেকে load করে।",
+              "misconception": "ডেটা আসে মেমরি থেকে; register $s1 শুধু অ্যাড্রেসের একটি অংশ ধরে রাখে।"
+            },
+            {
+              "level": "medium",
+              "concept": "styles",
+              "question": "x = y + z-এর জন্য (সবকিছু মেমরিতে) একটি accumulator মেশিনের কতগুলো instruction লাগে?",
+              "options": [
+                "2",
+                "3",
+                "4",
+                "5"
+              ],
+              "answer": 1,
+              "why": "load y; add z; store x মানে 3টি instruction।",
+              "misconception": "Accumulator-এ আগে থেকেই একটি অপারেন্ড থাকে, তাই দ্বিতীয় load লাগে না।"
+            },
+            {
+              "level": "hard",
+              "concept": "risc",
+              "question": "RISC সম্পর্কে কোন বক্তব্যটি সত্য?",
+              "options": [
+                "Instruction সরল ও নির্দিষ্ট দৈর্ঘ্যের, তাই প্রোগ্রামে প্রায়ই বেশি instruction লাগে",
+                "প্রোগ্রামে সবসময় CISC-এর চেয়ে কম instruction লাগে",
+                "Arithmetic instruction সাধারণত মেমরি অপারেন্ড ব্যবহার করে",
+                "Instruction-এর দৈর্ঘ্য ব্যাপকভাবে ভিন্ন হয়"
+              ],
+              "answer": 0,
+              "why": "সরল, নিয়মিত instruction-ই RISC-এর মূল কথা, যার মূল্য বেশি instruction count।",
+              "misconception": "কম instruction ও মেমরি অপারেন্ড CISC-কে বর্ণনা করে।"
+            },
+            {
+              "level": "hard",
+              "concept": "risc",
+              "question": "একটি CISC ধাঁচের সংস্করণে instruction 20% কম লাগে, কিন্তু একই ক্লকে এর CPI 50% বেশি। RISC ধাঁচের সংস্করণের তুলনায় এর CPU time…",
+              "options": [
+                "20% দ্রুত",
+                "20% ধীর",
+                "একই",
+                "50% ধীর"
+              ],
+              "answer": 1,
+              "why": "সময় বদলায় 0.8 × 1.5 = 1.2 গুণ, তাই 20% বেশি সময় লাগে।",
+              "misconception": "অনুপাতগুলো গুণ করুন: instruction কম হওয়া সাহায্য করে, কিন্তু বেশি CPI ক্ষতি করে আরও বেশি।"
+            },
+            {
+              "level": "challenge",
+              "concept": "risc",
+              "question": "x86 একটি CISC ধাঁচের ISA হওয়া সত্ত্বেও ল্যাপটপ ও সার্ভারে এখনো ব্যাপকভাবে ব্যবহৃত হয় কেন?",
+              "options": [
+                "বিপুল পরিমাণ বিদ্যমান সফটওয়্যার এর ওপর নির্ভরশীল, এবং আধুনিক চিপ সরল অভ্যন্তরীণ অপারেশন চালায়",
+                "CISC সবসময় RISC-এর চেয়ে দ্রুত",
+                "এতে register অনেক কম, যা সস্তা",
+                "RISC কোনো বাস্তব প্রোগ্রাম চালাতে পারে না"
+              ],
+              "answer": 0,
+              "why": "সফটওয়্যার compatibility এবং সরল অপারেশনে অভ্যন্তরীণ রূপান্তর x86-কে প্রতিযোগিতামূলক রাখে।",
+              "misconception": "কোনো ISA সবসময় দ্রুত নয়; বাস্তবায়ন ও compatibility অন্তত ততটাই গুরুত্বপূর্ণ।"
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "মনে আছে কি?",
+          "items": [
+            {
+              "q": "ISA কী?",
+              "a": "যে instruction, register, মেমরি মডেল ও ডেটা টাইপ দিয়ে সফটওয়্যার হার্ডওয়্যারকে নিয়ন্ত্রণ করে: সফটওয়্যার/হার্ডওয়্যার ইন্টারফেস।",
+              "concept": "isa"
+            },
+            {
+              "q": "চারটি instruction শ্রেণি ও তিন ধরনের অপারেন্ডের নাম বলুন।",
+              "a": "Arithmetic, logical, data transfer, control flow। Register, মেমরি, immediate।",
+              "concept": "classes"
+            },
+            {
+              "q": "Load/store আর্কিটেকচার কী?",
+              "a": "শুধু load ও store instruction মেমরি অ্যাক্সেস করে; arithmetic register-এর ওপর কাজ করে।",
+              "concept": "styles"
+            },
+            {
+              "q": "32টি register-এর একটির নাম দিতে কত bit লাগে, এবং কেন?",
+              "a": "5 bit, কারণ 2^5 = 32।",
+              "concept": "loadstore"
+            },
+            {
+              "q": "এক বাক্যে RISC ও CISC-এর তুলনা করুন।",
+              "a": "RISC সরল, নির্দিষ্ট দৈর্ঘ্যের, load/store instruction ব্যবহার করে; CISC মেমরি ব্যবহার করতে পারে এমন জটিল, পরিবর্তনশীল দৈর্ঘ্যের instruction ব্যবহার করে। কোনটি দ্রুত তা CPU সমীকরণ ঠিক করে।",
+              "concept": "risc"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "আপনার শেখার রিপোর্ট"
+        }
+      ]
+    }
+  ]
+}

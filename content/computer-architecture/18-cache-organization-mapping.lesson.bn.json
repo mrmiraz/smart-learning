@@ -1,0 +1,1327 @@
+{
+  "id": "ca-18-cache-organization",
+  "title": "Cache অর্গানাইজেশন ও ম্যাপিং",
+  "subtitle": "Tag, index, offset এবং একটি block বসানোর তিনটি উপায়।",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "5",
+      "title": "Large and Fast: Exploiting Memory Hierarchy",
+      "topics": "cache-এর মূল কথা: direct-mapped cache, tag ও valid bit, hit ও miss সামলানো; associative cache: set-associative ও fully associative বসানো"
+    }
+  ],
+  "objectives": [
+    "block, line, tag, index, offset ও valid bit সংজ্ঞায়িত করুন",
+    "একটি অ্যাড্রেসকে tag, index ও offset-এ ভাগ করুন",
+    "direct-mapped, set-associative ও fully associative cache-এ hit ও miss ট্রেস করুন",
+    "associativity কীভাবে conflict miss দূর করে তা ব্যাখ্যা করুন",
+    "tag bit এবং cache-এর মোট স্টোরেজ হিসাব করুন"
+  ],
+  "concepts": [
+    {
+      "id": "anatomy",
+      "label": "Cache-এর গঠন",
+      "section": "anatomy"
+    },
+    {
+      "id": "direct",
+      "label": "Direct-mapped cache",
+      "section": "direct"
+    },
+    {
+      "id": "assoc",
+      "label": "Associative cache",
+      "section": "assoc"
+    },
+    {
+      "id": "size",
+      "label": "আকার ও স্টোরেজ",
+      "section": "size"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "সূচনা",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "একটি cache-এ শত কোটি অ্যাড্রেসের মধ্যে মাত্র কয়েক হাজার block থাকে। আপনার দরকারি block-টি সেখানে আছে কি না, হার্ডওয়্যার একটিমাত্র cycle-এ তা কীভাবে যাচাই করে?",
+          "clues": [
+            "প্রতিটি অ্যাড্রেস **একটিমাত্র জায়গায়** (বা অল্প কয়েকটি জায়গার একটি সেটে) ম্যাপ হয়।",
+            "একটি **tag** বলে দেয় এখন সেখানে কোন block আছে।",
+            "অ্যাড্রেসটিকেই **tag, index ও offset**-এ কেটে ভাগ করা হয়।"
+          ],
+          "notes": {
+            "explain": "ক্লু দেখানোর আগে শিক্ষার্থীদের অনুমান করতে দিন।"
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "উদ্দেশ্যগুলো জোরে পড়ুন; এগুলো লার্নিং রিপোর্টে ফিরে আসবে।"
+          }
+        }
+      ]
+    },
+    {
+      "id": "anatomy",
+      "label": "Cache-এর গঠন",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "anatomy",
+          "title": "পরিভাষা",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "পরিভাষা",
+                "অর্থ"
+              ],
+              "rows": [
+                [
+                  "Block",
+                  "মেমরি ও cache-এর মধ্যে যে একক কপি হয় (পাশাপাশি কয়েকটি byte)"
+                ],
+                [
+                  "Line",
+                  "cache-এর একটি জায়গা, যা একটি block ধরে রাখতে পারে"
+                ],
+                [
+                  "Valid bit",
+                  "line-এ আসল ডেটা থাকলে 1, ফাঁকা থাকলে 0 (যেমন স্টার্ট-আপের সময়)"
+                ],
+                [
+                  "Tag",
+                  "block অ্যাড্রেসের উঁচু bit-গুলো, যা line-এর সঙ্গে সংরক্ষিত থাকে এবং বলে দেয় এটি কোন block"
+                ],
+                [
+                  "Index",
+                  "যে অ্যাড্রেস bit-গুলো line (বা set) বেছে নেয়"
+                ],
+                [
+                  "Offset",
+                  "যে নিচু অ্যাড্রেস bit-গুলো block-এর ভেতরের byte বেছে নেয়"
+                ]
+              ]
+            }
+          ],
+          "why": "প্রতিটি cache lookup ঠিক এই অংশগুলোই ব্যবহার করে।",
+          "real": "যখনই একটি cache-কে \"32 KB, 8-way, 64-byte line\" বলে বর্ণনা করা হয়, তখন এই ক্ষেত্রগুলো নির্ধারণকারী সংখ্যাগুলোই দেওয়া হচ্ছে।",
+          "explainAgain": {
+            "beginner": "একটি হোটেল: index হলো তলা, tag হলো রেজিস্টারে অতিথির নাম, আর offset হলো ঘরের ভেতরের বিছানা।"
+          },
+          "notes": {
+            "terms": [
+              "**block** / **line**",
+              "**tag**",
+              "**index**",
+              "**offset**",
+              "**valid bit**"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "anatomy",
+          "title": "একটি অ্যাড্রেস কেটে ভাগ করা",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Address",
+                  "sub": "n bit",
+                  "note": "CPU একটি অ্যাড্রেস পাঠায়।"
+                },
+                {
+                  "label": "Offset",
+                  "sub": "নিচু bit",
+                  "note": "log2(block size) bit: block-এর ভেতরের byte।"
+                },
+                {
+                  "label": "Index",
+                  "sub": "পরের bit",
+                  "note": "log2(set-এর সংখ্যা) bit: কোন line বা set।"
+                },
+                {
+                  "label": "Tag",
+                  "sub": "বাকি উঁচু bit",
+                  "note": "line-এ সংরক্ষিত tag-এর সঙ্গে তুলনা করা হয়।"
+                }
+              ],
+              "zoom": true
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "offset bit = log2(block size, byte-এ)",
+                  "note": "যেমন 16-byte block: 4 bit"
+                },
+                {
+                  "t": "index bit = log2(set-এর সংখ্যা)",
+                  "note": "set = line ÷ associativity"
+                },
+                {
+                  "t": "tag bit = অ্যাড্রেস bit − index bit − offset bit",
+                  "note": "বাকিটা"
+                }
+              ]
+            }
+          ],
+          "why": "ভাগটি cache-এর ডিজাইনেই ঠিক করা, তাই হার্ডওয়্যার কোনো হিসাব ছাড়াই শুধু তারের মাধ্যমে প্রতিটি ক্ষেত্র আলাদা করে নিতে পারে।",
+          "real": "এ কারণেই cache size ও block size সবসময় 2-এর ঘাত হয়।",
+          "mistake": {
+            "wrong": "Index আসে অ্যাড্রেসের সবচেয়ে উঁচু bit থেকে।",
+            "right": "Tag সবচেয়ে উঁচু bit-গুলো নেয়; index থাকে offset-এর ঠিক ওপরে।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "anatomy",
+          "title": "চেষ্টা করুন: একটি অ্যাড্রেস ভাগ করুন",
+          "blocks": [
+            {
+              "type": "walkthrough",
+              "title": "Tag, index ও offset",
+              "inputs": [
+                {
+                  "id": "addr",
+                  "label": "Address (16 bit)",
+                  "value": 4660,
+                  "min": 0,
+                  "max": 65535,
+                  "step": 4
+                },
+                {
+                  "id": "ob",
+                  "label": "Offset bit (block = 2^n byte)",
+                  "value": 4,
+                  "min": 2,
+                  "max": 6,
+                  "step": 1
+                },
+                {
+                  "id": "ib",
+                  "label": "Index bit (set = 2^n)",
+                  "value": 3,
+                  "min": 0,
+                  "max": 6,
+                  "step": 1
+                }
+              ],
+              "stages": [
+                {
+                  "label": "Address",
+                  "text": "`{addr|hex4}` = `{addr|bin16}`"
+                },
+                {
+                  "label": "Offset",
+                  "text": "নিচু {ob}টি bit: **{mod(addr, pow(2, ob))}**"
+                },
+                {
+                  "label": "Index",
+                  "text": "পরের {ib}টি bit: **{mod(floor(addr / pow(2, ob)), pow(2, ib))}**"
+                },
+                {
+                  "label": "Tag",
+                  "text": "বাকি {16 - ob - ib}টি bit: **{floor(addr / pow(2, ob + ib))}**"
+                }
+              ],
+              "result": "{addr|hex4}: tag {floor(addr / pow(2, ob + ib))}, index {mod(floor(addr / pow(2, ob)), pow(2, ib))}, offset {mod(addr, pow(2, ob))}",
+              "note": "ডিফল্ট হলো 0x1234, 16-byte block ও 8টি line (direct-mapped): tag 36, index 3, offset 4।"
+            }
+          ],
+          "why": "offset বা index bit-এর সংখ্যা বদলান এবং দেখুন কোন ক্ষেত্রটি বড় হয়।"
+        },
+        {
+          "type": "predict",
+          "concept": "anatomy",
+          "skill": "Apply",
+          "question": "একটি direct-mapped cache-এ 8টি line ও 16-byte block। 0x1234 অ্যাড্রেসটি কোন index ব্যবহার করে?",
+          "options": [
+            "3",
+            "4",
+            "36",
+            "8"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Offset = 0x1234 mod 16 = 4। Block number = 0x1234 ÷ 16 = 291। Index = 291 mod 8 = **3**। Tag = 291 ÷ 8 = 36।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Index = block number mod set-এর সংখ্যা।"
+        },
+        {
+          "type": "mcq",
+          "concept": "anatomy",
+          "question": "একটি cache-এ 16-byte block। offset bit কয়টি?",
+          "options": [
+            "4",
+            "16",
+            "2",
+            "8"
+          ],
+          "answer": 0,
+          "why": "log2(16) = 4 bit।",
+          "feedback": [
+            "",
+            "16 হলো block size, bit-এর সংখ্যা নয়।",
+            "সেটি হতো 4-byte block।",
+            "8 bit হলে সেটি 256-byte block হতো।"
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "anatomy",
+          "skill": "Understand",
+          "title": "মিনি চ্যালেঞ্জ",
+          "prompt": "প্রতিটি ক্ষেত্রকে তার কাজের সঙ্গে মেলান।",
+          "pairs": [
+            {
+              "a": "Offset",
+              "b": "block-এর ভেতরের byte বেছে নেয়"
+            },
+            {
+              "a": "Index",
+              "b": "line বা set বেছে নেয়"
+            },
+            {
+              "a": "Tag",
+              "b": "কোন block সংরক্ষিত আছে তা চিহ্নিত করে"
+            },
+            {
+              "a": "Valid bit",
+              "b": "line-এ আসল ডেটা আছে কি না তা বলে"
+            }
+          ],
+          "why": "একটি lookup চারটিই ব্যবহার করে।"
+        }
+      ]
+    },
+    {
+      "id": "direct",
+      "label": "Direct-mapped cache",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "direct",
+          "title": "একটি block, একটি line",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "প্রতিটি মেমরি block যেতে পারে **ঠিক একটি line-এ**: index = block number mod line-এর সংখ্যা",
+                "Lookup: index দিয়ে একটি line পড়ুন; তার tag-কে অ্যাড্রেসের tag-এর সঙ্গে মেলান; valid bit দেখুন",
+                "মিলল এবং valid: **hit**। নইলে **miss**: block ফেচ করুন এবং আগে যা ছিল তা সরিয়ে বসান",
+                "সহজ, দ্রুত ও সস্তা: মাত্র **একটি** tag তুলনা"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "ধাপ",
+                "কাজ"
+              ],
+              "rows": [
+                [
+                  "1",
+                  "অ্যাড্রেস ভাগ করুন"
+                ],
+                [
+                  "2",
+                  "index-এর line পড়ুন"
+                ],
+                [
+                  "3",
+                  "Valid এবং tag সমান? Hit: offset দিয়ে ডেটা বেছে নিন"
+                ],
+                [
+                  "4",
+                  "নইলে miss: পরের স্তর থেকে block আনুন এবং tag + ডেটা সংরক্ষণ করুন"
+                ]
+              ]
+            }
+          ],
+          "why": "Direct mapping সবচেয়ে দ্রুত lookup দেয়, তবে একই line ভাগ করা block-গুলোর মধ্যে conflict-এর বিনিময়ে।",
+          "real": "ছোট, দ্রুত cache এবং TLB কখনো কখনো direct mapping ব্যবহার করে।",
+          "mistake": {
+            "wrong": "একটি cache line যেকোনো block ধরে রাখতে পারে।",
+            "right": "Direct-mapped cache-এ প্রতিটি block-এর জন্য ঠিক একটিই সম্ভাব্য line।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "direct",
+          "title": "একটি ট্রেস",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "Cache: **4টি line**, **4-byte block**, 8-bit অ্যাড্রেস। অ্যাড্রেস 0, 4, 8, 12, 0, 16, 0 অ্যাক্সেস করা হয়।"
+            },
+            {
+              "type": "table",
+              "head": [
+                "Address",
+                "Block",
+                "Index",
+                "Tag",
+                "ফলাফল"
+              ],
+              "rows": [
+                [
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "miss (compulsory)"
+                ],
+                [
+                  "4",
+                  "1",
+                  "1",
+                  "0",
+                  "miss (compulsory)"
+                ],
+                [
+                  "8",
+                  "2",
+                  "2",
+                  "0",
+                  "miss (compulsory)"
+                ],
+                [
+                  "12",
+                  "3",
+                  "3",
+                  "0",
+                  "miss (compulsory)"
+                ],
+                [
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "**hit**"
+                ],
+                [
+                  "16",
+                  "4",
+                  "0",
+                  "1",
+                  "miss: block 0 সরিয়ে দেয়"
+                ],
+                [
+                  "0",
+                  "0",
+                  "0",
+                  "0",
+                  "miss (conflict): block 4 এটিকে সরিয়ে দিয়েছিল"
+                ]
+              ]
+            }
+          ],
+          "why": "Block 0 ও 4 দুটিই line 0-তে ম্যাপ হয়, তাই তারা একে অপরকে সরিয়ে দিতে থাকে। একেই বলে **conflict miss**।",
+          "real": "Strided অ্যাক্সেস প্যাটার্নে এই সমস্যা প্রায়ই দেখা যায়।"
+        },
+        {
+          "type": "concept",
+          "concept": "direct",
+          "title": "চেষ্টা করুন: direct-mapped",
+          "blocks": [
+            {
+              "type": "cache",
+              "title": "Direct-mapped cache",
+              "config": {
+                "blockBytes": 4,
+                "lines": 4,
+                "addrBits": 8,
+                "assoc": 1
+              },
+              "controls": [
+                "assoc",
+                "lines",
+                "block"
+              ],
+              "sequences": [
+                {
+                  "name": "ওপরের ট্রেস",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    0,
+                    16,
+                    0
+                  ]
+                },
+                {
+                  "name": "Conflicts",
+                  "accesses": [
+                    0,
+                    16,
+                    0,
+                    16,
+                    0,
+                    16
+                  ]
+                },
+                {
+                  "name": "Sequential",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    16,
+                    20,
+                    24,
+                    28
+                  ]
+                },
+                {
+                  "name": "Reuse",
+                  "accesses": [
+                    0,
+                    4,
+                    0,
+                    4,
+                    8,
+                    0,
+                    4,
+                    8
+                  ]
+                }
+              ],
+              "hint": "**Trace above** ধাপে ধাপে চালান; তারপর **Conflicts** চালান (অ্যাড্রেস 0 ও 16 line 0 ভাগ করে)।"
+            }
+          ],
+          "why": "ট্রেসে 1টি hit ও 6টি miss হয়। Conflicts-এ: cache প্রায় ফাঁকা হওয়া সত্ত্বেও 6টি অ্যাক্সেসে 0টি hit।"
+        },
+        {
+          "type": "predict",
+          "concept": "direct",
+          "skill": "Apply",
+          "question": "এই direct-mapped cache-এ (4টি line, 4-byte block) অ্যাড্রেস 0 ও 16 পালাক্রমে পড়া হয়, মোট ছয়টি অ্যাক্সেস। hit কয়টি?",
+          "options": [
+            "0",
+            "2",
+            "4",
+            "6"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "দুটি অ্যাড্রেসই line 0-তে ম্যাপ হয় (block 0 ও 4, index 0)। প্রতিটি অ্যাক্সেস অন্যটির block সরিয়ে দেয়: **0টি hit**, 6টি miss, যার 4টি conflict miss।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "চারটি line-এর তিনটিই ফাঁকা থাকে। সমস্যা বসানোর (placement), ধারণক্ষমতার নয়।"
+        },
+        {
+          "type": "find",
+          "concept": "direct",
+          "skill": "Analyze",
+          "title": "ভুলটি খুঁজুন",
+          "prompt": "direct-mapped cache সম্পর্কে একটি বক্তব্য ভুল। সেটিতে ক্লিক করুন।",
+          "lines": [
+            "1. প্রতিটি block ঠিক একটি line-এ বসানো যায়।",
+            "2. Index হলো block number mod line-এর সংখ্যা।",
+            "3. একই index-এর দুটি block-ই cache-এ থেকে যেতে পারে।",
+            "4. প্রতি lookup-এ মাত্র একটি tag তুলনা দরকার।"
+          ],
+          "wrong": 2,
+          "explain": "একই index-এর দুটি block একটিমাত্র line-এর জন্য প্রতিযোগিতা করে, তাই একটিই থাকতে পারে।",
+          "fix": "যে block-গুলো একই index ভাগ করে, তারা একে অপরকে সরিয়ে দেয়।"
+        },
+        {
+          "type": "tf",
+          "concept": "direct",
+          "statement": "Valid bit 0 মানে line-এ ব্যবহারযোগ্য কোনো ডেটা নেই।",
+          "answer": true,
+          "why": "স্টার্ট-আপের পরে একটি ফাঁকা cache এভাবেই চেনা যায়।"
+        }
+      ]
+    },
+    {
+      "id": "assoc",
+      "label": "Associative cache",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "assoc",
+          "title": "বসানোয় আরও স্বাধীনতা",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "অর্গানাইজেশন",
+                "block যেখানে যেতে পারে",
+                "প্রতি lookup-এ তুলনা"
+              ],
+              "rows": [
+                [
+                  "Direct mapped (1-way)",
+                  "একটি line",
+                  "1"
+                ],
+                [
+                  "n-way set associative",
+                  "একটি set-এর n-টি line-এর যেকোনোটিতে (set = block mod set-এর সংখ্যা)",
+                  "n"
+                ],
+                [
+                  "Fully associative",
+                  "cache-এর যেকোনো line-এ",
+                  "সবগুলো line"
+                ]
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "set = line ÷ associativity",
+                  "note": "index একটি set বেছে নেয়, line নয়"
+                },
+                {
+                  "t": "fully associative: 1টি set, index bit = 0",
+                  "note": "tag = offset-এর ওপরের সব bit"
+                }
+              ]
+            }
+          ],
+          "why": "প্রতিটি block-এর জন্য বেশি বিকল্প মানে, যেসব block ঘটনাক্রমে একই index ভাগ করে তাদের মধ্যে কম eviction।",
+          "real": "L1 cache সাধারণত 4- বা 8-way; L2 ও L3 আরও বেশি way ব্যবহার করে। Fully associative cache শুধু ছোট হলেই ব্যবহার হয় (যেমন TLB)।",
+          "explainAgain": {
+            "beginner": "তলাওয়ালা হোটেল: direct mapped = প্রতি অতিথির জন্য একটি ঘর; 2-way = আপনার তলায় বেছে নেওয়ার মতো দুটি ঘর; fully associative = হোটেলের যেকোনো ঘর।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "assoc",
+          "title": "প্রতিস্থাপন: LRU",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "একটি set ভরে গেলে একটি block **evict** করতে হয়",
+                "**LRU** (least recently used) সবচেয়ে বেশি সময় ধরে অব্যবহৃত block-টিকে evict করে",
+                "LRU temporal locality কাজে লাগায়: সম্প্রতি ব্যবহৃত block আবার ব্যবহৃত হওয়ার সম্ভাবনা বেশি",
+                "হার্ডওয়্যার সস্তা রাখতে বাস্তব cache LRU-র কাছাকাছি একটি পদ্ধতি ব্যবহার করে"
+              ]
+            }
+          ],
+          "why": "Associativity-র জন্য একটি replacement policy দরকার; direct mapped-এ তা নেই, কারণ প্রতিটি block-এর জায়গা মাত্র একটি।",
+          "real": "Random replacement-ও ব্যবহার হয় এবং বড় cache-এ প্রায় একই রকম ভালো কাজ করে।"
+        },
+        {
+          "type": "concept",
+          "concept": "assoc",
+          "title": "চেষ্টা করুন: associativity",
+          "blocks": [
+            {
+              "type": "cache",
+              "title": "একই 4টি line, ভিন্ন associativity",
+              "config": {
+                "blockBytes": 4,
+                "lines": 4,
+                "addrBits": 8,
+                "assoc": 1
+              },
+              "controls": [
+                "assoc"
+              ],
+              "sequences": [
+                {
+                  "name": "Conflicts: 0,16,0,16,...",
+                  "accesses": [
+                    0,
+                    16,
+                    0,
+                    16,
+                    0,
+                    16
+                  ]
+                },
+                {
+                  "name": "তিনটি block-এর চক্র",
+                  "accesses": [
+                    0,
+                    16,
+                    32,
+                    0,
+                    16,
+                    32
+                  ]
+                },
+                {
+                  "name": "Trace",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    0,
+                    16,
+                    0
+                  ]
+                }
+              ],
+              "hint": "**associativity** 1-way, 2-way ও fully associative-এর মধ্যে বদলান (মোট 4টি line)।"
+            }
+          ],
+          "why": "Conflicts: direct mapped-এ 6টির মধ্যে 0টি hit; 2-way ও fully associative-এ 6টির মধ্যে 4টি hit। তিনটি block-এর চক্র: direct 0, 2-way 0, fully associative 3টি hit।"
+        },
+        {
+          "type": "predict",
+          "concept": "assoc",
+          "skill": "Apply",
+          "question": "একই set-এ ম্যাপ হওয়া তিনটি block চক্রাকারে পড়া হয়: 0, 16, 32, 0, 16, 32। 4টি line-এর একটি 2-way LRU cache-এ: hit কয়টি?",
+          "options": [
+            "0",
+            "3",
+            "4",
+            "6"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Set-টি মাত্র 2টি block ধরে, কিন্তু চক্রে লাগে 3টি। LRU-তে যে block-টি এবার ব্যবহার হবে, সেটিই সবসময় এইমাত্র evict হয়েছে: **0টি hit**। একটি fully associative 4-line cache তিনটিই ধরে রাখে এবং 3টি hit পায়।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Associativity একটি সীমা পর্যন্ত সাহায্য করে; set-এর চেয়ে বড় চক্র তখনও thrashing ঘটায়।"
+        },
+        {
+          "type": "checkpoint",
+          "title": "চেকপয়েন্ট",
+          "questions": [
+            {
+              "q": "Index কী বেছে নেয়?",
+              "a": "Line (direct mapped) বা set (set associative)।",
+              "concept": "anatomy"
+            },
+            {
+              "q": "Direct-mapped cache-এ conflict miss কেন হয়?",
+              "a": "কয়েকটি block একটি line ভাগ করে এবং একে অপরকে সরিয়ে দেয়।",
+              "concept": "direct"
+            },
+            {
+              "q": "Associativity কী বদলায়?",
+              "a": "একটি block একটি set-এর কয়েকটি line-এ যেতে পারে, ফলে eviction কম হয়।",
+              "concept": "assoc"
+            }
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "assoc",
+          "title": "তিনটির তুলনা",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "একই 4-line cache",
+                "Conflicts (0, 16 ছয়বার)",
+                "তিনটির চক্র (6টি অ্যাক্সেস)",
+                "Trace 0,4,8,12,0,16,0"
+              ],
+              "rows": [
+                [
+                  "Direct mapped",
+                  "0টি hit, 6টি miss",
+                  "0টি hit, 6টি miss",
+                  "1টি hit, 6টি miss"
+                ],
+                [
+                  "2-way",
+                  "4টি hit, 2টি miss",
+                  "0টি hit, 6টি miss",
+                  "2টি hit, 5টি miss"
+                ],
+                [
+                  "Fully associative",
+                  "4টি hit, 2টি miss",
+                  "3টি hit, 3টি miss",
+                  "2টি hit, 5টি miss"
+                ]
+              ]
+            }
+          ],
+          "why": "Associativity conflict miss দূর করে, কিন্তু তার দাম হলো বেশি comparator, বেশি পাওয়ার এবং ধীর lookup।",
+          "real": "Associativity দ্বিগুণ করলে প্রায় 4 থেকে 8 way-এর পর লাভ ক্রমশ কমে আসে।",
+          "mistake": {
+            "wrong": "বেশি associativity সবসময়ই ভালো।",
+            "right": "এটি conflict কমায়, কিন্তু lookup-কে ধীর ও বড় করে।"
+          }
+        },
+        {
+          "type": "arrange",
+          "concept": "assoc",
+          "skill": "Understand",
+          "title": "মিনি চ্যালেঞ্জ",
+          "prompt": "একটি set-associative lookup-এর ধাপগুলো ক্রমে সাজান।",
+          "items": [
+            "অ্যাড্রেসকে tag, index ও offset-এ ভাগ করুন",
+            "index দিয়ে একটি set বেছে নিন",
+            "set-এর প্রতিটি valid line-এর সঙ্গে tag মেলান",
+            "Hit: offset দিয়ে ডেটা বেছে নিন। Miss: block ফেচ করুন এবং LRU line বদলে দিন"
+          ],
+          "why": "কোনো তুলনার আগেই index অনুসন্ধানের পরিধি ছোট করে আনে।"
+        },
+        {
+          "type": "mcq",
+          "concept": "assoc",
+          "question": "একটি cache-এ 16টি line এবং এটি 4-way set associative। এতে set কয়টি?",
+          "options": [
+            "4",
+            "16",
+            "1",
+            "64"
+          ],
+          "answer": 0,
+          "why": "Set = line ÷ way = 16 ÷ 4 = 4।",
+          "feedback": [
+            "",
+            "16 হলে সেটি direct mapped হতো।",
+            "একটি set মানে fully associative।",
+            "Set-এর সংখ্যা line-এর সংখ্যার বেশি হতে পারে না।"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "size",
+      "label": "আকার ও স্টোরেজ",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "size",
+          "title": "একটি cache-এর আসলে কত bit লাগে?",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "প্রতিটি line সংরক্ষণ করে **ডেটা**, একটি **tag** ও একটি **valid bit**",
+                "প্রতি line-এ bit = 1 + tag bit + 8 × block byte",
+                "মোট bit = line-এর সংখ্যা × প্রতি line-এর bit",
+                "Tag ও valid bit হলো **ওভারহেড**: cache-এ তার ডেটা ধারণক্ষমতার চেয়ে বেশি bit থাকে"
+              ]
+            }
+          ],
+          "why": "ডেটার ধারণক্ষমতা (যেমন 1 KiB) আসল হার্ডওয়্যার খরচের একটি অংশ মাত্র।",
+          "real": "বড় block মানে প্রতি byte ডেটায় কম tag, তাই ওভারহেড কম।",
+          "deeper": {
+            "text": "বাস্তব cache LRU bit রাখে এবং write-back-এর জন্য একটি dirty bit-ও রাখে (ক্লাস 19)।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "size",
+          "title": "হিসাব করুন: bit ও স্টোরেজ",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Cache-এর bit গণনা",
+              "equation": "সবকিছু আকার থেকেই আসে (সবই 2-এর ঘাত)",
+              "inputs": [
+                {
+                  "id": "ab",
+                  "label": "Address bit",
+                  "value": 32,
+                  "min": 16,
+                  "max": 40,
+                  "step": 1
+                },
+                {
+                  "id": "sz",
+                  "label": "Cache size = 2^n byte, n =",
+                  "value": 10,
+                  "min": 6,
+                  "max": 16,
+                  "step": 1
+                },
+                {
+                  "id": "bl",
+                  "label": "Block size = 2^n byte, n =",
+                  "value": 4,
+                  "min": 2,
+                  "max": 7,
+                  "step": 1
+                },
+                {
+                  "id": "al",
+                  "label": "Way = 2^n, n = (0 মানে direct mapped)",
+                  "value": 0,
+                  "min": 0,
+                  "max": 4,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "Line",
+                  "formula": "pow(2, sz - bl)",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Index bit",
+                  "formula": "sz - bl - al",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Offset bit",
+                  "formula": "bl",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Tag bit",
+                  "formula": "ab - (sz - bl - al) - bl",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "প্রতি line-এ bit (valid + tag + data)",
+                  "formula": "1 + (ab - (sz - bl - al) - bl) + 8 * pow(2, bl)",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "মোট bit",
+                  "formula": "pow(2, sz - bl) * (1 + (ab - (sz - bl - al) - bl) + 8 * pow(2, bl))",
+                  "format": "num",
+                  "digits": 0
+                }
+              ]
+            }
+          ],
+          "why": "ডিফল্ট মানে (32-bit অ্যাড্রেস, 1 KiB direct mapped, 16-byte block): 64টি line, 6টি index bit, 4টি offset bit, 22টি tag bit, প্রতি line-এ 151 bit, মোট 9,664 bit। associativity বাড়ালে প্রতিবার দ্বিগুণ করায় tag এক bit করে বাড়ে।"
+        },
+        {
+          "type": "predict",
+          "concept": "size",
+          "skill": "Apply",
+          "question": "1 KiB direct-mapped cache, 16-byte block, 32-bit অ্যাড্রেস। tag bit কয়টি?",
+          "options": [
+            "22",
+            "26",
+            "18",
+            "10"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Line = 1024 ÷ 16 = 64, তাই index = 6 bit; offset = 4 bit; tag = 32 − 6 − 4 = **22 bit**।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Associativity দ্বিগুণ করলে index থেকে একটি bit tag-এ চলে যায়।"
+        },
+        {
+          "type": "tps",
+          "title": "ভাবুন, জোড়ায় আলোচনা করুন, শেয়ার করুন",
+          "prompt": "একই আকারের দুটি cache-এর মধ্যে 64-byte block-এর cache-এ কেন 4-byte block-এর cache-এর চেয়ে প্রতি byte ডেটায় কম tag bit লাগে?",
+          "think": 20,
+          "pair": 40,
+          "answer": "64-byte block হলে line থাকে 16 গুণ কম, তাই একই ডেটা ধারণক্ষমতার জন্য tag ও valid bit থাকে মাত্র ষোলো ভাগের এক ভাগ। বড় block spatial locality-ও কাজে লাগায়, কিন্তু miss penalty বাড়ায় (ক্লাস 19)।"
+        },
+        {
+          "type": "discussion",
+          "title": "আলোচনা",
+          "concept": "assoc",
+          "question": "আপনার কাছে 4 KiB cache আছে। আপনি direct mapped, 4-way, নাকি fully associative বেছে নেবেন, এবং কেন?",
+          "seconds": 60,
+          "ideas": [
+            "Direct mapped: সবচেয়ে সহজ ও দ্রুত, কিন্তু conflict miss হয়।",
+            "4-way: সামান্য খরচে বেশির ভাগ conflict miss দূর করে।",
+            "Fully associative: conflict সবচেয়ে কম, কিন্তু প্রতিটি tag তুলনা করতে হয় বলে ধীর ও পাওয়ার-খেকো।",
+            "বেশির ভাগ বাস্তব L1 cache মাঝামাঝি মান বেছে নেয় (4 থেকে 8 way)।"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "অনুশীলন",
+      "minutes": 11,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "anatomy",
+          "question": "cache lookup-এর জন্য অ্যাড্রেস যে তিন ভাগে ভাগ হয়, নিচু bit থেকে ওপরের দিকে তাদের নাম বলুন।",
+          "answer": "Offset, index, tag।",
+          "solution": "Offset (block-এর ভেতরের byte), তারপর index (কোন line বা set), তারপর tag।",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "anatomy",
+          "question": "16-bit অ্যাড্রেস, 16 byte-এর 8টি line-সহ direct-mapped cache। অ্যাড্রেস 0x1234-কে tag, index ও offset-এ ভাগ করুন।",
+          "answer": "Offset 4, index 3, tag 36 (0x24)।",
+          "solution": "Offset = 0x1234 mod 16 = 4। Block = 291। Index = 291 mod 8 = 3। Tag = 291 ÷ 8 = 36। Bit: 9 + 3 + 4 = 16।",
+          "hint": "Offset bit = log2(16) = 4; index bit = log2(8) = 3।",
+          "mistake": "index-কে ওপরের bit থেকে নেওয়া।",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "size",
+          "question": "32-bit অ্যাড্রেস, 64টি line, 16-byte block, direct mapped। tag, index ও offset bit কয়টি?",
+          "answer": "Tag 22, index 6, offset 4।",
+          "solution": "Offset log2(16) = 4; index log2(64) = 6; tag 32 − 10 = 22।",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "size",
+          "question": "একই cache-এর জন্য মোট কত bit স্টোরেজ লাগে (valid bit, tag, ডেটা)?",
+          "answer": "9,664 bit।",
+          "solution": "প্রতি line-এ: 1 + 22 + 128 = 151। মোট 64 × 151 = 9,664 bit (1,024 byte = 8,192 ডেটা bit এবং 1,472 bit ওভারহেড)।",
+          "hint": "প্রতি line-এর ডেটা হলো 8 × block byte।",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "direct",
+          "question": "Cache: 4টি line, 4-byte block, direct mapped, 8-bit অ্যাড্রেস। অ্যাক্সেস 0, 4, 8, 12, 0, 16, 0। প্রতিটির hit বা miss এবং মোট hit-এর সংখ্যা বলুন।",
+          "answer": "M M M M H M M; 1টি hit। শেষ miss-টি একটি conflict miss।",
+          "solution": "Block 0 থেকে 3 line 0 থেকে 3 ভরে। অ্যাড্রেস 0 hit করে। অ্যাড্রেস 16 (block 4) line 0-তে ম্যাপ হয় এবং block 0-কে evict করে, তাই শেষ 0 miss করে।",
+          "hint": "Index = block number mod 4।",
+          "think": 90
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "assoc",
+          "question": "একই অ্যাক্সেস ও cache size, কিন্তু LRU-সহ 2-way set associative। hit কয়টি? কোন অ্যাক্সেসগুলো hit করে?",
+          "answer": "2টি hit: অ্যাড্রেস 0-র দ্বিতীয় অ্যাক্সেস এবং অ্যাড্রেস 0-র শেষ অ্যাক্সেস।",
+          "solution": "দুটি set; block 0 ও 2 set 0-তে, block 1 ও 3 set 1-এ যায়। অ্যাড্রেস 16 (block 4)-ও set 0-তে ম্যাপ হয়: সে block 2-কে (least recently used) evict করে, block 0-কে নয়, তাই শেষ 0 তখনও hit করে।",
+          "mistake": "Block 0 (সবচেয়ে সম্প্রতি ব্যবহৃত) evict করে দেওয়া।",
+          "title": "পরীক্ষার অনুশীলন: ট্রেস",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "assoc",
+          "question": "0, 16, 32, 0, 16, 32 অ্যাক্সেসে direct-mapped, 2-way ও fully associative (মোট 4টি line)-এর তুলনা করুন। প্রতিটির hit বলুন এবং 2-way-এর ফল ব্যাখ্যা করুন।",
+          "answer": "Direct mapped 0, 2-way 0, fully associative 3।",
+          "solution": "Block 0, 4 ও 8 একই set-এ ম্যাপ হয় (2টি set থাকলে set 0)। তিনটির চক্র 2 way-এ ধরে না, তাই LRU সবসময় সেই block-টিই evict করে যেটি এরপর লাগবে। Fully associative cache প্রথম পালার পর তিনটিই ধরে রাখে।",
+          "mistake": "2-way সবসময় conflict miss ঠিক করে দেয় বলে ধরে নেওয়া।",
+          "title": "পরীক্ষার অনুশীলন: conflict",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "size",
+          "question": "4 KiB, 2-way set-associative cache, 32-byte block ও 32-bit অ্যাড্রেস। line, set, offset, index, tag bit এবং bit-এ মোট স্টোরেজ বলুন।",
+          "answer": "128টি line, 64টি set; offset 5, index 6, tag 21; মোট 35,584 bit।",
+          "solution": "Line = 4096 ÷ 32 = 128। Set = 128 ÷ 2 = 64। Offset log2(32) = 5, index log2(64) = 6, tag 32 − 11 = 21। প্রতি line-এ bit 1 + 21 + 256 = 278; 128 × 278 = 35,584।",
+          "mistake": "index-এর জন্য set-এর সংখ্যার বদলে line-এর সংখ্যা ব্যবহার করা।",
+          "title": "পরীক্ষার অনুশীলন: স্টোরেজ",
+          "think": 120,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "size",
+          "question": "একটি fully associative cache-এ 4 byte-এর 8টি line এবং 16-bit অ্যাড্রেস। tag bit এবং bit-এ মোট স্টোরেজ বলুন।",
+          "answer": "Tag 14 bit; মোট 376 bit।",
+          "solution": "Offset 2 bit; set একটিই, তাই index = 0 bit; tag = 16 − 2 = 14। প্রতি line-এ 1 + 14 + 32 = 47; 8 × 47 = 376।",
+          "mistake": "এতে একটি index ধরা।",
+          "title": "পরীক্ষার অনুশীলন: fully associative",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "direct",
+          "question": "16-bit অ্যাড্রেস, direct-mapped, 16 byte-এর 8টি line। অ্যাক্সেস: 0x1234, 0x1238, 0x2234, 0x1234। প্রতিটির hit বা miss এবং miss-এর ধরন বলুন।",
+          "answer": "Miss (compulsory), hit, miss (compulsory), miss (conflict)।",
+          "solution": "0x1234 ও 0x1238 একই block-এ (index 3, tag 36)। 0x2234-এর index 3 কিন্তু tag 68, তাই সে প্রথম block-টিকে সরিয়ে দেয়। শেষ 0x1234 miss করে, কারণ তার block evict হয়ে গেছে।",
+          "mistake": "0x1238-কে miss ধরা: সেটি একই 16-byte block-এ আছে।",
+          "title": "পরীক্ষার অনুশীলন: hit বা miss",
+          "think": 105,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "রিভিউ",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "সবকিছু কীভাবে সংযুক্ত",
+          "root": "Cache অর্গানাইজেশন",
+          "branches": [
+            {
+              "label": "গঠন",
+              "example": "block, tag, index, offset",
+              "section": "anatomy"
+            },
+            {
+              "label": "Direct mapped",
+              "example": "প্রতি block-এর একটি line",
+              "section": "direct"
+            },
+            {
+              "label": "Associative",
+              "example": "set ও LRU",
+              "section": "assoc"
+            },
+            {
+              "label": "আকার",
+              "example": "tag bit ও স্টোরেজ",
+              "section": "size"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "যা মনে রাখবেন",
+          "remember": [
+            "Block হলো যে একক কপি হয়; একটি line একটি valid bit ও একটি tag-সহ একটি block ধরে।",
+            "Address = tag | index | offset। offset = log2(block byte); index = log2(set); tag = বাকিটা।",
+            "Direct mapped: index = block mod line; একটি তুলনা; conflict miss।",
+            "n-way set associative: set = line ÷ n; LRU প্রতিস্থাপন; কম conflict; n-টি তুলনা।",
+            "Fully associative: একটি set, যেকোনো line, tag = offset-এর ওপরের সব bit।",
+            "মোট bit = line × (1 + tag + 8 × block byte)।"
+          ]
+        },
+        {
+          "type": "review",
+          "title": "সাধারণ ভুলগুলো",
+          "mistakes": [
+            {
+              "wrong": "Index আসে উঁচু bit থেকে।",
+              "right": "Tag উঁচু bit নেয়; index থাকে offset-এর ঠিক ওপরে।"
+            },
+            {
+              "wrong": "Associativity সবসময় সাহায্য করে।",
+              "right": "Set-এর চেয়ে বড় চক্র তখনও thrashing ঘটায়, আর lookup ধীর হয়।"
+            },
+            {
+              "wrong": "Cache size আর সংরক্ষিত bit সমান।",
+              "right": "Tag ও valid bit ওভারহেড যোগ করে।"
+            },
+            {
+              "wrong": "একটি block-এর প্রতিটি byte আলাদা miss।",
+              "right": "একটি miss পুরো block নিয়ে আসে।"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "এক মিনিটের সারসংক্ষেপ",
+          "summary": "একটি অ্যাড্রেস tag, index ও offset-এ কাটা হয়। Direct-mapped cache-এ প্রতিটি block-এর সম্ভাব্য line একটিই, ফলে lookup দ্রুত কিন্তু conflict miss হয়। Set-associative ও fully associative cache একটি block-কে কয়েক জায়গায় বসতে দেয়, অতিরিক্ত comparator-এর বিনিময়ে কম conflict পায়। Tag, valid bit ও ডেটা bit একসঙ্গে আসল স্টোরেজ খরচ ঠিক করে।"
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "কুইজ",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "ফাইনাল কুইজ",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "anatomy",
+              "question": "কোন অ্যাড্রেস ক্ষেত্র block-এর ভেতরের byte বেছে নেয়?",
+              "options": [
+                "Offset",
+                "Index",
+                "Tag",
+                "Valid bit"
+              ],
+              "answer": 0,
+              "why": "Offset-ই byte বেছে নেয়।",
+              "misconception": "Index line বা set বেছে নেয়।"
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "direct",
+              "statement": "Direct-mapped cache-এ প্রতিটি block ঠিক একটি line-এ যেতে পারে।",
+              "answer": true,
+              "why": "এটিই এর সংজ্ঞা।",
+              "misconception": "Index-ই line ঠিক করে দেয়।"
+            },
+            {
+              "level": "easy",
+              "concept": "assoc",
+              "question": "কোন cache একটি block-কে যেকোনো line-এ যেতে দেয়?",
+              "options": [
+                "Fully associative",
+                "Direct mapped",
+                "2-way set associative",
+                "কোনোটিই নয়"
+              ],
+              "answer": 0,
+              "why": "Fully associative: একটি set-এ সব line।",
+              "misconception": "Direct mapped ঠিক একটি line-ই অনুমতি দেয়।"
+            },
+            {
+              "level": "medium",
+              "concept": "anatomy",
+              "question": "16-byte block, 8টি line, direct mapped, 16-bit অ্যাড্রেস: 0x1234 কোন index ব্যবহার করে?",
+              "options": [
+                "3",
+                "4",
+                "36",
+                "8"
+              ],
+              "answer": 0,
+              "why": "Block 291 mod 8 = 3।",
+              "misconception": "Tag 36।"
+            },
+            {
+              "level": "medium",
+              "concept": "size",
+              "question": "32-bit অ্যাড্রেস, 16 byte-এর 64টি line, direct mapped: tag bit কয়টি?",
+              "options": [
+                "22",
+                "26",
+                "24",
+                "20"
+              ],
+              "answer": 0,
+              "why": "32 − 6 − 4 = 22।",
+              "misconception": "Index 6, offset 4।"
+            },
+            {
+              "level": "medium",
+              "concept": "direct",
+              "question": "4টি line, 4-byte block, direct mapped: 0,16,0,16,0,16-এ hit কয়টি?",
+              "options": [
+                "0",
+                "2",
+                "4",
+                "6"
+              ],
+              "answer": 0,
+              "why": "0 ও 16 line 0 ভাগ করে এবং একে অপরকে evict করে।",
+              "misconception": "এগুলো conflict miss।"
+            },
+            {
+              "level": "hard",
+              "concept": "assoc",
+              "question": "4টি line-এর একটি 2-way LRU cache-এ 0,16,32,0,16,32 (সবই একটি set-এ): hit কয়টি?",
+              "options": [
+                "0",
+                "3",
+                "4",
+                "6"
+              ],
+              "answer": 0,
+              "why": "তিনটির চক্র একটি 2-way set-কে thrash করে।",
+              "misconception": "Fully associative হলে 3টি hit পাওয়া যেত।"
+            },
+            {
+              "level": "hard",
+              "concept": "size",
+              "question": "4 KiB, 2-way, 32-byte block, 32-bit অ্যাড্রেস: set কয়টি?",
+              "options": [
+                "64",
+                "128",
+                "32",
+                "256"
+              ],
+              "answer": 0,
+              "why": "4096 ÷ 32 = 128টি line; 128 ÷ 2 = 64টি set।",
+              "misconception": "Set = line ÷ way।"
+            },
+            {
+              "level": "challenge",
+              "concept": "size",
+              "question": "1 KiB direct-mapped, 16-byte block, 32-bit অ্যাড্রেস: valid bit ও tag-সহ bit-এ মোট স্টোরেজ কত?",
+              "options": [
+                "9,664",
+                "8,192",
+                "9,216",
+                "10,240"
+              ],
+              "answer": 0,
+              "why": "64টি line × (1 + 22 + 128) = 9,664।",
+              "misconception": "8,192 শুধু ডেটা।"
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "মনে আছে কি?",
+          "items": [
+            {
+              "q": "tag, index, offset-এর নাম বলুন।",
+              "a": "Tag block চিহ্নিত করে, index set বেছে নেয়, offset byte বেছে নেয়।",
+              "concept": "anatomy"
+            },
+            {
+              "q": "S-টি set-এর জন্য index bit কয়টি?",
+              "a": "log2(S)।",
+              "concept": "anatomy"
+            },
+            {
+              "q": "Direct-mapped cache-এ conflict miss কেন হয়?",
+              "a": "কয়েকটি block একটি line-এ ম্যাপ হয় এবং একে অপরকে evict করে।",
+              "concept": "direct"
+            },
+            {
+              "q": "LRU কী করে?",
+              "a": "একটি set-এর least recently used block-টিকে evict করে।",
+              "concept": "assoc"
+            },
+            {
+              "q": "Cache-এর মোট bit-এর সূত্র কী?",
+              "a": "Line × (1 + tag + 8 × block byte)।",
+              "concept": "size"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "আপনার লার্নিং রিপোর্ট"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1253 @@
+{
+  "id": "ca-05-mips-instructions",
+  "title": "MIPS Instruction, Register ও অপারেন্ড",
+  "subtitle": "এবার কোর্স ব্যবহারিক হচ্ছে: আসল MIPS লিখুন।",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "2",
+      "title": "Instructions: Language of the Computer",
+      "topics": "কম্পিউটার হার্ডওয়্যারের অপারেশন; অপারেন্ড (register, মেমরি, immediate); signed ও unsigned সংখ্যা; logical অপারেশন; MIPS floating-point instruction"
+    }
+  ],
+  "objectives": [
+    "MIPS register-গুলোর নাম বলুন এবং register file কী তা ব্যাখ্যা করুন",
+    "Register, মেমরি ও immediate অপারেন্ড ব্যবহার করুন",
+    "Arithmetic ও logical instruction লিখুন",
+    "lw ও sw দিয়ে মেমরি ও register-এর মধ্যে ডেটা সরান",
+    "Floating-point অপারেন্ড ও floating-point register বর্ণনা করুন"
+  ],
+  "concepts": [
+    {
+      "id": "regs",
+      "label": "Register ও register file",
+      "section": "regs"
+    },
+    {
+      "id": "operands",
+      "label": "অপারেন্ডের ধরন ও immediate",
+      "section": "operands"
+    },
+    {
+      "id": "arith",
+      "label": "Arithmetic ও logical instruction",
+      "section": "arith"
+    },
+    {
+      "id": "data",
+      "label": "ডেটা সরানো ও মেমরি",
+      "section": "data"
+    },
+    {
+      "id": "fp",
+      "label": "Floating-point অপারেন্ড",
+      "section": "fp"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "সূচনা",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "একটিমাত্র লাইন `add $s0, $s1, $s2` একটি সম্পূর্ণ instruction। এটি `total`-এর মতো ভেরিয়েবলের নাম না দিয়ে নম্বর দেওয়া জায়গার নাম দেয় কেন?",
+          "clues": [
+            "হার্ডওয়্যারে ভেরিয়েবলের নাম নেই, আছে শুধু নম্বর দেওয়া স্টোরেজ জায়গা।",
+            "MIPS প্রতিটি প্রোগ্রামকে 32টি অত্যন্ত দ্রুত জায়গা দেয়, যেগুলোর নাম **register**।",
+            "প্রোগ্রাম যা কিছু হিসাব করে, প্রায় সবই এগুলোর ভেতর দিয়ে যায়।"
+          ],
+          "notes": {
+            "explain": "`total` নামের ভেরিয়েবল খুঁজতে CPU-র কী লাগবে, শিক্ষার্থীদের তা বলার চেষ্টা করতে দিন। উত্তর: একটি নম্বর, নাম নয়।"
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "উদ্দেশ্যগুলো জোরে পড়ুন; এগুলো শেখার রিপোর্টে ফিরে আসবে।"
+          }
+        }
+      ]
+    },
+    {
+      "id": "regs",
+      "label": "Register",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "regs",
+          "title": "Register file",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "নাম",
+                "নম্বর",
+                "সাধারণ ব্যবহার"
+              ],
+              "rows": [
+                [
+                  "$zero",
+                  "0",
+                  "ধ্রুবক 0 (এতে লেখা উপেক্ষা করা হয়)"
+                ],
+                [
+                  "$v0 - $v1",
+                  "2 - 3",
+                  "Procedure-এর রিটার্ন করা মান"
+                ],
+                [
+                  "$a0 - $a3",
+                  "4 - 7",
+                  "Procedure-এ পাঠানো আর্গুমেন্ট"
+                ],
+                [
+                  "$t0 - $t7",
+                  "8 - 15",
+                  "অস্থায়ী মান (procedure এগুলো ওভাররাইট করতে পারে)"
+                ],
+                [
+                  "$s0 - $s7",
+                  "16 - 23",
+                  "সংরক্ষিত মান (procedure কলের পরেও থাকে)"
+                ],
+                [
+                  "$t8 - $t9",
+                  "24 - 25",
+                  "আরও অস্থায়ী মান"
+                ],
+                [
+                  "$gp, $sp, $fp",
+                  "28, 29, 30",
+                  "Global, stack ও frame pointer"
+                ],
+                [
+                  "$ra",
+                  "31",
+                  "Procedure কলের রিটার্ন অ্যাড্রেস"
+                ]
+              ]
+            }
+          ],
+          "why": "প্রতিটি register 32 bit ধরে। অপারেশন register-এর গতিতে চলে, তাই ভালো প্রোগ্রাম ব্যস্ত মানগুলো এখানে রাখে।",
+          "real": "কোন ভেরিয়েবল register-এ থাকবে তা কম্পাইলার ঠিক করে। আপনার C বা Java লুপের কাউন্টার লুপ চলাকালে প্রায় সবসময় একটি register-এ থাকে।",
+          "mistake": {
+            "wrong": "Register $zero অন্য যেকোনো register-এর মতো বদলানো যায়।",
+            "right": "$zero সবসময় 0 পড়ে। এতে লেখা উপেক্ষা করা হয়।"
+          },
+          "explainAgain": {
+            "beginner": "Register হলো CPU-র ডেস্কের নম্বর দেওয়া খোপ। নামগুলো ($t0, $s1) 8, 17 ইত্যাদি নম্বরের সহজ লেবেল মাত্র।"
+          },
+          "notes": {
+            "explain": "সারি ধরে ধরে দেখান। জোর দিন যে নামগুলো অ্যাসেম্বলার যে রীতি বোঝে তা; হার্ডওয়্যার শুধু নম্বর দেখে।",
+            "terms": [
+              "**Register file**",
+              "**$zero**"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "regs",
+          "title": "হার্ডওয়্যার হিসেবে register file",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "32 bit-এর 32টি register: মোট 1,024 bit (128 byte)",
+                "একই clock cycle-এ দুটি register **পড়া** এবং একটিতে **লেখা** যায়",
+                "একটি register নম্বরের জন্য লাগে **5 bit** (2⁵ = 32)",
+                "Register $zero তারে বাঁধা আছে মান 0-তে"
+              ]
+            }
+          ],
+          "why": "ঠিক এই কারণেই MIPS instruction সর্বোচ্চ তিনটি register-এর নাম দেয়, যা আমরা এনকোডিং করার সময় (ক্লাস 7) দেখব।",
+          "deeper": {
+            "text": "Datapath-এ (ক্লাস 10) register file-এ দুটি read port ও একটি write port থাকে, যা RegWrite সংকেত দিয়ে নিয়ন্ত্রিত।"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "regs",
+          "question": "কোন register-এ সবসময় মান 0 থাকে?",
+          "options": [
+            "$zero",
+            "$at",
+            "$t0",
+            "$ra"
+          ],
+          "answer": 0,
+          "why": "$zero হার্ডওয়্যারে 0-তে বাঁধা।",
+          "feedback": [
+            "",
+            "$at অ্যাসেম্বলারের জন্য সংরক্ষিত।",
+            "$t0 একটি অস্থায়ী register, যা আপনি বদলাতে পারেন।",
+            "$ra একটি রিটার্ন অ্যাড্রেস ধরে রাখে।"
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "regs",
+          "skill": "Understand",
+          "title": "ছোট চ্যালেঞ্জ",
+          "prompt": "প্রতিটি register গ্রুপকে তার সাধারণ কাজের সাথে মেলান।",
+          "pairs": [
+            {
+              "a": "$a0 - $a3",
+              "b": "Procedure আর্গুমেন্ট"
+            },
+            {
+              "a": "$v0 - $v1",
+              "b": "রিটার্ন করা মান"
+            },
+            {
+              "a": "$s0 - $s7",
+              "b": "কলের পরেও থাকা মান"
+            },
+            {
+              "a": "$t0 - $t7",
+              "b": "অস্থায়ী মান"
+            }
+          ],
+          "why": "এই রীতিগুলোর কারণে আলাদাভাবে লেখা procedure একসাথে কাজ করতে পারে।"
+        },
+        {
+          "type": "concept",
+          "concept": "regs",
+          "title": "চালিয়ে দেখুন: $zero বদলানোর চেষ্টা",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "$zero বদলানোর চেষ্টা করুন",
+              "program": "addi $zero, $zero, 5\nadd $t0, $zero, $zero",
+              "watch": [
+                "$zero",
+                "$t0"
+              ],
+              "hint": "চালান, তারপর প্রোগ্রাম এডিট করে অন্য register-এ লেখার চেষ্টা করুন।",
+              "editable": true
+            }
+          ],
+          "why": "হার্ডওয়্যার $zero-তে লেখা উপেক্ষা করে, তাই এটি বিনামূল্যে ধ্রুবক 0 হিসেবে কাজ করে।"
+        },
+        {
+          "type": "predict",
+          "concept": "regs",
+          "skill": "Apply",
+          "question": "চালানোর আগে বলুন: `addi $zero, $zero, 5`-এর পর `$zero`-তে কী থাকবে?",
+          "options": [
+            "5",
+            "0",
+            "-5",
+            "এটি CPU-র ওপর নির্ভর করে"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "$zero **0**-ই থাকে; লেখা উপেক্ষা করা হয়।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "$zero-তে লেখা বাতিল হয়ে যায়, আর সেজন্যই MIPS একে বিনামূল্যের ধ্রুবক 0 হিসেবে ব্যবহার করতে পারে।"
+        },
+        {
+          "type": "checkpoint",
+          "title": "চেকপয়েন্ট",
+          "questions": [
+            {
+              "q": "Register file কী?",
+              "a": "CPU-র ভেতরে 32টি register-এর একটি ছোট, দ্রুত সেট, যা instruction পড়ে ও লেখে।",
+              "concept": "regs"
+            },
+            {
+              "q": "একটি MIPS register-এর নাম দিতে কত bit লাগে?",
+              "a": "5 bit, কারণ register আছে 32টি।",
+              "concept": "regs"
+            },
+            {
+              "q": "কোন register সবসময় 0?",
+              "a": "$zero।",
+              "concept": "regs"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "operands",
+      "label": "অপারেন্ড",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "operands",
+          "title": "তিন ধরনের অপারেন্ড",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Register",
+                  "sub": "register file-এ",
+                  "note": "মানটি আগে থেকেই একটি register-এ আছে: সবচেয়ে দ্রুত।",
+                  "example": "add $t0, $s1, $s2"
+                },
+                {
+                  "label": "Immediate",
+                  "sub": "instruction-এর ভেতরের একটি ধ্রুবক",
+                  "note": "16-bit ধ্রুবকটি instruction word-এরই অংশ।",
+                  "example": "addi $t0, $s1, 100"
+                },
+                {
+                  "label": "মেমরি",
+                  "sub": "মূল মেমরিতে",
+                  "note": "শুধু load ও store দিয়ে পৌঁছানো যায়, একটি base register ও একটি offset ব্যবহার করে।",
+                  "example": "lw $t0, 8($s1)"
+                }
+              ],
+              "zoom": true
+            }
+          ],
+          "why": "অপারেন্ডের ধরন ঠিক করে গতি, instruction-এর আকার এবং হার্ডওয়্যারকে কী করতে হবে।",
+          "real": "লুপ কাউন্টারে 1 যোগ করতে immediate লাগে। অ্যারের একটি উপাদান পড়তে মেমরি লাগে। এর মাঝখানে সবকিছু register ব্যবহার করে।",
+          "explainAgain": {
+            "beginner": "Register আপনার হাতে, immediate instruction-এর গায়েই লেখা, আর মেমরি ঘরের ওপারের একটি তাক।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "operands",
+          "title": "Immediate অপারেন্ড",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Immediate হলো instruction-এর ভেতরের একটি **16-bit signed** ধ্রুবক",
+                "পরিসর: −32,768 থেকে 32,767",
+                "ব্যবহারের আগে এটি 32 bit-এ sign-extend হয়",
+                "বড় ধ্রুবকের জন্য দুটি instruction লাগে: `lui` (উপরের 16 bit), তারপর `ori` (নিচের 16 bit)"
+              ]
+            }
+          ],
+          "why": "এটি \"সাধারণ ক্ষেত্রকে দ্রুত করুন\" ডিজাইন নীতি অনুসরণ করে: প্রোগ্রামের বেশিরভাগ ধ্রুবক ছোট।"
+        },
+        {
+          "type": "concept",
+          "concept": "operands",
+          "title": "নিজে করে দেখুন: immediate-এর পরিসর",
+          "blocks": [
+            {
+              "type": "walkthrough",
+              "title": "n-bit signed immediate-এ কতগুলো মান আঁটে?",
+              "inputs": [
+                {
+                  "id": "n",
+                  "label": "Immediate-এর প্রস্থ (bit-এ)",
+                  "value": 16,
+                  "min": 8,
+                  "max": 24,
+                  "step": 1
+                }
+              ],
+              "stages": [
+                {
+                  "label": "Bit",
+                  "text": "{n} bit দিয়ে 2^{n} = **{pow(2,n)}**টি প্যাটার্ন বানানো যায়"
+                },
+                {
+                  "label": "ভাগ",
+                  "text": "অর্ধেক ঋণাত্মক, অর্ধেক নয়"
+                },
+                {
+                  "label": "পরিসর",
+                  "text": "**{-pow(2,n-1)}** থেকে **{pow(2,n-1)-1}**"
+                }
+              ]
+            }
+          ],
+          "why": "MIPS n = 16 ব্যবহার করে, যা দেয় −32,768 থেকে 32,767।"
+        },
+        {
+          "type": "predict",
+          "concept": "operands",
+          "skill": "Apply",
+          "question": "`addi`-এর immediate ফিল্ড 16 bit এবং signed। কোন ধ্রুবকটি আঁটে না?",
+          "options": [
+            "32,767",
+            "-32,768",
+            "40,000",
+            "0"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "40,000, 32,767-এর চেয়ে বড়, তাই `addi` তা ধরতে পারে না। অ্যাসেম্বলার তখন `lui` + `ori` ব্যবহার করে।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "সবচেয়ে বড় ধনাত্মক মান 2^15 − 1 = 32,767।"
+        },
+        {
+          "type": "find",
+          "concept": "operands",
+          "skill": "Analyze",
+          "title": "ভুলটি খুঁজুন",
+          "prompt": "অপারেন্ড সম্পর্কে একটি বক্তব্য ভুল। সেটিতে ক্লিক করুন।",
+          "lines": [
+            "1. Register অপারেন্ড register file থেকে পড়া হয়।",
+            "2. Immediate অপারেন্ড instruction-এর ভেতরে সংরক্ষিত থাকে।",
+            "3. MIPS-এর arithmetic instruction সরাসরি মেমরি থেকে অপারেন্ড পড়তে পারে।",
+            "4. মেমরি অপারেন্ডে পৌঁছানো যায় lw ও sw দিয়ে।"
+          ],
+          "wrong": 2,
+          "explain": "MIPS-এ arithmetic শুধু register ও immediate-এর ওপর কাজ করে। মেমরিতে পৌঁছানো যায় lw ও sw দিয়ে (একটি load/store আর্কিটেকচার)।",
+          "fix": "Arithmetic instruction শুধু register ব্যবহার করে; lw ও sw মেমরি অ্যাক্সেস করে।"
+        },
+        {
+          "type": "mcq",
+          "concept": "operands",
+          "question": "`addi`-এর immediate ফিল্ডে কত bit থাকে?",
+          "options": [
+            "5",
+            "16",
+            "26",
+            "32"
+          ],
+          "answer": 1,
+          "why": "I-format-এ একটি 16-bit immediate ফিল্ড থাকে।",
+          "feedback": [
+            "5 bit দিয়ে একটি register-এর নাম দেওয়া হয়।",
+            "",
+            "26 bit হলো J-format-এর টার্গেট ফিল্ড।",
+            "পুরো instruction 32 bit-এর, তাই immediate সবগুলো নিতে পারে না।"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arith",
+      "label": "Arithmetic ও Logic",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "arith",
+          "title": "Arithmetic instruction",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "অর্থ",
+                "উদাহরণ"
+              ],
+              "rows": [
+                [
+                  "add rd, rs, rt",
+                  "rd = rs + rt (overflow হলে trap করে)",
+                  "add $t0, $s1, $s2"
+                ],
+                [
+                  "sub rd, rs, rt",
+                  "rd = rs − rt",
+                  "sub $t0, $s1, $s2"
+                ],
+                [
+                  "addi rt, rs, imm",
+                  "rt = rs + ধ্রুবক",
+                  "addi $t0, $s1, 4"
+                ],
+                [
+                  "addu / subu / addiu",
+                  "একই, কিন্তু overflow হলে কখনো trap করে না",
+                  "addu $t0, $s1, $s2"
+                ],
+                [
+                  "slt rd, rs, rt",
+                  "rs < rt হলে rd = 1, নইলে 0",
+                  "slt $t0, $s1, $s2"
+                ]
+              ]
+            }
+          ],
+          "why": "প্রতিটি arithmetic instruction ঠিক তিনটি অপারেন্ডের নাম দেয়। এই নিয়মিততাই হার্ডওয়্যারকে সরল রাখে।",
+          "real": "চারটি ভেরিয়েবলের একটি এক্সপ্রেশনকে কম্পাইলার এরকম বেশ কয়েকটি তিন-অপারেন্ড instruction-এ রূপান্তর করে।",
+          "mistake": {
+            "wrong": "একটি `add` instruction তিনটি সংখ্যা যোগ করতে পারে।",
+            "right": "`add`-এর ঠিক দুটি সোর্স থাকে। তিনটি সংখ্যা যোগ করতে দুটি instruction লাগে।"
+          },
+          "explainAgain": {
+            "beginner": "ভাবুন একটি ক্যালকুলেটর, যাতে শুধু দুই সংখ্যার যোগ বোতাম আছে। তিনটি সংখ্যার জন্য বোতামটি দুবার চাপতে হয় এবং মাঝের ফলাফল একটি অস্থায়ী জায়গায় রাখতে হয়।"
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "arith",
+          "skill": "Apply",
+          "question": "g = 10, h = 20 আছে $s1 ও $s2-তে; i = 3, j = 4 আছে $s3 ও $s4-এ। `f = (g + h) - (i + j)`-এর প্রোগ্রামের পর $s0 (f)-এ কী থাকে?",
+          "options": [
+            "23",
+            "30",
+            "7",
+            "37"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "(10 + 20) − (3 + 4) = 30 − 7 = **23**।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "দুটি অস্থায়ী register আংশিক যোগফল ধরে রাখে; sub সেগুলো একত্র করে।",
+          "code": "add $t0, $s1, $s2\nadd $t1, $s3, $s4\nsub $s0, $t0, $t1"
+        },
+        {
+          "type": "concept",
+          "concept": "arith",
+          "title": "চালিয়ে দেখুন: f = (g + h) - (i + j)",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "রূপান্তরিত এক্সপ্রেশন",
+              "program": "li $s1, 10\nli $s2, 20\nli $s3, 3\nli $s4, 4\nadd $t0, $s1, $s2\nadd $t1, $s3, $s4\nsub $s0, $t0, $t1",
+              "watch": [
+                "$s0",
+                "$s1",
+                "$s2",
+                "$s3",
+                "$s4",
+                "$t0",
+                "$t1"
+              ],
+              "hint": "ধাপে ধাপে চালান। নিজের সংখ্যা দিয়ে দেখতে সংখ্যাগুলো এডিট করুন।",
+              "editable": true
+            }
+          ],
+          "why": "অস্থায়ী register ($t0, $t1) দুটি আংশিক ফলাফল ধরে রাখে।"
+        },
+        {
+          "type": "concept",
+          "concept": "arith",
+          "title": "Logical instruction",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "অপারেশন",
+                "উদাহরণ"
+              ],
+              "rows": [
+                [
+                  "and, andi",
+                  "Bitwise AND (bit মাস্ক করা)",
+                  "and $t0, $s1, $s2"
+                ],
+                [
+                  "or, ori",
+                  "Bitwise OR (bit সেট করা)",
+                  "ori $t0, $s1, 1"
+                ],
+                [
+                  "xor, nor",
+                  "Exclusive OR; NOT-OR",
+                  "xor $t0, $s1, $s2"
+                ],
+                [
+                  "sll, srl",
+                  "একটি ধ্রুবক দিয়ে বামে / ডানে shift",
+                  "sll $t0, $s1, 2"
+                ]
+              ]
+            }
+          ],
+          "why": "n দিয়ে বামে shift করলে 2ⁿ গুণ হয়, আর মাস্কিং দিয়ে একটি word-এর আলাদা আলাদা ফিল্ড বের করা যায়।",
+          "real": "গ্রাফিক্স, নেটওয়ার্কিং ও কম্প্রেশন কোড shift ও mask-এ ভরা।",
+          "deeper": {
+            "text": "$zero-র সাথে `nor` দিলে NOT পাওয়া যায়: `nor $t0, $s1, $zero` $s1-এর প্রতিটি bit উল্টে দেয়।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "arith",
+          "title": "চালিয়ে দেখুন: bit ও shift",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "12 (1100) ও 10 (1010)-এর ওপর logical instruction",
+              "program": "li $s1, 12\nli $s2, 10\nand $t0, $s1, $s2\nor $t1, $s1, $s2\nxor $t2, $s1, $s2\nsll $t3, $s1, 2\nsrl $t4, $s1, 2",
+              "watch": [
+                "$s1",
+                "$s2",
+                "$t0",
+                "$t1",
+                "$t2",
+                "$t3",
+                "$t4"
+              ],
+              "hint": "বাইনারিতে 12 = 1100 এবং 10 = 1010।"
+            }
+          ],
+          "why": "ফলাফলগুলো বাইনারি প্যাটার্নের সাথে মেলান: AND শুধু দুই জায়গার 1 রাখে, OR যেকোনো 1 রাখে।"
+        },
+        {
+          "type": "mcq",
+          "concept": "arith",
+          "question": "$s1 = 5 হলে `sll $t0, $s1, 3` $t0-তে কী রাখে?",
+          "options": [
+            "8",
+            "15",
+            "40",
+            "53"
+          ],
+          "answer": 2,
+          "why": "3 দিয়ে বামে shift করলে 8 গুণ হয়: 5 × 8 = 40।",
+          "feedback": [
+            "8 হলো 2³, 5 × 2³ নয়।",
+            "15 হলো 5 × 3।",
+            "",
+            "Shift আর add এক জিনিস নয়।"
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "arith",
+          "statement": "যোগফল 32 bit-এ আঁটলে `addu` ও `add` আলাদা ফলাফল দেয়।",
+          "answer": false,
+          "why": "এদের পার্থক্য শুধু overflow-তে: `add` trap করে, `addu` ঘুরে যায় (wrap)।"
+        }
+      ]
+    },
+    {
+      "id": "data",
+      "label": "ডেটা সরানো",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "data",
+          "title": "Load ও store",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "lw",
+                  "sub": "মেমরি → register",
+                  "note": "`lw $t0, 8($s1)` অ্যাড্রেস $s1 + 8-এর word load করে।"
+                },
+                {
+                  "label": "Register",
+                  "sub": "CPU-র কর্মক্ষেত্র",
+                  "note": "Arithmetic এখানেই হয়।"
+                },
+                {
+                  "label": "sw",
+                  "sub": "register → মেমরি",
+                  "note": "`sw $t0, 8($s1)` $t0-কে অ্যাড্রেস $s1 + 8-এ store করে।"
+                }
+              ]
+            }
+          ],
+          "why": "শুধু load ও store মেমরি ছোঁয়, তাই প্রতিটি মেমরি অপারেন্ডের জন্য আলাদা instruction লাগে।",
+          "real": "C-তে অ্যারের একটি উপাদান পড়া হলো lw; লেখা হলো sw।",
+          "mistake": {
+            "wrong": "$s1 4-এর গুণিতক হলে `lw $t0, 6($s1)` ঠিক আছে।",
+            "right": "Word অ্যাড্রেস 4-এর গুণিতক হতে হবে। Offset 6 তা ভাঙে, তাই load-টি misaligned।"
+          },
+          "notes": {
+            "explain": "মেমরি byte দিয়ে অ্যাড্রেস করা হয়; একটি word চার byte, তাই word-এর অ্যারের উপাদান i থাকে base + 4 × i-তে। ক্লাস 6-এ আরও গভীরে যাব।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "data",
+          "title": "চালিয়ে দেখুন: A[2] = A[0] + A[1]",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "মেমরিতে অ্যারে",
+              "program": "lw $t0, 0($s1)\nlw $t1, 4($s1)\nadd $t2, $t0, $t1\nsw $t2, 8($s1)",
+              "registers": {
+                "$s1": 268500992
+              },
+              "memory": {
+                "0x10010000": 3,
+                "0x10010004": 7
+              },
+              "watch": [
+                "$s1",
+                "$t0",
+                "$t1",
+                "$t2"
+              ],
+              "hint": "$s1-এ অ্যারে A-এর base অ্যাড্রেস 0x10010000 আছে।"
+            }
+          ],
+          "why": "Offset হয় byte-এ: উপাদান 1 থাকে +4-এ, উপাদান 2 থাকে +8-এ।"
+        },
+        {
+          "type": "predict",
+          "concept": "data",
+          "skill": "Apply",
+          "question": "`$s3`-এ অ্যারে A-এর (word-এর) base অ্যাড্রেস আছে। `A[3]`-এর byte offset কত?",
+          "options": [
+            "3",
+            "4",
+            "12",
+            "16"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "প্রতিটি word 4 byte, তাই A[3] আছে offset **3 × 4 = 12**-এ।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Word-এর অ্যারেতে index × 4 দিলে byte offset পাওয়া যায়।"
+        },
+        {
+          "type": "arrange",
+          "concept": "data",
+          "skill": "Understand",
+          "title": "ছোট চ্যালেঞ্জ",
+          "prompt": "A[1] = A[0] + 5-এর instruction ক্রমে সাজান।",
+          "items": [
+            "মেমরি থেকে A[0] একটি register-এ load করুন",
+            "সেই register-এ 5 যোগ করুন",
+            "Register-টি A[1]-এ store করুন"
+          ],
+          "why": "মান বদলানোর আগে load করতে হবে, এবং পরে store করতে হবে।"
+        },
+        {
+          "type": "find",
+          "concept": "data",
+          "skill": "Analyze",
+          "title": "ভুলটি খুঁজুন",
+          "prompt": "মেমরি সম্পর্কে একটি বক্তব্য ভুল। সেটিতে ক্লিক করুন।",
+          "lines": [
+            "1. মেমরি অ্যাড্রেস byte গোনে।",
+            "2. একটি word পরপর চারটি byte দখল করে।",
+            "3. $s1 4-এর গুণিতক হলে `lw $t0, 6($s1)` সবসময় ঠিক থাকে।",
+            "4. `sw` একটি register-কে মেমরিতে কপি করে।"
+          ],
+          "wrong": 2,
+          "explain": "6, 4-এর গুণিতক নয়, তাই অ্যাড্রেস misaligned এবং load fault করে।",
+          "fix": "এমন offset ব্যবহার করুন যাতে অ্যাড্রেস 4-এর গুণিতক থাকে।"
+        },
+        {
+          "type": "tps",
+          "title": "ভাবুন, জোড়ায় আলোচনা করুন, শেয়ার করুন",
+          "prompt": "`add` সরাসরি মেমরি পড়তে না দিয়ে MIPS-এ আলাদা lw ও sw instruction আছে কেন?",
+          "think": 20,
+          "pair": 40,
+          "answer": "মেমরি ধীর এবং এর গতি বদলায়। Arithmetic-কে register-এ রাখলে প্রতিটি arithmetic instruction একই সরল দৈর্ঘ্য ও গতির হয়, যা বানানো ও দ্রুত করা সহজ। ধীর অংশটি আলাদাভাবে সামলায় load ও store।",
+          "notes": {
+            "explain": "ক্লাস 4-এর সাথে যোগ করুন: load/store আর্কিটেকচার।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "data",
+          "title": "ধ্রুবক ও register সরানো",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "`li $t0, 100` একটি ধ্রুবক load করে (একটি pseudo-instruction)",
+                "`move $t0, $s1` একটি register কপি করে",
+                "বড় ধ্রুবক হয়ে যায় `lui` + `ori`, তাই একটি `li` **দুটি** মেশিন instruction হতে পারে",
+                "Pseudo-instruction হলো সুবিধাজনক রূপ, যা অ্যাসেম্বলার সম্প্রসারিত করে"
+              ]
+            }
+          ],
+          "why": "আপনি সহজ কোড লেখেন, আর অ্যাসেম্বলার তাকে আসল instruction-এ রূপান্তর করে।"
+        },
+        {
+          "type": "concept",
+          "concept": "data",
+          "title": "চালিয়ে দেখুন: একটি বড় ধ্রুবক",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "16 bit-এর চেয়ে বড় ধ্রুবকসহ li",
+              "program": "li $t0, 100000",
+              "watch": [
+                "$at",
+                "$t0"
+              ],
+              "hint": "দুবার ধাপ চালান এবং দুটি আসল instruction লক্ষ করুন।"
+            }
+          ],
+          "why": "100,000 = 0x186A0: উপরের অর্ধেক 1, নিচের অর্ধেক 0x86A0।"
+        },
+        {
+          "type": "mcq",
+          "concept": "data",
+          "question": "`li $t0, 70000` কতগুলো আসল instruction হয়?",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "এটি করা সম্ভব নয়"
+          ],
+          "answer": 1,
+          "why": "70,000 16 bit-এ আঁটে না, তাই `lui` ও `ori` ব্যবহার করা হয়: 2টি instruction।",
+          "feedback": [
+            "এটি কাজ করে শুধু −32,768 থেকে 65,535 পর্যন্ত ধ্রুবকের জন্য।",
+            "",
+            "দুটিই যথেষ্ট: উপরের অর্ধেক সেট করুন, তারপর নিচের অর্ধেক OR করুন।",
+            "দুটি instruction দিয়ে এটি করা যায়।"
+          ]
+        },
+        {
+          "type": "discussion",
+          "title": "আলোচনা",
+          "concept": "regs",
+          "question": "MIPS-এ হাজার হাজার register না থেকে মাত্র 32টি কেন?",
+          "seconds": 60,
+          "ideas": [
+            "প্রতিটি instruction-এর ভেতরে একটি register নম্বর 5 bit-এ আঁটতে হয়।",
+            "বড় register file পড়তে ধীর (smaller is faster)।",
+            "বেশিরভাগ প্রোগ্রাম একসাথে অল্প কয়েকটি মানই ব্যস্ত রাখে।",
+            "Register বেশি হলে প্রতিটি procedure কলে সংরক্ষণ করার state-ও বেশি।"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fp",
+      "label": "Floating Point",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "fp",
+          "title": "Floating-point অপারেন্ড",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "অপারেশন",
+                "Single precision (32-bit)",
+                "Double precision (64-bit)"
+              ],
+              "rows": [
+                [
+                  "যোগ",
+                  "add.s",
+                  "add.d"
+                ],
+                [
+                  "বিয়োগ",
+                  "sub.s",
+                  "sub.d"
+                ],
+                [
+                  "গুণ",
+                  "mul.s",
+                  "mul.d"
+                ],
+                [
+                  "ভাগ",
+                  "div.s",
+                  "div.d"
+                ],
+                [
+                  "load / store",
+                  "lwc1 / swc1",
+                  "ldc1 / sdc1"
+                ]
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "আলাদা register **$f0 - $f31**",
+                "একটি double ব্যবহার করে জোড়/বিজোড় **জোড়া**, যেমন `$f0`",
+                "উদাহরণ: `add.s $f0, $f1, $f2`"
+              ]
+            }
+          ],
+          "why": "Floating-point সংখ্যার নিজস্ব ফরম্যাট ও হার্ডওয়্যার আছে, তাই তাদের নিজস্ব register ও instruction আছে (ফরম্যাটগুলো আসবে ক্লাস 9-এ)।",
+          "real": "বিজ্ঞান, গ্রাফিক্স ও মেশিন-লার্নিং কোড বেশিরভাগই floating-point instruction-এ চলে।",
+          "mistake": {
+            "wrong": "Float যোগ করতে $f register-এ `add` ব্যবহার করুন।",
+            "right": "Floating-point মানের জন্য `add.s` বা `add.d` লাগে; `add` integer register-এ কাজ করে।"
+          },
+          "notes": {
+            "explain": "এই কোর্সের সিমুলেটর floating point চালায় না; এগুলোকে চিনে রাখার নোটেশন হিসেবে দেখুন।"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "fp",
+          "question": "কোন instruction দুটি double-precision সংখ্যা যোগ করে?",
+          "options": [
+            "add",
+            "add.s",
+            "add.d",
+            "addu"
+          ],
+          "answer": 2,
+          "why": "suffix .d মানে double precision।",
+          "feedback": [
+            "`add` হলো integer add।",
+            ".s মানে single precision (32-bit)।",
+            "",
+            "`addu` হলো overflow trap ছাড়া integer add।"
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "fp",
+          "statement": "Register $f0 - $f31 আর $s0 - $s7 একই register।",
+          "answer": false,
+          "why": "এগুলো floating-point মানের জন্য আলাদা একটি register file।"
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "অনুশীলন",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "regs",
+          "question": "যে register-এ সবসময় 0 থাকে, রিটার্ন অ্যাড্রেসের register এবং অস্থায়ী মানের জন্য ব্যবহৃত register-গুলোর নাম বলুন।",
+          "answer": "$zero; $ra; $t0 - $t9।",
+          "solution": "$zero 0-তে বাঁধা, $ra procedure কলের রিটার্ন অ্যাড্রেস ধরে রাখে, আর $t register-গুলো অস্থায়ী মানের জন্য।",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "arith",
+          "question": "ভেরিয়েবল f, g, h, i আছে $s0, $s1, $s2, $s3-তে। f = g + h - i-এর জন্য MIPS লিখুন।",
+          "answer": "add $t0, $s1, $s2\nsub $s0, $t0, $s3",
+          "solution": "g ও h একটি অস্থায়ী register-এ যোগ করুন, তারপর i বিয়োগ করে ফলাফল f-এ ($s0) রাখুন। প্রতিটি instruction-এ ঠিক তিনটি অপারেন্ড থাকে।",
+          "hint": "আংশিক যোগফলের জন্য $t0 ব্যবহার করুন।",
+          "mistake": "চারটি অপারেন্ডসহ একটি instruction লেখার চেষ্টা করা।",
+          "think": 40
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "data",
+          "question": "অ্যারে A-এর (word-এর) base অ্যাড্রেস $s3-এ আছে। A[5] = A[3] + 7 অনুবাদ করুন।",
+          "answer": "lw $t0, 12($s3)\naddi $t0, $t0, 7\nsw $t0, 20($s3)",
+          "solution": "A[3] আছে offset 3 × 4 = 12-তে এবং A[5] আছে 5 × 4 = 20-তে। Load করুন, immediate 7 যোগ করুন, আবার store করুন।",
+          "hint": "Offset হয় byte-এ: index × 4।",
+          "mistake": "index × 4-এর বদলে index-কেই (3 ও 5) offset হিসেবে ব্যবহার করা।",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "operands",
+          "question": "একটি নতুন ডিজাইন করা ISA 12-bit signed immediate ব্যবহার করে। একটি instruction-এ ধ্রুবকের কোন পরিসর আঁটে?",
+          "answer": "−2,048 থেকে 2,047।",
+          "solution": "12 bit দেয় 2^12 = 4,096টি মান; অর্ধেক ঋণাত্মক: −2^11 = −2,048 থেকে 2^11 − 1 = 2,047।",
+          "mistake": "0 থেকে 4,095 ব্যবহার করা (চিহ্ন উপেক্ষা করে)।",
+          "title": "পরীক্ষার অনুশীলন: সংখ্যাভিত্তিক",
+          "think": 60,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "data",
+          "question": "ভেরিয়েবল g ও h আছে $s1 ও $s2-তে; অ্যারে A-এর base আছে $s3-তে। g = h + A[8]-এর জন্য MIPS লিখুন।",
+          "answer": "lw $t0, 32($s3)\nadd $s1, $s2, $t0",
+          "solution": "A[8] আছে byte offset 8 × 4 = 32-তে। এটি $t0-তে load করুন, তারপর h যোগ করুন।",
+          "mistake": "32-এর বদলে offset 8 ব্যবহার করা।",
+          "title": "পরীক্ষার অনুশীলন: অনুবাদ",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "arith",
+          "question": "প্রোগ্রামটি ট্রেস করুন এবং $s2 ও $s3-এর চূড়ান্ত মান বলুন।",
+          "answer": "$s2 = 48 এবং $s3 = 42।",
+          "solution": "$s1 = 6; 3 দিয়ে sll করলে 8 গুণ হয়, তাই $s2 = 48; sub দেয় $s3 = 48 − 6 = 42।",
+          "mistake": "sll-কে 3 যোগ করা ভাবা।",
+          "title": "পরীক্ষার অনুশীলন: ট্রেস",
+          "think": 60,
+          "code": "li $s1, 6\nsll $s2, $s1, 3\nsub $s3, $s2, $s1",
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "operands",
+          "question": "ব্যাখ্যা করুন MIPS arithmetic instruction কেন শুধু register ও immediate ব্যবহার করে, কখনো মেমরি নয়।",
+          "answer": "Register দ্রুত এবং নাম দিতে মাত্র 5 bit লাগে, তাই instruction সরল ও একই দৈর্ঘ্যের থাকে। মেমরি অ্যাক্সেস আলাদা করা হয়েছে lw ও sw-তে (একটি load/store ডিজাইন), যা প্রতিটি instruction-কে নিয়মিত ও দ্রুত করা সহজ রাখে।",
+          "solution": "ভালো উত্তরে register-এর গতি, প্রয়োজনীয় bit-এর অল্প সংখ্যা এবং load/store বিভাজনকে সরলতর হার্ডওয়্যারের সাথে যুক্ত করা হয়।",
+          "mistake": "মেমরি একেবারেই ব্যবহৃত হয় না বলা: এটি ব্যবহৃত হয়, কিন্তু শুধু load ও store দিয়ে।",
+          "title": "পরীক্ষার অনুশীলন: ধারণাভিত্তিক",
+          "think": 75,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "পর্যালোচনা",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "সবকিছু কীভাবে যুক্ত",
+          "root": "MIPS অপারেন্ড ও instruction",
+          "branches": [
+            {
+              "label": "Register",
+              "example": "$zero, $t, $s, $a, $v, $ra",
+              "section": "regs"
+            },
+            {
+              "label": "অপারেন্ড",
+              "example": "Register · Immediate · মেমরি",
+              "section": "operands"
+            },
+            {
+              "label": "Arithmetic ও logic",
+              "example": "add, sub, and, or, sll",
+              "section": "arith"
+            },
+            {
+              "label": "ডেটা সরানো",
+              "example": "lw, sw, li",
+              "section": "data"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "যা মনে রাখবেন",
+          "remember": [
+            "MIPS-এ 32 bit-এর 32টি register আছে; একটি register নম্বরে লাগে 5 bit।",
+            "$zero সবসময় 0; $t অস্থায়ী, $s সংরক্ষিত, $a আর্গুমেন্ট পাঠায়, $v মান রিটার্ন করে, $ra রিটার্ন অ্যাড্রেস ধরে রাখে।",
+            "অপারেন্ড হলো register, 16-bit immediate, অথবা মেমরি (যেখানে পৌঁছানো যায় শুধু lw ও sw দিয়ে)।",
+            "Arithmetic instruction ঠিক তিনটি অপারেন্ডের নাম দেয়।",
+            "Word-এর অ্যারের উপাদান i থাকে base + 4 × i byte-এ।",
+            "বড় ধ্রুবকের জন্য লাগে lui + ori; floating point-এর নিজস্ব register ও instruction আছে।"
+          ]
+        },
+        {
+          "type": "review",
+          "title": "সাধারণ ভুল",
+          "mistakes": [
+            {
+              "wrong": "Arithmetic instruction সরাসরি মেমরি পড়তে পারে।",
+              "right": "শুধু lw ও sw মেমরি অ্যাক্সেস করে।"
+            },
+            {
+              "wrong": "অ্যারের index-ই byte offset।",
+              "right": "Word-এর জন্য byte offset হলো index × 4।"
+            },
+            {
+              "wrong": "add তিনটি সংখ্যা যোগ করতে পারে।",
+              "right": "প্রতিটি add-এর দুটি সোর্স থাকে।"
+            },
+            {
+              "wrong": "Floating-point মান integer register ব্যবহার করে।",
+              "right": "এগুলো ব্যবহার করে $f0 - $f31 এবং add.s / add.d।"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "এক মিনিটের সারসংক্ষেপ",
+          "summary": "MIPS-এ 32টি register আছে; instruction register ও immediate-এর ওপর কাজ করে এবং মেমরিতে পৌঁছায় শুধু lw ও sw দিয়ে। Arithmetic ও logical instruction সবসময় তিনটি অপারেন্ডের নাম দেয়। অ্যারের অ্যাড্রেস হয় base যোগ index-এর চার গুণ, 16 bit-এর বড় ধ্রুবকে লাগে lui ও ori, এবং floating point-এর আলাদা register ও instruction আছে।"
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "কুইজ",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "চূড়ান্ত কুইজ",
+          "questions": [
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "regs",
+              "statement": "$zero-তে সবসময় মান 0 থাকে।",
+              "answer": true,
+              "why": "এটি হার্ডওয়্যারে 0-তে বাঁধা।",
+              "misconception": "$zero-তে লেখা উপেক্ষা করা হয়।"
+            },
+            {
+              "level": "easy",
+              "concept": "operands",
+              "question": "`addi $t0, $s1, 25`-এ 25 কোন ধরনের অপারেন্ড?",
+              "options": [
+                "Immediate",
+                "Register",
+                "মেমরি",
+                "Label"
+              ],
+              "answer": 0,
+              "why": "এটি instruction-এর ভেতরে সংরক্ষিত একটি ধ্রুবক।",
+              "misconception": "Register লেখা হতো $ চিহ্ন দিয়ে।"
+            },
+            {
+              "level": "easy",
+              "concept": "regs",
+              "question": "একটি MIPS register-এর নাম দিতে কত bit লাগে?",
+              "options": [
+                "3",
+                "5",
+                "8",
+                "32"
+              ],
+              "answer": 1,
+              "why": "2⁵ = 32।",
+              "misconception": "নামের সংখ্যা হলো 2-এর পাওয়ার bit-সংখ্যা।"
+            },
+            {
+              "level": "medium",
+              "concept": "arith",
+              "question": "$s1 = 9, $s2 = 4, $s3 = 2, $s4 = 1 হলে `add $t0,$s1,$s2` / `add $t1,$s3,$s4` / `sub $s0,$t0,$t1`-এর পর $s0-তে কী থাকে?",
+              "options": [
+                "10",
+                "13",
+                "14",
+                "16"
+              ],
+              "answer": 0,
+              "why": "(9 + 4) − (2 + 1) = 10।",
+              "misconception": "আগে প্রতিটি জোড়া যোগ করুন, তারপর বিয়োগ করুন।"
+            },
+            {
+              "level": "medium",
+              "concept": "arith",
+              "question": "$s1 = 5 হলে `sll $t0, $s1, 3`-এর পর $t0 কত?",
+              "options": [
+                "8",
+                "15",
+                "40",
+                "53"
+              ],
+              "answer": 2,
+              "why": "5 × 8 = 40.",
+              "misconception": "n দিয়ে বামে shift করলে 2-এর n পাওয়ার গুণ হয়।"
+            },
+            {
+              "level": "medium",
+              "concept": "data",
+              "question": "$s1 = 0x1000। `lw $t0, 12($s1)` কোন অ্যাড্রেস পড়ে?",
+              "options": [
+                "0x100C",
+                "0x1012",
+                "0x1003",
+                "0x10C0"
+              ],
+              "answer": 0,
+              "why": "0x1000 + 12 = 0x100C।",
+              "misconception": "12 হলো দশমিকে লেখা byte offset: 12 = 0xC।"
+            },
+            {
+              "level": "hard",
+              "concept": "data",
+              "question": "কোন ক্রমটি A[4] = A[1] + 3 করে (base $s3-তে)?",
+              "options": [
+                "lw $t0,4($s3); addi $t0,$t0,3; sw $t0,16($s3)",
+                "lw $t0,1($s3); addi $t0,$t0,3; sw $t0,4($s3)",
+                "lw $t0,16($s3); addi $t0,$t0,3; sw $t0,4($s3)",
+                "addi $t0,$s3,3; sw $t0,16($s3)"
+              ],
+              "answer": 0,
+              "why": "A[1] আছে offset 4-এ এবং A[4] আছে offset 16-তে।",
+              "misconception": "Byte offset হলো index × 4; আর আগে পড়ুন, তারপর store করুন।"
+            },
+            {
+              "level": "hard",
+              "concept": "data",
+              "question": "$s1 = 0x1002। `lw $t0, 0($s1)` এক্সিকিউট হলে কী ঘটে?",
+              "options": [
+                "এটি 0x1002 থেকে load করে",
+                "একটি alignment fault: 0x1002 4-এর গুণিতক নয়",
+                "এটি 0x1000 থেকে load করে",
+                "এটি $t0 store করে"
+              ],
+              "answer": 1,
+              "why": "Word load-এর জন্য অ্যাড্রেস 4-এর গুণিতক হতে হয়।",
+              "misconception": "Word অ্যাক্সেস aligned হতে হবে।"
+            },
+            {
+              "level": "challenge",
+              "concept": "operands",
+              "question": "`li $t0, 70000` অ্যাসেম্বলার সম্প্রসারিত করে। প্রথম আসল instruction উপরের 16 bit-এ কী load করে?",
+              "options": [
+                "0",
+                "1",
+                "70",
+                "7"
+              ],
+              "answer": 1,
+              "why": "70,000 = 0x11170: উপরের 16 bit হলো 1 (lui), আর ori যোগ করে 0x1170।",
+              "misconception": "70,000-কে 65,536 দিয়ে ভাগ করলে ভাগফল 1 ও একটি ভাগশেষ পাওয়া যায়।"
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "মনে আছে কি?",
+          "items": [
+            {
+              "q": "MIPS-এ কয়টি register আছে এবং একটির নাম দিতে কত bit লাগে?",
+              "a": "32টি register; 5 bit।",
+              "concept": "regs"
+            },
+            {
+              "q": "তিন ধরনের অপারেন্ডের নাম বলুন।",
+              "a": "Register, immediate ও মেমরি।",
+              "concept": "operands"
+            },
+            {
+              "q": "Word-এর অ্যারের জন্য A[i]-এর offset কত?",
+              "a": "base অ্যাড্রেস থেকে 4 × i byte।",
+              "concept": "data"
+            },
+            {
+              "q": "n দিয়ে sll কী করে?",
+              "a": "2-এর n পাওয়ার গুণ করে।",
+              "concept": "arith"
+            },
+            {
+              "q": "কোন instruction floating-point সংখ্যা যোগ করে?",
+              "a": "add.s (single) ও add.d (double)।",
+              "concept": "fp"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "আপনার শেখার রিপোর্ট"
+        }
+      ]
+    }
+  ]
+}

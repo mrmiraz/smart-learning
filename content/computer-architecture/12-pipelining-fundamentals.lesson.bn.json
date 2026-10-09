@@ -1,0 +1,2188 @@
+{
+  "id": "ca-12-pipelining-fundamentals",
+  "title": "Pipelining-এর মূল কথা",
+  "subtitle": "একটি instruction শেষ না করে পরেরটা শুরু করা যাবে না কেন? সেগুলোকে ওভারল্যাপ করুন, এক ধাপ করে।",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "4",
+      "title": "The Processor",
+      "topics": "Pipelining-এর সংক্ষিপ্ত পরিচয়; MIPS pipeline-এর পাঁচটি ধাপ; pipeline register; pipeline পারফরম্যান্স, latency, থ্রুপুট ও speedup; pipelined টাইমিং ডায়াগ্রাম"
+    }
+  ],
+  "objectives": [
+    "একটি instruction শেষ না করে পরেরটা শুরু না করলে হার্ডওয়্যার কেন নষ্ট হয়, তা ব্যাখ্যা করুন",
+    "IF, ID, EX, MEM ও WB—এই পাঁচটি ক্লাসিক ধাপের নাম বলুন এবং প্রতিটি কী করে তা বলুন",
+    "Pipeline register কী কাজে লাগে, তা ব্যাখ্যা করুন",
+    "বাস্তব MIPS instruction দিয়ে cycle ধরে ধরে একটি pipeline টাইমিং ডায়াগ্রাম আঁকুন ও পড়ুন",
+    "Latency ও থ্রুপুটের পার্থক্য করুন এবং ideal speedup হিসাব করুন"
+  ],
+  "concepts": [
+    {
+      "id": "problem",
+      "label": "কেন instruction ওভারল্যাপ করা হয়",
+      "section": "problem"
+    },
+    {
+      "id": "stages",
+      "label": "পাঁচটি ধাপ IF ID EX MEM WB",
+      "section": "stages"
+    },
+    {
+      "id": "pipereg",
+      "label": "Pipeline register",
+      "section": "stages"
+    },
+    {
+      "id": "timing",
+      "label": "Pipeline টাইমিং ডায়াগ্রাম",
+      "section": "timing"
+    },
+    {
+      "id": "latency",
+      "label": "Latency বনাম থ্রুপুট",
+      "section": "perf"
+    },
+    {
+      "id": "speedup",
+      "label": "Ideal speedup",
+      "section": "perf"
+    },
+    {
+      "id": "balance",
+      "label": "ব্যালান্সড ও আনব্যালান্সড ধাপ",
+      "section": "perf"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "সূচনা",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "একটি MIPS load instruction-এর পাঁচটি কাজ: এটি ফেচ করা, ডিকোড করা, অ্যাড্রেস হিসাব করা, মেমরি ছোঁয়া, ফলাফল লেখা। তবু একটি আধুনিক প্রসেসর প্রায় প্রতি ক্লক cycle-এ একটি করে instruction শেষ করতে পারে। প্রতিটির জন্য পাঁচটি কাজ লাগলে প্রতি cycle-এ একটি করে শেষ হয় কীভাবে?",
+          "clues": [
+            "পাঁচটি কাজের প্রতিটি আলাদা হার্ডওয়্যার ব্যবহার করে।",
+            "একটি instruction যখন ডিকোড হচ্ছে, ফেচ হার্ডওয়্যার তখন পরের instruction-টা পড়তে শুরু করে দিতে পারে।",
+            "এই ওভারল্যাপকে বলে **pipelining**।"
+          ],
+          "notes": {
+            "explain": "কোনো clue দেওয়ার আগে শিক্ষার্থীদের অনুমান করতে দিন। সাধারণ অনুমান: দ্রুততর ক্লক, একাধিক CPU। দুটোর কোনোটাই উত্তর নয়। উত্তর হলো instruction ওভারল্যাপ করা।",
+            "ask": "দৈনন্দিন জীবনে ওভারল্যাপিং কোথায় দেখেছেন? (অ্যাসেম্বলি লাইন, রান্নাঘর, লন্ড্রি)",
+            "difficulty": "সহজ। ৩ মিনিট।"
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "পাঁচটি উদ্দেশ্য পড়ুন। এই ক্লাসে ধরে নেওয়া হয়েছে আপনারা Class 10 ও 11-এর single-cycle ও multi-cycle datapath জানেন। এখানে সব instruction পরস্পর স্বাধীন; dependence ও branch আছে Class 13-এ।"
+          }
+        }
+      ]
+    },
+    {
+      "id": "problem",
+      "label": "সমস্যা",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "problem",
+          "title": "একবারে একটি instruction হলে হার্ডওয়্যার নষ্ট হয়",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Cycle",
+                "IF ইউনিট",
+                "ID ইউনিট",
+                "EX ইউনিট",
+                "MEM ইউনিট",
+                "WB ইউনিট"
+              ],
+              "rows": [
+                [
+                  "1",
+                  "I1",
+                  "অলস",
+                  "অলস",
+                  "অলস",
+                  "অলস"
+                ],
+                [
+                  "2",
+                  "অলস",
+                  "I1",
+                  "অলস",
+                  "অলস",
+                  "অলস"
+                ],
+                [
+                  "3",
+                  "অলস",
+                  "অলস",
+                  "I1",
+                  "অলস",
+                  "অলস"
+                ],
+                [
+                  "4",
+                  "অলস",
+                  "অলস",
+                  "অলস",
+                  "I1",
+                  "অলস"
+                ],
+                [
+                  "5",
+                  "অলস",
+                  "অলস",
+                  "অলস",
+                  "অলস",
+                  "I1"
+                ],
+                [
+                  "6",
+                  "I2",
+                  "অলস",
+                  "অলস",
+                  "অলস",
+                  "অলস"
+                ]
+              ]
+            },
+            {
+              "type": "callout",
+              "tone": "warn",
+              "title": "টেবিলটা দেখুন",
+              "text": "যেকোনো cycle-এ পাঁচটির মধ্যে **মাত্র একটি** হার্ডওয়্যার ইউনিট কাজ করছে। বাকি চারটি অলস, অর্থাৎ হার্ডওয়্যার প্রায় ২০% ব্যস্ত।",
+              "reveal": true
+            }
+          ],
+          "why": "হার্ডওয়্যার ব্যবহার হোক বা না হোক, তা চিপের জায়গা ও পাওয়ার খরচ করে। পাঁচটি ইউনিটকেই সবসময় ব্যস্ত রাখাতেই বাড়তি গতি আসে।",
+          "real": "ফোনের চিপ থেকে সার্ভারের চিপ পর্যন্ত প্রতিটি প্রসেসর instruction ওভারল্যাপ করে। প্রায় কোনো আধুনিক CPU-ই একবারে একটি instruction চালায় না।",
+          "explainAgain": {
+            "beginner": "ভাবুন একটি রান্নাঘরে পাঁচজন বাবুর্চি আছেন, কিন্তু একবারে শুধু একজনই কাজ করতে পারেন, কারণ আগের অর্ডার পরিবেশন না হওয়া পর্যন্ত পরেরটা শুরু করা যাবে না। বাকি চারজন দাঁড়িয়ে থাকেন।",
+            "technical": "Non-pipelined ডিজাইনে (single-cycle, অথবা multi-cycle যেখানে একটি মাত্র instruction চলমান) প্রতিটি ধাপের হার্ডওয়্যার সময়ের একটি ছোট অংশ ব্যবহৃত হয়। Pipelining ধাপগুলোর মাঝখানে state যোগ করে, ফলে সব ধাপ একসঙ্গে ভিন্ন ভিন্ন instruction-এ কাজ করতে পারে।"
+          },
+          "notes": {
+            "explain": "সারিগুলোর ওপর ক্লিক করে এগোন। জিজ্ঞাসা করুন: cycle 3-এ কোন ইউনিট ব্যস্ত? কোনগুলো অলস? তারপর callout-টা দেখান।",
+            "terms": [
+              "**Non-pipelined**: একবারে একটি instruction",
+              "**অলস হার্ডওয়্যার**: তৈরি ও চালু আছে, কিন্তু কাজ করছে না"
+            ],
+            "misconceptions": [
+              "শিক্ষার্থীরা ভাবে CPU-কে আগে একটি instruction শেষ করতেই 'হবে'। তা নয়, যতক্ষণ প্রতিটি instruction-এর নিজের ধাপগুলো ক্রমে থাকে।"
+            ],
+            "ask": "Cycle 2-এ পরের instruction শুরু করতে দেওয়া হয় না কেন?",
+            "minutes": 3,
+            "difficulty": "সহজ"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "problem",
+          "title": "অ্যাসেম্বলি লাইনের ধারণা",
+          "blocks": [
+            {
+              "type": "analogy",
+              "realTitle": "অ্যাসেম্বলি লাইন",
+              "techTitle": "প্রসেসর",
+              "pairs": [
+                {
+                  "real": "লাইনের একটি স্টেশন",
+                  "tech": "Pipeline ধাপ",
+                  "note": "প্রতিটি স্টেশন নিজস্ব যন্ত্রপাতি দিয়ে একটি কাজ করে।"
+                },
+                {
+                  "real": "গাড়ি",
+                  "tech": "Instruction",
+                  "note": "প্রতিটি গাড়ি ক্রমানুসারে সব স্টেশন পার হয়।"
+                },
+                {
+                  "real": "কনভেয়রের এক ধাপ: সব গাড়ি একসঙ্গে সরে",
+                  "tech": "ক্লক cycle",
+                  "note": "সবকিছু একই তালে এগোয়।"
+                },
+                {
+                  "real": "প্রথম স্টেশন খালি হলেই পরের গাড়ি ঢোকে",
+                  "tech": "ওভারল্যাপড এক্সিকিউশন",
+                  "note": "সব স্টেশন একসঙ্গে ভিন্ন ভিন্ন গাড়িতে কাজ করে।"
+                }
+              ]
+            }
+          ],
+          "why": "Pipelining কোনো একক ধাপকে দ্রুততর করে না। এটি প্রতিটি ধাপকে সবসময় ব্যস্ত রাখে।",
+          "mistake": {
+            "wrong": "Pipelining একই instruction-এর একাধিক ধাপ একসঙ্গে চালায়।",
+            "right": "Pipelining ভিন্ন ভিন্ন instruction ওভারল্যাপ করে: একই cycle-এ প্রতিটি instruction আলাদা ধাপে থাকে।",
+            "why": "একটি instruction-এর ধাপগুলো তখনও ক্রমানুসারে হয়, প্রতি cycle-এ একটি ধাপ।"
+          },
+          "notes": {
+            "explain": "উপমাটা শুধু ধারণার জন্য ব্যবহার করুন। নামগুলো লুকাতে Test me-তে ক্লিক করুন।",
+            "terms": [
+              "**Pipeline**",
+              "**ধাপ (Stage)**"
+            ],
+            "discuss": "অ্যাসেম্বলি লাইনের উপমাটা কোন দিক থেকে নিখুঁত নয়? (গাড়িগুলো স্বাধীন; instruction একে অপরের ওপর নির্ভর করতে পারে, Class 13)"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "problem",
+          "skill": "Understand",
+          "question": "Pipelining ছাড়া instruction 1 তার MEM ধাপে আছে। তখন instruction-fetch হার্ডওয়্যার কী করছে?",
+          "options": [
+            "Instruction 2 ফেচ করছে",
+            "কিছুই না: সেটি অলস",
+            "Instruction 1 আবার ফেচ করছে",
+            "Instruction 1 ডিকোড করছে"
+          ],
+          "answer": 1,
+          "why": "Pipelining ছাড়া পরের instruction অপেক্ষা করে যতক্ষণ না বর্তমানটি পুরোপুরি শেষ হয়, তাই fetch ইউনিটের কোনো কাজ থাকে না।",
+          "feedback": [
+            "Pipelining ঠিক এটাই যোগ করে। এটা না থাকলে instruction 2 এখনও শুরু হতে পারে না।",
+            "",
+            "Instruction 1 তার প্রথম cycle-এই ফেচ হয়ে গেছে।",
+            "ডিকোড করে ID ইউনিট, fetch হার্ডওয়্যার নয়।"
+          ]
+        },
+        {
+          "type": "predict",
+          "concept": "problem",
+          "skill": "Apply",
+          "question": "চারটি স্বাধীন instruction, প্রতিটির পাঁচটি ধাপ, প্রতি cycle-এ একটি ধাপ। আগের instruction সরে গেলেই যদি পরেরটি pipeline-এ ঢুকতে পারে, তাহলে চারটি মিলে কত ক্লক cycle লাগবে? (ওভারল্যাপ ছাড়া লাগে 4 x 5 = 20।)",
+          "options": [
+            "20",
+            "16",
+            "8",
+            "5"
+          ],
+          "answer": 2,
+          "reveal": [
+            {
+              "type": "table",
+              "head": [
+                "ডিজাইন",
+                "Cycle কীভাবে যোগ হয়",
+                "Cycle"
+              ],
+              "rows": [
+                [
+                  "Pipelining ছাড়া",
+                  "4 x 5",
+                  "20"
+                ],
+                [
+                  "Pipelining সহ",
+                  "প্রথমটির জন্য 5 cycle, তারপর বাকি প্রতিটির জন্য আরও 1 cycle: 5 + 3",
+                  "8"
+                ],
+                [
+                  "Speedup",
+                  "20 / 8",
+                  "2.5 গুণ"
+                ]
+              ]
+            }
+          ],
+          "result": "8 cycle। প্রথম instruction-এর লাগে 5 cycle; তারপর প্রতি cycle-এ একটি করে instruction শেষ হয়। পরের screen-গুলোতে এটা ঘটতে দেখতে পাবেন।",
+          "notes": {
+            "explain": "উত্তর দেখানোর আগে শিক্ষার্থীদের একটি সংখ্যা বলতে বাধ্য করুন। সাধারণ ভুল উত্তর: 16 (4 x 4) ও 5।",
+            "difficulty": "সহজ।"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stages",
+      "label": "ধাপ",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "stages",
+          "title": "ক্লাসিক পাঁচটি ধাপ",
+          "blocks": [
+            {
+              "type": "flow",
+              "layout": "row",
+              "zoom": true,
+              "nodes": [
+                {
+                  "label": "IF",
+                  "sub": "Instruction fetch",
+                  "note": "PC দিয়ে instruction memory-তে অ্যাড্রেস করা হয় এবং instruction পড়া হয়। PC এগিয়ে PC + 4 হয়।",
+                  "example": "lw $t0, 8($s1) ফেচ হলো।"
+                },
+                {
+                  "label": "ID",
+                  "sub": "ডিকোড ও register পড়া",
+                  "note": "কন্ট্রোল লজিক instruction ডিকোড করে এবং register file পড়া হয়।",
+                  "example": "$s1 পড়া হয়। অফসেট 8 sign-extend হয়।"
+                },
+                {
+                  "label": "EX",
+                  "sub": "এক্সিকিউট বা অ্যাড্রেস",
+                  "note": "ALU ফলাফল হিসাব করে, অথবা load বা store-এর জন্য মেমরি অ্যাড্রেস হিসাব করে।",
+                  "example": "ALU $s1 + 8 বানায়।"
+                },
+                {
+                  "label": "MEM",
+                  "sub": "মেমরি অ্যাক্সেস",
+                  "note": "Load ডেটা মেমরি পড়ে, store তাতে লেখে। অন্য instruction এখানে কিছু করে না।",
+                  "example": "ওই অ্যাড্রেসের word পড়া হয়।"
+                },
+                {
+                  "label": "WB",
+                  "sub": "Write back",
+                  "note": "ফলাফল register file-এ লেখা হয়।",
+                  "example": "Load করা word $t0-তে যায়।"
+                }
+              ]
+            }
+          ],
+          "why": "প্রতিটি ধাপ নিজস্ব হার্ডওয়্যার ব্যবহার করে, তাই পাঁচটি instruction একসঙ্গে পাঁচটি ভিন্ন ধাপে থাকতে পারে।",
+          "real": "MIPS এই pipeline মাথায় রেখেই ডিজাইন করা: সরল, নির্দিষ্ট দৈর্ঘ্যের instruction এবং load/store ডিজাইন। ছোট embedded core এখনও প্রায় তিন থেকে পাঁচ ধাপের ছোট pipeline ব্যবহার করে, আর হাই-পারফরম্যান্স core ব্যবহার করে আরও অনেক বেশি ধাপ।",
+          "explainAgain": {
+            "beginner": "পাঁচটি ধাপকে পাঁচটি স্টেশন ভাবুন: instruction আনা, বোঝা, হিসাব করা, মেমরির সঙ্গে কথা বলা, উত্তর জমা রাখা।",
+            "technical": "Class 10-এর single-cycle datapath-কে পাঁচটি টুকরোয় কাটা হয়, প্রতি ধাপে একটি। প্রতিটি টুকরো প্রায় এক ক্লক cycle নেয়, আর টুকরোগুলোর মাঝে register মান ধরে রাখে।"
+          },
+          "deeper": "অন্য pipeline-এ ধাপের সংখ্যা ভিন্ন হয়। পাঠ্যবইয়ের MIPS pipeline-এ পাঁচটি, কারণ প্রতিটি MIPS instruction পাঁচটি কাজই করে।",
+          "notes": {
+            "explain": "প্রতিটি বক্সে ক্লিক করে তার ক্যাপশন পড়ুন। Class 10-এর সঙ্গে মেলান: একই হার্ডওয়্যার, পাঁচ ভাগে ভাগ করা। ধাপগুলোর যে নাম আছে, তা দেখিয়ে দিন।",
+            "terms": [
+              "**IF** instruction fetch",
+              "**ID** instruction decode ও register read",
+              "**EX** এক্সিকিউট বা অ্যাড্রেস হিসাব",
+              "**MEM** মেমরি অ্যাক্সেস",
+              "**WB** write back"
+            ],
+            "misconceptions": [
+              "শিক্ষার্থীরা ID (register পড়া) আর WB (register লেখা) গুলিয়ে ফেলে।"
+            ],
+            "ask": "কোন ধাপে register file পড়া হয়? কোন ধাপে লেখা হয়?",
+            "minutes": 3,
+            "difficulty": "সহজ"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "stages",
+          "title": "তিনটি বাস্তব instruction প্রতিটি ধাপে কী করে",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "IF",
+                "ID",
+                "EX",
+                "MEM",
+                "WB"
+              ],
+              "rows": [
+                [
+                  "add $t0,$s1,$s2",
+                  "ফেচ",
+                  "$s1, $s2 পড়া",
+                  "যোগ",
+                  "অলস",
+                  "$t0 লেখা"
+                ],
+                [
+                  "lw $t0,8($s1)",
+                  "ফেচ",
+                  "$s1 পড়া",
+                  "$s1 + 8",
+                  "মেমরি পড়া",
+                  "$t0 লেখা"
+                ],
+                [
+                  "sw $t0,8($s1)",
+                  "ফেচ",
+                  "$s1, $t0 পড়া",
+                  "$s1 + 8",
+                  "মেমরি লেখা",
+                  "অলস"
+                ]
+              ]
+            },
+            {
+              "type": "callout",
+              "tone": "why",
+              "text": "কোনো ধাপে করার কিছু না থাকলেও প্রতিটি instruction-কে পাঁচটি ধাপই দেওয়া হয় (add MEM বাদ দেয়, sw WB বাদ দেয়)। এতে টাইমিং নিয়মিত থাকে: প্রতি cycle-এ একটি ধাপ।",
+              "reveal": true
+            }
+          ],
+          "why": "একরকম সময়সূচির কারণেই বিভিন্ন ধরনের instruction একই pipeline ভাগ করে নিতে পারে, একে অপরের সঙ্গে ধাক্কা না খেয়ে।",
+          "notes": {
+            "explain": "সারিগুলো একটি একটি করে দেখান। জিজ্ঞাসা করুন অলস ঘরগুলোর মানে কী। অলস মানে instruction কোনো কাজ না করেই ধাপটি পার হয়ে যায়।",
+            "misconceptions": [
+              "শিক্ষার্থীরা ভাবে add, lw-এর আগে শেষ হয়। এই pipeline-এ তা হয় না: সব instruction-এর পাঁচ cycle লাগে।"
+            ]
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "stages",
+          "skill": "Apply",
+          "question": "Store instruction `sw $t0, 8($s1)` কোন ধাপটি অলস রাখে?",
+          "options": [
+            "IF",
+            "EX",
+            "MEM",
+            "WB"
+          ],
+          "answer": 3,
+          "why": "Store MEM-এ মেমরিতে লেখে, কিন্তু লেখার মতো কোনো register নেই, তাই WB-র কোনো কাজ থাকে না।",
+          "feedback": [
+            "প্রতিটি instruction-ই ফেচ করতে হয়।",
+            "ALU অ্যাড্রেস $s1 + 8 হিসাব করে।",
+            "মেমরিতে লেখা হয় MEM-এ: store-এর পুরো উদ্দেশ্যই এটা।",
+            ""
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "stages",
+          "skill": "Remember",
+          "title": "ছোট চ্যালেঞ্জ",
+          "prompt": "প্রতিটি ধাপকে তার কাজের সঙ্গে মেলান।",
+          "pairs": [
+            {
+              "a": "IF",
+              "b": "মেমরি থেকে instruction পড়া"
+            },
+            {
+              "a": "ID",
+              "b": "ডিকোড ও register পড়া"
+            },
+            {
+              "a": "EX",
+              "b": "ALU ফলাফল বা অ্যাড্রেস হিসাব করে"
+            },
+            {
+              "a": "MEM",
+              "b": "ডেটা মেমরি পড়া বা লেখা"
+            },
+            {
+              "a": "WB",
+              "b": "ফলাফল register-এ লেখা"
+            }
+          ],
+          "why": "ধাপগুলোর নাম কাজের ক্রম অনুসরণ করে: fetch, decode, execute, memory, write back।"
+        },
+        {
+          "type": "concept",
+          "concept": "pipereg",
+          "title": "Pipeline register",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Pipeline register দিয়ে আলাদা করা পাঁচটি ধাপ",
+              "width": 950,
+              "height": 350,
+              "nodes": [
+                {
+                  "id": "h_if",
+                  "label": "IF  Fetch",
+                  "kind": "state",
+                  "x": 20,
+                  "y": 14,
+                  "w": 120,
+                  "h": 34
+                },
+                {
+                  "id": "h_id",
+                  "label": "ID  Decode",
+                  "kind": "state",
+                  "x": 216,
+                  "y": 14,
+                  "w": 120,
+                  "h": 34
+                },
+                {
+                  "id": "h_ex",
+                  "label": "EX  Execute",
+                  "kind": "state",
+                  "x": 412,
+                  "y": 14,
+                  "w": 120,
+                  "h": 34
+                },
+                {
+                  "id": "h_mem",
+                  "label": "MEM  Memory",
+                  "kind": "state",
+                  "x": 608,
+                  "y": 14,
+                  "w": 120,
+                  "h": 34
+                },
+                {
+                  "id": "h_wb",
+                  "label": "WB  Write back",
+                  "kind": "state",
+                  "x": 804,
+                  "y": 14,
+                  "w": 120,
+                  "h": 34
+                },
+                {
+                  "id": "if",
+                  "label": "Instruction\nmemory",
+                  "sub": "ও PC + 4",
+                  "kind": "mem",
+                  "x": 20,
+                  "y": 70,
+                  "w": 120,
+                  "h": 120
+                },
+                {
+                  "id": "id",
+                  "label": "Register\nfile",
+                  "sub": "দুটি reg পড়া",
+                  "kind": "reg",
+                  "x": 216,
+                  "y": 70,
+                  "w": 120,
+                  "h": 120
+                },
+                {
+                  "id": "ex",
+                  "label": "ALU",
+                  "sub": "হিসাব",
+                  "kind": "alu",
+                  "x": 417,
+                  "y": 70,
+                  "w": 110,
+                  "h": 120
+                },
+                {
+                  "id": "mem",
+                  "label": "Data\nmemory",
+                  "sub": "lw ও sw",
+                  "kind": "mem",
+                  "x": 608,
+                  "y": 70,
+                  "w": 120,
+                  "h": 120
+                },
+                {
+                  "id": "wb",
+                  "label": "Write\nback",
+                  "sub": "ফলাফল reg-এ",
+                  "kind": "unit",
+                  "x": 804,
+                  "y": 70,
+                  "w": 120,
+                  "h": 120
+                },
+                {
+                  "id": "r1",
+                  "label": "IF/\nID",
+                  "kind": "reg",
+                  "x": 160,
+                  "y": 55,
+                  "w": 36,
+                  "h": 150
+                },
+                {
+                  "id": "r2",
+                  "label": "ID/\nEX",
+                  "kind": "reg",
+                  "x": 356,
+                  "y": 55,
+                  "w": 36,
+                  "h": 150
+                },
+                {
+                  "id": "r3",
+                  "label": "EX/\nMEM",
+                  "kind": "reg",
+                  "x": 552,
+                  "y": 55,
+                  "w": 36,
+                  "h": 150
+                },
+                {
+                  "id": "r4",
+                  "label": "MEM/\nWB",
+                  "kind": "reg",
+                  "x": 748,
+                  "y": 55,
+                  "w": 36,
+                  "h": 150
+                },
+                {
+                  "id": "clk",
+                  "label": "একটি ক্লক: প্রতিটি pipeline register একই মুহূর্তে লোড হয়",
+                  "kind": "ctrl",
+                  "x": 160,
+                  "y": 262,
+                  "w": 624,
+                  "h": 34
+                }
+              ],
+              "edges": [
+                {
+                  "id": "ea0",
+                  "points": [
+                    [
+                      140,
+                      130
+                    ],
+                    [
+                      160,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "eb0",
+                  "points": [
+                    [
+                      196,
+                      130
+                    ],
+                    [
+                      216,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "ec0",
+                  "kind": "control",
+                  "points": [
+                    [
+                      178,
+                      262
+                    ],
+                    [
+                      178,
+                      205
+                    ]
+                  ]
+                },
+                {
+                  "id": "ea1",
+                  "points": [
+                    [
+                      336,
+                      130
+                    ],
+                    [
+                      356,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "eb1",
+                  "points": [
+                    [
+                      392,
+                      130
+                    ],
+                    [
+                      412,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "ec1",
+                  "kind": "control",
+                  "points": [
+                    [
+                      374,
+                      262
+                    ],
+                    [
+                      374,
+                      205
+                    ]
+                  ]
+                },
+                {
+                  "id": "ea2",
+                  "points": [
+                    [
+                      532,
+                      130
+                    ],
+                    [
+                      552,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "eb2",
+                  "points": [
+                    [
+                      588,
+                      130
+                    ],
+                    [
+                      608,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "ec2",
+                  "kind": "control",
+                  "points": [
+                    [
+                      570,
+                      262
+                    ],
+                    [
+                      570,
+                      205
+                    ]
+                  ]
+                },
+                {
+                  "id": "ea3",
+                  "points": [
+                    [
+                      728,
+                      130
+                    ],
+                    [
+                      748,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "eb3",
+                  "points": [
+                    [
+                      784,
+                      130
+                    ],
+                    [
+                      804,
+                      130
+                    ]
+                  ]
+                },
+                {
+                  "id": "ec3",
+                  "kind": "control",
+                  "points": [
+                    [
+                      766,
+                      262
+                    ],
+                    [
+                      766,
+                      205
+                    ]
+                  ]
+                }
+              ],
+              "labels": [
+                {
+                  "x": 475,
+                  "y": 332,
+                  "text": "প্রতি ক্লক cycle-এ প্রতিটি instruction এক বক্স ডানে সরে।",
+                  "anchor": "middle"
+                }
+              ],
+              "steps": [
+                {
+                  "show": [
+                    "h_if",
+                    "h_id",
+                    "h_ex",
+                    "h_mem",
+                    "h_wb",
+                    "if",
+                    "id",
+                    "ex",
+                    "mem",
+                    "wb"
+                  ],
+                  "text": "পাঁচটি **ধাপ**, প্রতিটির নিজস্ব হার্ডওয়্যার। বাঁ থেকে ডানে হলো প্রতিটি instruction যে ক্রমে ধাপগুলোতে যায়।"
+                },
+                {
+                  "show": [
+                    "r1",
+                    "r2",
+                    "r3",
+                    "r4",
+                    "ea0",
+                    "ea1",
+                    "ea2",
+                    "ea3",
+                    "eb0",
+                    "eb1",
+                    "eb2",
+                    "eb3"
+                  ],
+                  "text": "**Pipeline register** থাকে ধাপগুলোর মাঝখানে। Cycle শেষে প্রতিটি তার আগের ধাপের তৈরি করা মান ধরে রাখে।"
+                },
+                {
+                  "show": [
+                    "clk",
+                    "ec0",
+                    "ec1",
+                    "ec2",
+                    "ec3"
+                  ],
+                  "text": "একটি ভাগ করা **ক্লক** সব pipeline register একসঙ্গে লোড করে। তারপর প্রতিটি instruction এক ধাপ এগোয়, আর প্রতিটি ধাপ নতুন instruction দিয়ে শুরু হয়।"
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "একটি instruction: lw $t0, 8($s1)",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "h_if",
+                        "if",
+                        "ea0",
+                        "r1"
+                      ],
+                      "values": {
+                        "if": "lw $t0, 8($s1)"
+                      },
+                      "text": "**Cycle 1, IF।** PC দিয়ে instruction memory-তে অ্যাড্রেস করা হয়। ফেচ করা `lw` IF/ID register-এ জমা হয়।"
+                    },
+                    {
+                      "highlight": [
+                        "h_id",
+                        "id",
+                        "r1",
+                        "eb0",
+                        "ea1",
+                        "r2"
+                      ],
+                      "values": {
+                        "id": "read $s1"
+                      },
+                      "text": "**Cycle 2, ID।** Instruction IF/ID থেকে বেরিয়ে আসে। Register file `$s1` সরবরাহ করে। ID/EX-এ register-এর মান ও অফসেট 8 জমা হয়।"
+                    },
+                    {
+                      "highlight": [
+                        "h_ex",
+                        "ex",
+                        "r2",
+                        "eb1",
+                        "ea2",
+                        "r3"
+                      ],
+                      "values": {
+                        "ex": "$s1 + 8"
+                      },
+                      "text": "**Cycle 3, EX।** ALU `$s1` ও 8 যোগ করে মেমরি অ্যাড্রেস বানায়। EX/MEM সেটি জমা রাখে।"
+                    },
+                    {
+                      "highlight": [
+                        "h_mem",
+                        "mem",
+                        "r3",
+                        "eb2",
+                        "ea3",
+                        "r4"
+                      ],
+                      "values": {
+                        "mem": "read word"
+                      },
+                      "text": "**Cycle 4, MEM।** ডেটা মেমরি ওই অ্যাড্রেসের word পড়ে। MEM/WB সেটি জমা রাখে।"
+                    },
+                    {
+                      "highlight": [
+                        "h_wb",
+                        "wb",
+                        "r4",
+                        "eb3"
+                      ],
+                      "values": {
+                        "wb": "$t0 = word"
+                      },
+                      "text": "**Cycle 5, WB।** Load করা word register file-এর `$t0`-তে লেখা হয়। Instruction সম্পন্ন।"
+                    }
+                  ]
+                },
+                {
+                  "name": "একসঙ্গে পাঁচটি instruction",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "h_if",
+                        "if"
+                      ],
+                      "values": {
+                        "if": "I1 lw"
+                      },
+                      "text": "**Cycle 1।** Pipeline-এ শুধু instruction 1 আছে।"
+                    },
+                    {
+                      "highlight": [
+                        "h_if",
+                        "if",
+                        "h_id",
+                        "id"
+                      ],
+                      "values": {
+                        "if": "I2 add",
+                        "id": "I1 lw"
+                      },
+                      "text": "**Cycle 2।** I1 ID-তে সরে যায়, আর একই সময়ে I2 ফেচ হয়।"
+                    },
+                    {
+                      "highlight": [
+                        "h_if",
+                        "if",
+                        "h_id",
+                        "id",
+                        "h_ex",
+                        "ex"
+                      ],
+                      "values": {
+                        "if": "I3 sub",
+                        "id": "I2 add",
+                        "ex": "I1 lw"
+                      },
+                      "text": "**Cycle 3।** তিনটি instruction in flight।"
+                    },
+                    {
+                      "highlight": [
+                        "h_if",
+                        "if",
+                        "h_id",
+                        "id",
+                        "h_ex",
+                        "ex",
+                        "h_mem",
+                        "mem"
+                      ],
+                      "values": {
+                        "if": "I4 and",
+                        "id": "I3 sub",
+                        "ex": "I2 add",
+                        "mem": "I1 lw"
+                      },
+                      "text": "**Cycle 4।** চারটি ধাপ ব্যস্ত।"
+                    },
+                    {
+                      "highlight": [
+                        "h_if",
+                        "if",
+                        "h_id",
+                        "id",
+                        "h_ex",
+                        "ex",
+                        "h_mem",
+                        "mem",
+                        "h_wb",
+                        "wb"
+                      ],
+                      "values": {
+                        "if": "I5 or",
+                        "id": "I4 and",
+                        "ex": "I3 sub",
+                        "mem": "I2 add",
+                        "wb": "I1 lw"
+                      },
+                      "text": "**Cycle 5: pipeline এখন ভরা।** পাঁচটি ভিন্ন instruction-এ কাজ চলছে, প্রতি ধাপে একটি। I1 এখন শেষ হচ্ছে।"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "ধাপগুলোর মাঝে register না থাকলে একটি ধাপ এমন মান মুছে দিত, যা পরের ধাপের তখনও দরকার। Register প্রতিটি instruction-এর ডেটা আলাদা রাখে।",
+          "real": "আসল চিপে এগুলো flip-flop-এর ব্যাংক (যে স্টোরেজ ক্লক edge-এ লোড হয়)। যেমন, IF/ID ফেচ করা 32-bit instruction ও PC + 4-এর মান ধরে রাখে।",
+          "explainAgain": {
+            "beginner": "Pipeline register হলো দুটি স্টেশনের মাঝখানের একটি ট্রে। একটি স্টেশন তার শেষ করা কাজ ট্রেতে রাখে; পরের তালে পরের স্টেশন সেটি তুলে নেয়, আর প্রথম স্টেশন নতুন জিনিস নিয়ে কাজ শুরু করে।",
+            "technical": "প্রতিটি pipeline register ক্লক edge-এ একটি ধাপের আউটপুট ধরে রাখে, যাতে পরের ধাপ পুরো পরের cycle জুড়ে স্থির ইনপুট দেখে। কন্ট্রোল সিগন্যালও instruction-এর সঙ্গে এই register-গুলো দিয়ে এগিয়ে যায়।"
+          },
+          "deeper": "Register-গুলোর নাম হয় যে দুটি ধাপকে আলাদা করে তাদের নামে: IF/ID, ID/EX, EX/MEM ও MEM/WB। সহজ instruction-এর জন্য যতটুকু দরকার, প্রতিটি register তার চেয়ে চওড়া হয়, কারণ পরের ধাপগুলোর যা লাগতে পারে সবই তাকে বহন করতে হয়।",
+          "notes": {
+            "explain": "আগে তিনটি build ধাপে ক্লিক করে এগোন, তারপর প্রথম scenario দিয়ে lw-কে pipeline-এ অনুসরণ করুন, তারপর দ্বিতীয়টি দিয়ে একসঙ্গে পাঁচটি instruction দেখান। প্রজেক্টরে দেখালে diagram height 1100 সেটিং ব্যবহার করুন।",
+            "terms": [
+              "**Pipeline register**",
+              "**ক্লক edge**",
+              "**In flight**: শুরু হয়েছে কিন্তু শেষ হয়নি"
+            ],
+            "misconceptions": [
+              "শিক্ষার্থীরা ভাবে pipeline register হলো $t0-র মতো architectural register। এগুলো অভ্যন্তরীণ এবং প্রোগ্রামারের কাছে অদৃশ্য।"
+            ],
+            "ask": "EX ও MEM-এর মাঝে register না থাকলে কী ভুল হতো?",
+            "minutes": 4,
+            "difficulty": "মাঝারি"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "pipereg",
+          "skill": "Understand",
+          "question": "ID ও EX ধাপের মাঝের register-এর প্রধান কাজ কী?",
+          "options": [
+            "ID যে মান তৈরি করেছে তা ধরে রাখা, যাতে পরের cycle-এ EX তা ব্যবহার করতে পারে এবং ID নতুন instruction নিয়ে শুরু করতে পারে",
+            "প্রোগ্রাম কাউন্টার স্থায়ীভাবে জমা রাখা",
+            "ক্লককে দ্রুততর চালানো",
+            "মেইন মেমরির বিষয়বস্তু ধরে রাখা"
+          ],
+          "answer": 0,
+          "why": "Pipeline register ধাপগুলোকে আলাদা করে: প্রতিটি ধাপ নিজের instruction নিয়ে কাজ করে, আর register ওই instruction-এর ডেটা সামনে বয়ে নিয়ে যায়।",
+          "feedback": [
+            "",
+            "PC একটি আলাদা architectural register।",
+            "ক্লক রেট ঠিক হয় সবচেয়ে ধীর ধাপ দিয়ে, এই register-গুলো দিয়ে নয়।",
+            "মেমরি একটি ভিন্ন ইউনিট। Pipeline register ছোট ও অভ্যন্তরীণ।"
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "চেকপয়েন্ট",
+          "questions": [
+            {
+              "q": "ক্লাসিক পাঁচটি pipeline ধাপের নাম ক্রমানুসারে বলুন।",
+              "a": "IF, ID, EX, MEM, WB: instruction fetch, decode ও register read, execute বা অ্যাড্রেস হিসাব, মেমরি অ্যাক্সেস, write back।",
+              "concept": "stages"
+            },
+            {
+              "q": "MEM ধাপে কিছু না করলেও add সেই ধাপ দিয়ে যায় কেন?",
+              "a": "প্রতিটি instruction-কে পাঁচটি ধাপই দিলে টাইমিং একরকম থাকে, ফলে প্রতি cycle-এ একটি instruction সংঘাত ছাড়াই ঢুকতে পারে।",
+              "concept": "stages"
+            },
+            {
+              "q": "Pipeline register কী করে?",
+              "a": "এগুলো ধাপগুলোর মাঝখানে থাকে এবং প্রতিটি instruction-এর মান পরের ধাপের জন্য ধরে রাখে, ফলে একই cycle-এ পাঁচটি ভিন্ন instruction পাঁচটি ধাপে থাকতে পারে।",
+              "concept": "pipereg"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "timing",
+      "label": "টাইমিং",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "timing",
+          "title": "টাইমিং ডায়াগ্রাম পড়া",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8"
+              ],
+              "rows": [
+                [
+                  "I1  add $t0,$s1,$s2",
+                  "IF",
+                  "ID",
+                  "EX",
+                  "MEM",
+                  "WB",
+                  "",
+                  "",
+                  ""
+                ],
+                [
+                  "I2  sub $t1,$s3,$s4",
+                  "",
+                  "IF",
+                  "ID",
+                  "EX",
+                  "MEM",
+                  "WB",
+                  "",
+                  ""
+                ],
+                [
+                  "I3  and $t2,$s5,$s6",
+                  "",
+                  "",
+                  "IF",
+                  "ID",
+                  "EX",
+                  "MEM",
+                  "WB",
+                  ""
+                ],
+                [
+                  "I4  or $t3,$s7,$t8",
+                  "",
+                  "",
+                  "",
+                  "IF",
+                  "ID",
+                  "EX",
+                  "MEM",
+                  "WB"
+                ]
+              ]
+            },
+            {
+              "type": "callout",
+              "tone": "why",
+              "title": "খেয়াল করার দুটি বিষয়",
+              "text": "প্রতিটি সারি একটি instruction আর প্রতিটি কলাম একটি ক্লক cycle। Instruction-গুলো সিঁড়ির মতো সাজে, এবং প্রতিটি তার আগেরটির এক cycle পরে শুরু হয়।",
+              "reveal": true
+            }
+          ],
+          "why": "আর্কিটেক্টরা টাইমিং ডায়াগ্রামের মাধ্যমেই ওভারল্যাপ দেখেন। প্রায় প্রতিটি pipeline অনুশীলনীতে আপনাকে একটি আঁকতে হবে।",
+          "real": "পারফরম্যান্স টুল প্রতি cycle-এ instruction সংখ্যা (IPC) জানায়। যে pipeline ভরা থাকে, সেটি প্রতি cycle-এ প্রায় একটি instruction শেষ করে, অর্থাৎ CPI প্রায় 1।",
+          "mistake": {
+            "wrong": "Pipelined চারটি instruction-এর তবু মোট 4 x 5 = 20 cycle লাগে।",
+            "right": "লাগে 5 + 3 = 8 cycle। শুধু প্রথম instruction-টিকে পুরো 5 cycle দিতে হয়।",
+            "why": "Pipeline ভরে যাওয়ার পর প্রতি cycle-এ একটি করে instruction শেষ হয়।"
+          },
+          "notes": {
+            "explain": "একবারে একটি সারি দেখান। তৃতীয় সারির পর জিজ্ঞাসা করুন: cycle 3-এ I1, I2 ও I3 কী করছে?",
+            "terms": [
+              "**টাইমিং ডায়াগ্রাম**",
+              "**Fill**: শুরুর যে cycle-গুলোতে pipeline এখনও ভরেনি",
+              "**CPI**: প্রতি instruction-এ ক্লক cycle"
+            ],
+            "ask": "I3 কোন cycle-এ শেষ হয়?",
+            "minutes": 3,
+            "difficulty": "সহজ"
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "timing",
+          "skill": "Apply",
+          "question": "যে simulator এখন ব্যবহার করবেন তাতে 8টি স্বাধীন instruction-এর scenario চালান। Pipelining ছাড়া লাগে 8 x 5 = 40 cycle। Pipelining সহ কত cycle আশা করেন?",
+          "options": [
+            "12",
+            "8",
+            "10",
+            "40"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "bullets",
+              "items": [
+                "প্রথম instruction cycle 5-এ শেষ হয়।",
+                "আরও সাতটি instruction প্রতি cycle-এ একটি করে শেষ হয়: cycle 6 থেকে 12।",
+                "মোট: 5 + 7 = 12 cycle (অর্থাৎ 8 + 4)।"
+              ]
+            }
+          ],
+          "result": "12 cycle। এবার simulator-এ মিলিয়ে দেখুন।",
+          "notes": {
+            "explain": "হাত তুলিয়ে উত্তর সংগ্রহ করুন, তারপর Reveal চাপুন।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "timing",
+          "title": "নিজে করুন: pipeline simulator",
+          "blocks": [
+            {
+              "type": "pipeline",
+              "title": "Pipeline টাইমিং: স্বাধীন instruction",
+              "hint": "**চালান** চাপুন অথবা **এক clock cycle এগিয়ে যান**। Pipelining সহ ও ছাড়া তুলনা করতে দৃশ্য বোতাম ব্যবহার করুন। ট্যাব দিয়ে অন্য scenario বেছে নিন।",
+              "controls": [
+                "compare"
+              ],
+              "scenarios": [
+                {
+                  "name": "চারটি স্বাধীন instruction",
+                  "instructions": [
+                    "add $t0,$s1,$s2",
+                    "sub $t1,$s3,$s4",
+                    "and $t2,$s5,$s6",
+                    "or $t3,$s7,$t8"
+                  ],
+                  "note": "কোনো instruction অন্যটির ফলাফলের ওপর নির্ভর করে না। প্রথমটি cycle 5-এ শেষ হয়, তারপর প্রতি cycle-এ আরও একটি করে: 20-এর বদলে 8 cycle।"
+                },
+                {
+                  "name": "Load, store ও ALU",
+                  "instructions": [
+                    "lw $t0,0($s0)",
+                    "lw $t1,4($s0)",
+                    "add $t2,$s1,$s2",
+                    "sw $s3,8($s0)",
+                    "sub $t3,$s4,$s5"
+                  ],
+                  "note": "ভিন্ন ধরনের instruction একই পাঁচটি ধাপ ব্যবহার করে। পাঁচটিই স্বাধীন, তাই pipeline কখনও অপেক্ষা করে না।"
+                },
+                {
+                  "name": "মাত্র দুটি instruction",
+                  "instructions": [
+                    "add $t0,$s1,$s2",
+                    "sub $t1,$s3,$s4"
+                  ],
+                  "note": "এত অল্প instruction হলে বেশিরভাগ সময় pipeline ভরতে ও খালি করতে যায়: লাভ সামান্য।"
+                },
+                {
+                  "name": "আটটি instruction",
+                  "instructions": [
+                    "add $t0,$s0,$s1",
+                    "sub $t1,$s2,$s3",
+                    "and $t2,$s4,$s5",
+                    "or $t3,$s6,$s7",
+                    "slt $t4,$s0,$s2",
+                    "addi $t5,$s1,10",
+                    "andi $t6,$s3,255",
+                    "ori $t7,$s5,1"
+                  ],
+                  "note": "Cycle 5 থেকে cycle 8 পর্যন্ত পাঁচটি ধাপ একসঙ্গে ব্যস্ত। যত দীর্ঘ চালানো হয়, লাভ তত ধাপের সংখ্যার কাছাকাছি পৌঁছায়।"
+                }
+              ]
+            }
+          ],
+          "why": "সিঁড়িটা বেড়ে উঠতে দেখাই বোঝার দ্রুততম উপায় যে speedup কোথা থেকে আসে এবং কী তাকে সীমিত করে।",
+          "real": "চিপ ডিজাইনাররা সিলিকন তৈরির অনেক আগেই এ ধরনের cycle-by-cycle simulator ব্যবহার করেন।",
+          "notes": {
+            "explain": "চার-instruction scenario-টি এক clock cycle এগিয়ে যান দিয়ে চালান। তারপর দৃশ্য Pipelining ছাড়া-তে বদলে মোট cycle তুলনা করুন। দুই-instruction scenario চালিয়ে দেখান যে ছোট রানে লাভ কম।",
+            "ask": "আটটির তুলনায় দুটি instruction-এ speedup কম হয় কেন?",
+            "discuss": "এই simulator-এ Pipelining ছাড়া মানে একই ক্লক রেটে প্রতি instruction-এ পাঁচ cycle। Class 11-এর multi-cycle ডিজাইন এভাবেই আচরণ করে।",
+            "misconceptions": [
+              "শিক্ষার্থীরা ভাবে Pipelining ছাড়া দৃশ্য হলো single-cycle মেশিন। এখানে দুই দৃশ্যেই cycle time একই।"
+            ],
+            "minutes": 4,
+            "difficulty": "মাঝারি"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "timing",
+          "skill": "Apply",
+          "question": "আটটি instruction scenario-তে 8ম instruction কোন ক্লক cycle-এ তার WB ধাপ শেষ করে?",
+          "options": [
+            "8",
+            "12",
+            "13",
+            "40"
+          ],
+          "answer": 1,
+          "why": "Instruction i শেষ হয় cycle i + 4-এ, তাই instruction 8 শেষ হয় cycle 12-এ।",
+          "feedback": [
+            "Cycle 8-এ instruction 8 ফেচ হয়, শেষ হয় না।",
+            "",
+            "8 + 5 গোনায় এক ভুল: প্রথম instruction তো cycle 5-এই শেষ হয়ে যায়।",
+            "40 হলো pipelining ছাড়া cycle সংখ্যা।"
+          ]
+        },
+        {
+          "type": "arrange",
+          "concept": "stages",
+          "skill": "Remember",
+          "title": "ছোট চ্যালেঞ্জ",
+          "prompt": "`lw $t0, 8($s1)`-এর জীবনচক্র ক্রমানুসারে সাজান।",
+          "items": [
+            "Instruction memory থেকে instruction ফেচ করুন",
+            "এটি ডিকোড করুন ও $s1 পড়ুন",
+            "ALU $s1 + 8 যোগ করে",
+            "ডেটা মেমরি থেকে word পড়ুন",
+            "Word-টি $t0-তে লিখুন"
+          ],
+          "why": "IF, ID, EX, MEM, WB ধাপক্রম কাজের ক্রম অনুসরণ করে।"
+        },
+        {
+          "type": "concept",
+          "concept": "timing",
+          "title": "নিজে আঁকুন: নিয়ম",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "মোট cycle",
+                  "note": "প্রথম IF থেকে শেষ WB পর্যন্ত ক্লক cycle।"
+                },
+                {
+                  "t": "="
+                },
+                {
+                  "t": "n",
+                  "note": "Instruction-এর সংখ্যা। প্রতিটির pipeline-এ ঢুকতে এক cycle লাগে।"
+                },
+                {
+                  "t": "+"
+                },
+                {
+                  "t": "(k − 1)",
+                  "note": "Pipeline ভরার বাড়তি cycle: k হলো ধাপের সংখ্যা। পাঁচ ধাপের জন্য এটি 4।"
+                }
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "Instruction নম্বর i ধাপ s-এ ঢোকে cycle i + s - 1-এ (ধাপ নম্বর 1 থেকে 5)।",
+                "তাই instruction 3 MEM-এ (ধাপ 4) থাকে cycle 3 + 4 - 1 = 6-এ।",
+                "ছয়টি instruction শেষ হয় 6 + 4 = 10 cycle-এ।"
+              ]
+            }
+          ],
+          "why": "দুটি দ্রুত নিয়ম দিয়ে প্রতিটি ঘর না এঁকেই যেকোনো টাইমিং ডায়াগ্রাম পূরণ করা যায়।",
+          "notes": {
+            "explain": "আগের ডায়াগ্রামের সঙ্গে নিয়মটি মিলিয়ে দেখুন: I3 EX হওয়ার কথা cycle 5, I4 WB cycle 8। এই নিয়ম শুধু স্বাধীন instruction-এর জন্য; dependence থেকে হওয়া stall আছে Class 13-এ।",
+            "terms": [
+              "**k**: ধাপের সংখ্যা",
+              "**n**: instruction-এর সংখ্যা"
+            ],
+            "difficulty": "মাঝারি"
+          }
+        },
+        {
+          "type": "find",
+          "concept": "timing",
+          "skill": "Analyze",
+          "title": "ভুলটা খুঁজুন",
+          "prompt": "একজন শিক্ষার্থী পাঁচটি স্বাধীন instruction-এর একটি pipeline ডায়াগ্রাম বর্ণনা করছে। একটি বক্তব্য ভুল। সেটিতে ক্লিক করুন।",
+          "lines": [
+            "1. Instruction 1 cycle 5-এ শেষ হয়।",
+            "2. Instruction 2 cycle 6-এ শেষ হয়।",
+            "3. পাঁচটি instruction মিলে মোট 5 x 5 = 25 cycle নেয়।",
+            "4. Cycle 4-এ instruction 4 IF-এ এবং instruction 1 MEM-এ থাকে।"
+          ],
+          "wrong": 2,
+          "explain": "পাঁচটি স্বাধীন instruction pipelined হলে 5 + 4 = 9 cycle নেয়। 25 cycle হলো pipelining ছাড়া সময়।",
+          "fix": "পাঁচটি instruction মিলে মোট 5 + 4 = 9 cycle নেয়।"
+        },
+        {
+          "type": "checkpoint",
+          "title": "চেকপয়েন্ট",
+          "questions": [
+            {
+              "q": "Pipeline টাইমিং ডায়াগ্রাম কীভাবে পড়বেন?",
+              "a": "প্রতিটি সারি একটি instruction আর প্রতিটি কলাম একটি ক্লক cycle। একটি ঘর বলে দেয় ওই cycle-এ instruction কোন ধাপে আছে।",
+              "concept": "timing"
+            },
+            {
+              "q": "5-stage pipeline-এ n টি স্বাধীন instruction কত cycle নেয়?",
+              "a": "n + 4 cycle: pipeline ভরতে 4 cycle, তারপর প্রতি cycle-এ একটি instruction শেষ হয়।",
+              "concept": "timing"
+            },
+            {
+              "q": "কোন cycle-এ instruction 3 তার MEM ধাপে থাকে?",
+              "a": "Cycle 6: instruction i ধাপ s-এ থাকে cycle i + s - 1-এ, তাই 3 + 4 - 1 = 6।",
+              "concept": "timing"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "perf",
+      "label": "পারফরম্যান্স",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "latency",
+          "title": "Latency বনাম থ্রুপুট",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Latency",
+                "items": [
+                  "একটি instruction-এর শুরু থেকে শেষ পর্যন্ত সময়",
+                  "উদাহরণ: 5 cycle",
+                  "Pipelining এটি কমায় না"
+                ]
+              },
+              "right": {
+                "title": "থ্রুপুট",
+                "items": [
+                  "প্রতি একক সময়ে শেষ হওয়া instruction",
+                  "উদাহরণ: প্রতি cycle-এ একটি",
+                  "Pipelining এটি বাড়ায়"
+                ]
+              }
+            },
+            {
+              "type": "table",
+              "head": [
+                "একই পাঁচটি ধাপ (500 ps কাজ)",
+                "Cycle",
+                "একটি instruction-এর সময় লাগে",
+                "প্রতি এত সময়ে একটি instruction শেষ হয়"
+              ],
+              "rows": [
+                [
+                  "Pipelined নয়",
+                  "500 ps",
+                  "500 ps",
+                  "500 ps"
+                ],
+                [
+                  "Pipelined (সবচেয়ে ধীর ধাপ 150 ps)",
+                  "150 ps",
+                  "5 x 150 = 750 ps",
+                  "150 ps"
+                ]
+              ]
+            }
+          ],
+          "why": "প্রোগ্রাম চালায় বিলিয়ন বিলিয়ন instruction, তাই প্রোগ্রাম কত দ্রুত, তা ঠিক করে instruction শেষ হওয়ার হার, একটি instruction কতক্ষণ নেয় তা নয়।",
+          "real": "গেম বা ভিডিও চালানো ফোনের কাছে থ্রুপুটই গুরুত্বপূর্ণ: প্রতি সেকেন্ডে কতগুলো instruction শেষ হয়। ব্যবহারকারী একটি instruction-এর সময় কখনও টের পান না।",
+          "mistake": [
+            {
+              "wrong": "Pipelining প্রতিটি instruction-কে দ্রুত চালায়।",
+              "right": "প্রতিটি instruction আগের মতোই সময় নেয়, প্রায়ই সামান্য বেশি। Pipelining প্রতি সেকেন্ডে বেশি instruction শেষ করে।",
+              "why": "একটি instruction এখনও পাঁচটি ধাপই পার হয়, এবং প্রতিটি ধাপ পায় সবচেয়ে ধীর ধাপের সময়।"
+            },
+            {
+              "wrong": "একটি instruction বেশি সময় নিলে প্রোগ্রাম অবশ্যই ধীর হবে।",
+              "right": "প্রোগ্রাম আগে শেষ হয়, কারণ প্রতি cycle-এ একটি নতুন instruction শেষ হয়।",
+              "why": "দীর্ঘ প্রোগ্রামের রানিং টাইম ঠিক করে থ্রুপুট, latency নয়।"
+            }
+          ],
+          "explainAgain": {
+            "beginner": "একটি গাড়ি বানাতে আগের মতোই সময় লাগে, কিন্তু লাইন থেকে প্রতি কয়েক মিনিটে একটি নতুন গাড়ি বেরিয়ে আসে। লাইন কোনো একটি গাড়িকে দ্রুত বানায়নি; ঘণ্টায় বেশি গাড়ি বানিয়েছে।",
+            "technical": "প্রতি instruction-এর latency = ধাপের সংখ্যা x pipelined ক্লক পিরিয়ড, যা non-pipelined সময়ের অন্তত সমান। আদর্শ ক্ষেত্রে থ্রুপুট = প্রতি ক্লক পিরিয়ডে একটি instruction।"
+          },
+          "notes": {
+            "explain": "টেবিলটি দেখান। Latency 500 ps থেকে বেড়ে 750 ps হয়, কিন্তু instruction শেষ হয় প্রতি 500 ps-এর বদলে প্রতি 150 ps-এ। অসম ধাপের সময় এবং বাস্তবে pipeline register-এর ওভারহেড থেকে বাড়তি দেরি যোগ হয়।",
+            "terms": [
+              "**Latency**",
+              "**থ্রুপুট**"
+            ],
+            "misconceptions": [
+              "সবচেয়ে প্রচলিত ভুল ধারণা: pipelining প্রতিটি instruction-কে দ্রুত করে।"
+            ],
+            "ask": "Pipeline সবসময় একটি instruction-এর সময় কমায়। সত্য না মিথ্যা?",
+            "minutes": 3,
+            "difficulty": "মাঝারি"
+          }
+        },
+        {
+          "type": "tf",
+          "concept": "latency",
+          "skill": "Understand",
+          "statement": "Pipelining একটি একক instruction সম্পূর্ণ করার সময় কমায়।",
+          "answer": false,
+          "why": "একটি একক instruction এখনও পাঁচটি ধাপই পার হয়, তাই এর latency একই থাকে বা সামান্য বাড়ে। যা উন্নত হয় তা হলো প্রতি সেকেন্ডে কতগুলো instruction শেষ হয়।",
+          "misconception": "Latency (একটি instruction) আর থ্রুপুট (অনেক instruction) গুলিয়ে ফেলা।"
+        },
+        {
+          "type": "predict",
+          "concept": "speedup",
+          "skill": "Apply",
+          "question": "একটি pipeline-এর 5টি পুরোপুরি ব্যালান্সড ধাপ আছে এবং সেটি কোনো stall ছাড়া খুব দীর্ঘ একটি প্রোগ্রাম চালায়। Pipelining ছাড়া একই হার্ডওয়্যারের তুলনায় এটি প্রায় কত গুণ দ্রুত?",
+          "options": [
+            "প্রায় 2 গুণ",
+            "প্রায় 5 গুণ",
+            "প্রায় 10 গুণ",
+            "প্রায় 25 গুণ"
+          ],
+          "answer": 1,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Pipelining ছাড়া প্রতি 5 ধাপ-সময়ে একটি instruction শেষ হয়। ভরা pipeline-এ প্রতি ধাপ-সময়ে একটি শেষ হয়। অনুপাত 5, অর্থাৎ ধাপের সংখ্যা।"
+            }
+          ],
+          "result": "প্রায় 5 গুণ। Ideal speedup ব্যালান্সড ধাপের সংখ্যার সমান। n ও k বদলালে এটি কীভাবে বদলায়, তা ক্যালকুলেটরে দেখুন।",
+          "notes": {
+            "explain": "উত্তর দেখানোর আগে শিক্ষার্থীদের 2, 5 ও 10 নিয়ে তর্ক করতে দিন।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "speedup",
+          "title": "নিজে করুন: ideal speedup",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "ব্যালান্সড ধাপে ideal speedup",
+              "equation": "**Speedup = (n x k) / (n + k − 1)**   (ব্যালান্সড ধাপ, কোনো stall নেই)",
+              "inputs": [
+                {
+                  "id": "ks",
+                  "label": "Pipeline ধাপ (k)",
+                  "value": 5,
+                  "min": 2,
+                  "max": 10,
+                  "step": 1
+                },
+                {
+                  "id": "tp",
+                  "label": "প্রতি ধাপের সময়",
+                  "value": 100,
+                  "min": 50,
+                  "max": 200,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "ni",
+                  "label": "Instruction (n)",
+                  "value": 8,
+                  "min": 1,
+                  "max": 1000,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "Pipelining ছাড়া",
+                  "formula": "ni*ks*tp*1e-12",
+                  "format": "time",
+                  "better": "lower"
+                },
+                {
+                  "label": "Pipelining সহ",
+                  "formula": "(ni+ks-1)*tp*1e-12",
+                  "format": "time",
+                  "better": "lower"
+                },
+                {
+                  "label": "Speedup",
+                  "formula": "(ni*ks)/(ni+ks-1)",
+                  "format": "x",
+                  "digits": 2
+                },
+                {
+                  "label": "খুব দীর্ঘ রানের জন্য ideal সীমা",
+                  "formula": "ks",
+                  "format": "x",
+                  "digits": 0
+                }
+              ],
+              "trace": "{ni}টি instruction: speedup {r2}, সীমা {r3}"
+            },
+            {
+              "type": "callout",
+              "tone": "warn",
+              "text": "Ideal মানে কোনো stall নেই: প্রতিটি instruction স্বাধীন। বাস্তব প্রোগ্রামে dependence ও branch থাকে, যা pipeline-কে অপেক্ষা করায়। সেটা Class 13।",
+              "reveal": true
+            }
+          ],
+          "why": "k সংখ্যক ব্যালান্সড ধাপের pipeline সর্বোচ্চ k গুণ দ্রুত হতে পারে। তাই ডিজাইনাররা একাধিক ধাপ ব্যবহার করেন, তবে শুধু তখনই, যখন pipeline ভরা থাকে।",
+          "real": "একই ধারণা ফ্যাক্টরি লাইন এবং GPU ও নেটওয়ার্ক হার্ডওয়্যারেও খাটে: ব্যালান্সড লাইনে ধাপ যত বেশি, প্রতি সেকেন্ডে সম্পন্ন কাজও তত বেশি।",
+          "notes": {
+            "explain": "n = 8 দিয়ে শুরু করুন (speedup 3.33), তারপর n স্লাইড করে 1000 করুন। Speedup 5-এর কাছে পৌঁছায়। তারপর k বদলে 10 করুন (সীমা হয় 10)। জিজ্ঞাসা করুন n = 1 হলে speedup 1 কেন।",
+            "terms": [
+              "**Ideal speedup**: ব্যালান্সড ধাপের সংখ্যা",
+              "**Fill ও drain**: শুরু ও শেষের যে cycle-গুলোতে pipeline ভরা থাকে না"
+            ],
+            "ask": "ছোট প্রোগ্রামে speedup 5-এর নিচে থাকে কেন?",
+            "minutes": 3,
+            "difficulty": "মাঝারি"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "speedup",
+          "skill": "Apply",
+          "question": "একটি ব্যালান্সড 5-stage pipeline 100টি স্বাধীন instruction চালায়। Pipelining ছাড়া প্রতি instruction-এ 5 cycle ধরে cycle-গুলো তুলনা করুন। Speedup প্রায় কত?",
+          "options": [
+            "5.00",
+            "4.81",
+            "2.50",
+            "20"
+          ],
+          "answer": 1,
+          "why": "ছাড়া: 100 x 5 = 500 cycle। সহ: 100 + 4 = 104 cycle। Speedup 500 / 104 = 4.81, ideal 5-এর কাছাকাছি কিন্তু নিচে।",
+          "feedback": [
+            "5 হলো শুধু অসীম দীর্ঘ রানের সীমা। 4টি fill cycle একে সামান্য নিচে রাখে।",
+            "",
+            "এটি হতো খুব ছোট রানের speedup, 100টি instruction-এর নয়।",
+            "5-stage pipeline-এর speedup 5-কে ছাড়াতে পারে না।"
+          ]
+        },
+        {
+          "type": "concept",
+          "concept": "balance",
+          "title": "ধাপগুলো ব্যালান্সড হতে হবে কেন",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "যে ধাপগুলো ব্যালান্সড নয়",
+              "equation": "**ক্লক cycle = সবচেয়ে ধীর ধাপ।   দীর্ঘ রানের speedup = ধাপের সময়ের যোগফল ÷ সবচেয়ে ধীর ধাপ**",
+              "inputs": [
+                {
+                  "id": "tf",
+                  "label": "IF ধাপ",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "td",
+                  "label": "ID ধাপ",
+                  "value": 80,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "te",
+                  "label": "EX ধাপ",
+                  "value": 120,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "tm",
+                  "label": "MEM ধাপ",
+                  "value": 150,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "tw",
+                  "label": "WB ধাপ",
+                  "value": 50,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Non-pipelined cycle (ধাপগুলোর যোগফল)",
+                  "formula": "(tf+td+te+tm+tw)*1e-12",
+                  "format": "time"
+                },
+                {
+                  "label": "Pipelined cycle (সবচেয়ে ধীর ধাপ)",
+                  "formula": "max(max(max(tf,td),max(te,tm)),tw)*1e-12",
+                  "format": "time"
+                },
+                {
+                  "label": "দীর্ঘ রানের speedup",
+                  "formula": "(tf+td+te+tm+tw)/max(max(max(tf,td),max(te,tm)),tw)",
+                  "format": "x",
+                  "digits": 2,
+                  "better": "higher"
+                },
+                {
+                  "label": "একটি instruction, শুরু থেকে শেষ, pipelined",
+                  "formula": "5*max(max(max(tf,td),max(te,tm)),tw)*1e-12",
+                  "format": "time",
+                  "better": "lower"
+                }
+              ],
+              "trace": "cycle {r1}, speedup {r2}, একটি instruction নেয় {r3}"
+            }
+          ],
+          "why": "ক্লককে সবচেয়ে ধীর ধাপের জন্য যথেষ্ট ধীর হতে হয়। দ্রুত ধাপগুলো তার জন্য অপেক্ষা করে, আর ideal speedup 5 হারিয়ে যায়।",
+          "real": "ডিজাইনাররা কাজ সমানভাবে ভাগ করার চেষ্টা করেন, আর কিছু core একটি ধীর ধাপকে দুই ভাগ করে। হাই-পারফরম্যান্স pipeline-এ পাঁচের বেশি ধাপ থাকার এটি একটি কারণ।",
+          "mistake": {
+            "wrong": "5-stage pipeline সবসময় 5 গুণ speedup দেয়।",
+            "right": "5 গুণ হলো ideal। অসমান ধাপ এবং না-ভরা pipeline দুটোই একে কমায়।",
+            "why": "ক্লক cycle সবচেয়ে ধীর ধাপের সমান, আর pipeline ভরতে সময় লাগে।"
+          },
+          "deeper": "বাস্তব pipeline register প্রতিটি cycle-এ সামান্য দেরি যোগ করে, তাই speedup এই সংখ্যাগুলোর চেয়ে একটু কম হয়। আরও ধাপ থাকলে যে pipeline-কে অপেক্ষা করতে হয় বা খালি করতে হয়, তার খরচও বাড়ে। সেটা Class 13 ও Class 14-এর গল্প।",
+          "notes": {
+            "explain": "ডিফল্ট: ধাপ 100, 80, 120, 150, 50 ps। সবচেয়ে ধীর 150, যোগফল 500, তাই speedup 3.33, 5 নয়। MEM 100 করুন এবং দেখুন EX (120) সীমা হয়ে ওঠে। তারপর সবগুলো সমান করে 5-এ পৌঁছান।",
+            "terms": [
+              "**ব্যালান্সড ধাপ**: প্রতি ধাপে প্রায় সমান সময়"
+            ],
+            "misconceptions": [
+              "শিক্ষার্থীরা ভাবে যেকোনো ধাপ দ্রুত করলেই লাভ। শুধু সবচেয়ে ধীর ধাপই ক্লক ঠিক করে।"
+            ],
+            "ask": "কোন একটি ধাপ আপনি আগে দ্রুত করবেন?",
+            "minutes": 3,
+            "difficulty": "মাঝারি"
+          }
+        },
+        {
+          "type": "tps",
+          "concept": "balance",
+          "skill": "Analyze",
+          "title": "ভাবুন, জোড়ায় আলোচনা করুন, শেয়ার করুন",
+          "prompt": "পাঁচটি ধাপ নেয় 100, 100, 100, 100 ও 300 ps। (a) Pipelined ক্লক cycle কত এবং non-pipelined মেশিনের তুলনায় দীর্ঘ রানের speedup কত? (b) 300 ps-এর ধাপটিকে তিনটি 100 ps ধাপে ভাগ করা গেলে কী বদলাবে?",
+          "think": 30,
+          "pair": 45,
+          "answer": "(a) ক্লক 300 ps (সবচেয়ে ধীর ধাপ)। Non-pipelined cycle 700 ps, তাই speedup 700 / 300 = 2.33। (b) ধাপ হয় সাতটি, প্রতিটি 100 ps: ক্লক 100 ps এবং দীর্ঘ রানের speedup 700 / 100 = 7, তবে বদলে pipeline দীর্ঘতর হয়।",
+          "notes": {
+            "explain": "জোড়াগুলো আলোচনার সময় ক্যালকুলেটর ব্যবহার করতে দিন, তবে মনে রাখুন এতে পাঁচটি ধাপের ইনপুট আছে। জোর দিয়ে বলুন, ধাপ ভাগ করা একটি ডিজাইন সিদ্ধান্ত।"
+          }
+        },
+        {
+          "type": "discussion",
+          "concept": "latency",
+          "title": "আলোচনা",
+          "question": "Pipelining কোনো একক instruction-কে দ্রুত না করলে প্রায় সব প্রসেসর এটি ব্যবহার করে কেন?",
+          "seconds": 60,
+          "ideas": [
+            "একটি প্রোগ্রাম বিলিয়ন বিলিয়ন instruction, তাই সেগুলো শেষ হওয়ার হারই আসল।",
+            "একই হার্ডওয়্যার প্রতি সেকেন্ডে বেশি কাজ করে, কারণ সব ধাপ ব্যস্ত থাকে।",
+            "ক্লক cycle সবচেয়ে ধীর ধাপের মতো ছোট হতে পারে, সব ধাপের যোগফলের মতো নয়।",
+            "অসম ধাপ, ছোট রান এবং (পরের ক্লাসে) hazard লাভকে সীমিত করে।"
+          ],
+          "notes": {
+            "explain": "উত্তর দেখানোর আগে দলগুলোকে দুই পক্ষে তর্ক করতে দিন। Class 3-এর CPU সমীকরণের সঙ্গে মেলান: একই instruction সংখ্যায় pipelining মূলত cycle time ও CPI কমায়।"
+          }
+        },
+        {
+          "type": "checkpoint",
+          "title": "চেকপয়েন্ট",
+          "questions": [
+            {
+              "q": "Latency ও থ্রুপুটের পার্থক্য কী?",
+              "a": "Latency হলো একটি instruction-এর শুরু থেকে শেষ পর্যন্ত সময়। থ্রুপুট হলো প্রতি একক সময়ে কতগুলো instruction শেষ হয়। Pipelining থ্রুপুট বাড়ায়, latency নয়।",
+              "concept": "latency"
+            },
+            {
+              "q": "Pipeline-এর ideal speedup কত?",
+              "a": "ব্যালান্সড ধাপের সংখ্যা (ক্লাসিক MIPS pipeline-এ 5), দীর্ঘ রানে এবং কোনো stall ছাড়া।",
+              "concept": "speedup"
+            },
+            {
+              "q": "অসম ধাপ speedup কমাতে পারে কেন?",
+              "a": "ক্লককে সবচেয়ে ধীর ধাপের সঙ্গে মানাতে হয়, তাই দ্রুত ধাপগুলো আংশিক সময় অলস বসে থাকে।",
+              "concept": "balance"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "অনুশীলন",
+      "minutes": 11,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "stages",
+          "skill": "Remember",
+          "think": 25,
+          "question": "ক্লাসিক পাঁচটি pipeline ধাপ ক্রমানুসারে লিখুন এবং প্রতিটির জন্য একটি ছোট বাক্যাংশ দিন।",
+          "answer": "IF instruction fetch; ID decode ও register পড়া; EX execute (ALU) বা অ্যাড্রেস হিসাব; MEM ডেটা মেমরি অ্যাক্সেস; WB ফলাফল register-এ লিখে ফেরত পাঠানো।",
+          "solution": "ক্রমটি একটি instruction-এর দরকারি কাজ অনুসরণ করে: আনা, বোঝা, হিসাব করা, মেমরি ব্যবহার করা, ফলাফল জমা রাখা।",
+          "mistake": "ID ও EX-এর জায়গা বদলে ফেলা, অথবা WB-কে MEM-এর আগে রাখা।"
+        },
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "pipereg",
+          "skill": "Understand",
+          "think": 25,
+          "question": "Pipeline register কী এবং pipeline-এর এগুলো লাগে কেন?",
+          "answer": "দুটি ধাপের মাঝে রাখা একটি register, যা একটি ধাপের তৈরি করা মান ধরে রাখে, যাতে পরের cycle-এ পরের ধাপ তা ব্যবহার করতে পারে এবং আগের ধাপ নতুন instruction নিয়ে কাজ করতে পারে।",
+          "solution": "এগুলো না থাকলে নতুন instruction নিয়ে কাজ করা ধাপ এমন ডেটা মুছে দিত, যা পরের ধাপের তখনও দরকার।",
+          "mistake": "Pipeline register-কে $t0-র মতো দৃশ্যমান register ভাবা।"
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "timing",
+          "skill": "Apply",
+          "think": 45,
+          "question": "চারটি স্বাধীন instruction 5-stage pipeline-এ চলে, প্রতি cycle-এ একটি ধাপ। (a) তৃতীয় instruction (C) কোন ক্লক cycle-এ MEM-এ থাকে? (b) চতুর্থটি (D) কোন cycle-এ শেষ হয়?",
+          "code": "A  add $t0,$s1,$s2\nB  sub $t1,$s3,$s4\nC  and $t2,$s5,$s6\nD  or  $t3,$s7,$t8",
+          "answer": "(a) Cycle 6। (b) Cycle 8।",
+          "solution": "Instruction i ধাপ s-এ থাকে cycle i + s - 1-এ। C-এর জন্য (i = 3), MEM (s = 4): 3 + 4 - 1 = 6। D (i = 4) WB (s = 5) শেষ করে cycle 4 + 5 - 1 = 8-এ, যা 4 + 4-ও।",
+          "hint": "নিয়মটি ব্যবহার করুন: cycle = i + s - 1। Simulator-এর প্রথম scenario দিয়ে মিলিয়ে দেখুন।",
+          "mistake": "Cycle 5-কে প্রতিটি instruction-এর শেষ ধরা, অথবা ভুলে যাওয়া যে প্রতিটি instruction এক cycle পরে শুরু হয়।"
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "timing",
+          "skill": "Apply",
+          "think": 45,
+          "question": "ছয়টি স্বাধীন instruction I1 থেকে I6 5-stage pipeline-এ চলে। ক্লক cycle 5-এ কোন instruction কোন ধাপে আছে?",
+          "answer": "IF: I5, ID: I4, EX: I3, MEM: I2, WB: I1। (I6 এখনও ফেচ হয়নি।)",
+          "solution": "I_i IF-এ থাকে cycle i-তে, ID-তে i + 1, EX-এ i + 2, MEM-এ i + 3 এবং WB-তে i + 4-এ। Cycle 5-এ: I5 IF-এ, I4 ID-তে, I3 EX-এ, I2 MEM-এ, I1 WB-তে।",
+          "mistake": "I1-কে IF-এ রাখা: cycle 5-এ প্রথম instruction প্রায় শেষ।"
+        },
+        {
+          "type": "find",
+          "concept": "speedup",
+          "skill": "Analyze",
+          "title": "ভুলটা খুঁজুন",
+          "prompt": "একজন শিক্ষার্থী 100 ps-এর 5টি ব্যালান্সড ধাপসহ 10টি স্বাধীন instruction-এর pipeline-এর লাভ হিসাব করছে। একটি লাইন ভুল। সেটিতে ক্লিক করুন।",
+          "lines": [
+            "1. Pipelined নয়: 10 x 500 ps = 5000 ps।",
+            "2. Pipelined: 10 x 100 ps = 1000 ps।",
+            "3. তাই speedup 5000 / 1000 = 5।",
+            "4. 5 গুণ speedup হলো 5টি ব্যালান্সড ধাপের ideal সীমা।"
+          ],
+          "wrong": 1,
+          "explain": "Pipeline ভরতেও 4 cycle লাগে, তাই 10টি instruction নেয় (10 + 4) x 100 = 1400 ps। Speedup 5000 / 1400 = 3.57, ideal 5-এর নিচে।",
+          "fix": "Pipelined: (10 + 4) x 100 ps = 1400 ps, speedup 3.57।"
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "speedup",
+          "skill": "Apply",
+          "think": 60,
+          "question": "একটি pipeline-এর 5টি ব্যালান্সড ধাপ, প্রতিটি 100 ps। একটি প্রোগ্রামে 20টি স্বাধীন instruction আছে। Pipelining ছাড়া সময় (প্রতি instruction-এ 500 ps), pipelining সহ সময় এবং speedup বের করুন।",
+          "answer": "ছাড়া: 10,000 ps। সহ: 2,400 ps। Speedup প্রায় 4.17।",
+          "solution": "ছাড়া: 20 x 500 = 10,000 ps। সহ: (20 + 4) x 100 = 2,400 ps। Speedup 10,000 / 2,400 = 4.17, 4টি fill cycle-এর কারণে ideal 5-এর নিচে।",
+          "mistake": "Pipelined সময়ের জন্য 20 x 100 ধরা এবং 4টি fill cycle যোগ করতে ভুলে যাওয়া।"
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "latency",
+          "skill": "Analyze",
+          "think": 60,
+          "question": "একটি 5-stage pipelined প্রসেসরের ক্লক 200 ps। সর্বোত্তম ক্ষেত্রে প্রতি সেকেন্ডে কতগুলো instruction শেষ হয়, এবং একটি instruction ফেচ থেকে সম্পূর্ণ হতে কত সময় নেয়?",
+          "answer": "সর্বোত্তমে প্রতি সেকেন্ডে 5 বিলিয়ন instruction (প্রতি 200 ps-এ একটি)। একটি instruction নেয় 5 x 200 ps = 1000 ps = 1 ns।",
+          "solution": "থ্রুপুট প্রতি cycle-এ একটি instruction: 1 / 200 ps = প্রতি সেকেন্ডে 5 x 10^9। Latency 5 cycle x 200 ps = 1 ns।",
+          "mistake": "একটি instruction-এর সময় হিসেবে 200 ps বলা: ওটা দুটি সমাপ্তির মধ্যবর্তী সময়।"
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "speedup",
+          "skill": "Evaluate",
+          "think": 90,
+          "question": "একটি 5-stage pipeline-এর ধাপগুলো ব্যালান্সড এবং কোনো stall নেই। প্রতি instruction-এ 5 cycle-এর এক্সিকিউশনের তুলনায় speedup অন্তত 4.5 (ideal-এর 90%) হতে প্রোগ্রামে কমপক্ষে কতগুলো instruction থাকতে হবে?",
+          "answer": "কমপক্ষে 36টি instruction।",
+          "solution": "Speedup = 5n / (n + 4)। ধরুন 5n / (n + 4) >= 4.5, তাহলে 5n >= 4.5n + 18, তাই 0.5n >= 18, তাই n >= 36। যাচাই: n = 36 হলে 180 / 40 = 4.5 ঠিক, আর n = 35 হলে 4.49।",
+          "hint": "Speedup-কে n-এর রাশিতে লিখুন এবং অসমতাটি সমাধান করুন।",
+          "mistake": "n + 4 = 5 ধরা, অথবা ভুলে যাওয়া যে speedup কখনও ঠিক 5 হতে পারে না।"
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "balance",
+          "skill": "Apply",
+          "title": "পরীক্ষার অনুশীলন: সাংখ্যিক",
+          "think": 90,
+          "question": "একটি প্রসেসরের পাঁচটি ধাপ নেয় 110, 70, 130, 160 ও 60 ps। (a) পুরো instruction এক cycle-এ চললে ক্লক cycle কত, আর ধাপগুলো pipelined হলে কত? (b) দুই উপায়ে 1000টি instruction-এ কত সময় লাগে? (c) Speedup কত?",
+          "answer": "(a) 530 ps (যোগফল) বনাম 160 ps (সবচেয়ে ধীর ধাপ)। (b) 1000 x 530 = 530,000 ps = 530 ns, বনাম (1000 + 4) x 160 = 160,640 ps, প্রায় 160.6 ns। (c) প্রায় 3.30।",
+          "solution": "Single-cycle ক্লককে সব ধাপের জন্য যথেষ্ট হতে হয়: 110 + 70 + 130 + 160 + 60 = 530 ps। Pipelined ক্লকের শুধু সবচেয়ে ধীর ধাপের জন্য যথেষ্ট হলেই চলে, MEM, 160 ps। Pipelined রানে লাগে 1004 cycle। Speedup 530,000 / 160,640 = 3.30, 5-এর নিচে কারণ ধাপগুলো অসম।",
+          "mistake": "ধাপগুলো ব্যালান্সড কিনা না দেখে speedup হিসেবে 5 (ideal) ধরা।"
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "latency",
+          "skill": "Evaluate",
+          "title": "পরীক্ষার অনুশীলন: ধারণাভিত্তিক",
+          "think": 75,
+          "question": "Pipelining থ্রুপুট বাড়ায় কিন্তু একটি instruction-কে আগে শেষ করায় না কেন, তা নিজের ভাষায় ব্যাখ্যা করুন। Latency এমনকি বাড়তে পারে, এর একটি কারণ দিন।",
+          "answer": "একটি instruction-কে তবু প্রতিটি ধাপ পার হতে হয়, প্রতি cycle-এ একটি, তাই এর সময় অন্তত ধাপের সংখ্যা x cycle। থ্রুপুট বাড়ে কারণ প্রতি cycle-এ একটি নতুন instruction শেষ হয়। Latency বাড়তে পারে কারণ ক্লককে সবচেয়ে ধীর ধাপের সঙ্গে মানাতে হয়, এবং প্রতিটি ধাপ ততটা সময় পায় (এবং register-এর দেরি যোগ হয়)।",
+          "solution": "ওভারল্যাপ প্রতি সেকেন্ডে শেষ হওয়া instruction-এর সংখ্যা বাড়ায়, কিন্তু প্রতিটি instruction-এর নিজের কাজ অপরিবর্তিত থাকে। ধাপগুলো অসমান হলে দ্রুত ধাপও দীর্ঘ cycle time পায়, তাই pipelined latency non-pipelined latency-কে ছাড়িয়ে যেতে পারে।",
+          "mistake": "বলা যে pipelining প্রতিটি instruction ছোট করে।"
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "timing",
+          "skill": "Analyze",
+          "title": "পরীক্ষার অনুশীলন: টাইমিং ডায়াগ্রাম",
+          "think": 90,
+          "question": "একটি ডায়াগ্রাম এভাবে শুরু হয়। সাতটি স্বাধীন instruction 5-stage pipeline-এ চলে। (a) Cycle 7-এ I4 কোন ধাপে? (b) I7 কোন cycle-এ শেষ হয়? (c) পুরো রানের CPI কত?",
+          "code": "Cycle  1  2  3  4  5  6  7\nI1     IF ID EX ME WB\nI2        IF ID EX ME WB\nI3           IF ID EX ME WB\nI4              IF ID EX ME WB\n...",
+          "answer": "(a) MEM। (b) Cycle 11। (c) CPI = 11 / 7 = 1.57।",
+          "solution": "I4 IF-এ ঢোকে cycle 4-এ, তাই ID 5, EX 6 ও MEM 7। I7 শেষ হয় cycle 7 + 4 = 11-এ। CPI হলো মোট cycle ÷ instruction: 11 / 7 = 1.57। দীর্ঘ রানে এটি 1-এর আরও কাছাকাছি হয়।",
+          "mistake": "Cycle ÷ instruction না লিখে CPI = 5 (ধাপের সংখ্যা) লেখা।"
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "exam": true,
+          "concept": "speedup",
+          "skill": "Apply",
+          "title": "পরীক্ষার অনুশীলন: পারফরম্যান্স হিসাব",
+          "think": 90,
+          "question": "একটি 5-stage pipelined MIPS প্রসেসর 2 GHz-এ কোনো stall ছাড়া চলে। 1,000,000টি স্বাধীন instruction এক্সিকিউট করতে এর কত সময় লাগে, এবং এর CPI কত?",
+          "answer": "1,000,004 cycle x 0.5 ns = 500,002 ns, প্রায় 0.5 ms। CPI = 1,000,004 / 1,000,000, প্রায় 1।",
+          "solution": "2 GHz ক্লকের cycle 0.5 ns। n = 1,000,000 instruction হলে রান নেয় n + 4 = 1,000,004 cycle, অর্থাৎ 500,002 ns। CPI হলো প্রতি instruction-এ cycle, 1-এর খুব কাছে। দীর্ঘ রানে 4টি fill cycle প্রায় কোনো প্রভাব ফেলে না।",
+          "mistake": "5 ধাপ দিয়ে গুণ করা (5,000,000 cycle), যা non-pipelined সংখ্যা।"
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "রিভিউ",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "সবকিছু কীভাবে যুক্ত",
+          "root": "Pipelining",
+          "branches": [
+            {
+              "label": "সমস্যা",
+              "example": "একবারে একটি instruction হলে হার্ডওয়্যার অলস থাকে",
+              "section": "problem"
+            },
+            {
+              "label": "পাঁচটি ধাপ",
+              "example": "IF, ID, EX, MEM, WB",
+              "section": "stages"
+            },
+            {
+              "label": "Pipeline register",
+              "example": "IF/ID, ID/EX, EX/MEM, MEM/WB",
+              "section": "stages"
+            },
+            {
+              "label": "টাইমিং ডায়াগ্রাম",
+              "example": "n টি instruction-এ n + 4 cycle",
+              "section": "timing"
+            },
+            {
+              "label": "Latency বনাম থ্রুপুট",
+              "example": "একই latency, প্রতি সেকেন্ডে বেশি instruction",
+              "section": "perf"
+            },
+            {
+              "label": "Ideal speedup",
+              "example": "ব্যালান্সড ধাপের সংখ্যা",
+              "section": "perf"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "যা মনে রাখবেন",
+          "remember": [
+            "Pipelining ভিন্ন ভিন্ন instruction ওভারল্যাপ করে, প্রতিটি আলাদা ধাপে, ফলে সব হার্ডওয়্যার ব্যস্ত থাকে।",
+            "ক্লাসিক MIPS ধাপ হলো IF, ID, EX, MEM ও WB।",
+            "ধাপগুলোর মাঝের pipeline register প্রতিটি instruction-এর মান পরের ধাপের জন্য ধরে রাখে।",
+            "টাইমিং ডায়াগ্রামে প্রতিটি সারি একটি instruction আর প্রতিটি কলাম একটি ক্লক cycle। 5 ধাপে n টি স্বাধীন instruction নেয় n + 4 cycle।",
+            "Pipelining থ্রুপুট বাড়ায়; একটি instruction-এর latency কমায় না।",
+            "Ideal speedup ব্যালান্সড ধাপের সংখ্যার সমান, যা শুধু stall ছাড়া দীর্ঘ রানেই পাওয়া যায়।",
+            "ক্লক cycle সবচেয়ে ধীর ধাপের সঙ্গে মানাতে হয়, তাই অসম ধাপ speedup কমায়।"
+          ]
+        },
+        {
+          "type": "review",
+          "title": "সাধারণ ভুল",
+          "mistakes": [
+            {
+              "wrong": "Pipelining প্রতিটি instruction-কে দ্রুত করে।",
+              "right": "প্রতিটি সমান বা বেশি সময় নেয়। প্রতি সেকেন্ডে বেশি instruction শেষ হয়।"
+            },
+            {
+              "wrong": "5-stage pipeline সবসময় 5 গুণ দ্রুত।",
+              "right": "5 হলো ideal: ব্যালান্সড ধাপ, ভরা pipeline, দীর্ঘ রান।"
+            },
+            {
+              "wrong": "Pipelined চারটি instruction নেয় 4 x 5 = 20 cycle।",
+              "right": "নেয় 4 + 4 = 8 cycle।"
+            },
+            {
+              "wrong": "Pipelining একটি instruction-এর ধাপগুলো একসঙ্গে চালায়।",
+              "right": "এটি ভিন্ন ভিন্ন ধাপে ভিন্ন ভিন্ন instruction ওভারল্যাপ করে।"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "এক মিনিটের সারসংক্ষেপ",
+          "summary": "একবারে একটি instruction চালালে বেশিরভাগ হার্ডওয়্যার অলস থাকে। Pipeline প্রতিটি instruction-কে পাঁচটি ধাপে ভাগ করে (IF, ID, EX, MEM, WB), যেগুলো pipeline register দিয়ে আলাদা, এবং প্রতি cycle-এ একটি নতুন instruction শুরু করে। টাইমিং ডায়াগ্রামে n টি স্বাধীন instruction নেয় n + 4 cycle। Latency একই থাকে, কিন্তু থ্রুপুট বেড়ে প্রতি cycle-এ একটি instruction-এর দিকে এগোয়, তাই ideal speedup হলো ব্যালান্সড ধাপের সংখ্যা। অসম ধাপ ও ছোট রান একে কমায়। Dependence ও branch, যা pipeline-কে অপেক্ষা করায়, আসছে পরের ক্লাসে।"
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "কুইজ",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "ফাইনাল কুইজ",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "stages",
+              "question": "ক্লাসিক পাঁচটি MIPS pipeline ধাপের সঠিক ক্রম কোনটি?",
+              "options": [
+                "IF, ID, EX, MEM, WB",
+                "ID, IF, EX, MEM, WB",
+                "IF, EX, ID, WB, MEM",
+                "IF, ID, MEM, EX, WB"
+              ],
+              "answer": 0,
+              "why": "Fetch, decode, execute, মেমরি অ্যাক্সেস, write back।",
+              "misconception": "ক্রম কাজের ধারা অনুসরণ করে: ডিকোডের আগে instruction ফেচ হয়, আর মেমরির আগে ALU ব্যবহার হয়।"
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "problem",
+              "statement": "Pipeline-এ আগের instruction শেষ হওয়ার আগেই নতুন instruction শুরু হতে পারে।",
+              "answer": true,
+              "why": "এই ওভারল্যাপই pipelining: প্রতিটি instruction আলাদা ধাপে থাকে।",
+              "misconception": "Pipelining ছাড়া পরের instruction বর্তমানটি শেষ হওয়া পর্যন্ত অপেক্ষা করত।"
+            },
+            {
+              "level": "easy",
+              "concept": "pipereg",
+              "question": "Pipeline register কী করে?",
+              "options": [
+                "একটি ধাপের ফলাফল পরের ধাপের জন্য ধরে রাখে, যখন আগের ধাপ নতুন instruction শুরু করে",
+                "প্রোগ্রাম স্থায়ীভাবে জমা রাখে",
+                "ক্লকের জায়গা নেয়",
+                "মেইন মেমরির বিষয়বস্তু ধরে রাখে"
+              ],
+              "answer": 0,
+              "why": "এগুলো ধাপগুলোকে আলাদা করে, যাতে পাঁচটি instruction in flight থাকতে পারে।",
+              "misconception": "Pipeline register ছোট অভ্যন্তরীণ register, প্রোগ্রামার যে $t0-ধরনের register দেখে তা নয়।"
+            },
+            {
+              "level": "medium",
+              "concept": "timing",
+              "question": "ছয়টি স্বাধীন instruction কোনো stall ছাড়া 5-stage pipeline-এ চলে। এগুলো কত ক্লক cycle নেয়?",
+              "options": [
+                "30",
+                "10",
+                "6",
+                "11"
+              ],
+              "answer": 1,
+              "why": "n + 4 = 6 + 4 = 10 cycle।",
+              "misconception": "30 হলো non-pipelined সময় (6 x 5)। প্রথম instruction-এর লাগে 5 cycle, তারপর প্রতি cycle-এ আরও একটি শেষ হয়।",
+              "feedback": [
+                "30 হলো pipelining ছাড়া সময়।",
+                "",
+                "6 বললে pipeline ভরার cycle-গুলো ভুলে যাওয়া হয়।",
+                "এতে এক ভুল: instruction 1 তো cycle 5-এই শেষ হয়ে যায়।"
+              ]
+            },
+            {
+              "level": "medium",
+              "concept": "speedup",
+              "question": "একটি ব্যালান্সড 5-stage pipeline কোনো stall ছাড়া খুব দীর্ঘ একটি প্রোগ্রাম চালায়। Non-pipelined সংস্করণের চেয়ে এটি প্রায় কতটা দ্রুত?",
+              "options": [
+                "প্রায় 5 গুণ",
+                "প্রায় 2 গুণ",
+                "প্রায় 10 গুণ",
+                "ঠিক 1 গুণ"
+              ],
+              "answer": 0,
+              "why": "Ideal speedup ব্যালান্সড ধাপের সংখ্যার সমান।",
+              "misconception": "Speedup ধাপের সংখ্যাকে ছাড়াতে পারে না: ধাপ নিজে থেকে প্রোগ্রামকে দ্রুত চালায় না।"
+            },
+            {
+              "level": "medium",
+              "concept": "latency",
+              "question": "100 ps-এর পাঁচটি ব্যালান্সড ধাপ pipelined করা হলো। একটি instruction ফেচ থেকে সম্পূর্ণ হতে প্রায় কত সময় নেয়?",
+              "options": [
+                "প্রায় 100 ps",
+                "প্রায় 500 ps",
+                "প্রায় 250 ps",
+                "প্রায় 1000 ps"
+              ],
+              "answer": 1,
+              "why": "5 ধাপ x 100 ps = 500 ps, pipelining ছাড়ার সমান (register-এর দেরি বাদে)।",
+              "misconception": "100 ps হলো দুটি সমাপ্তির মধ্যবর্তী সময় (থ্রুপুট), একটি instruction-এর সময় নয়।"
+            },
+            {
+              "level": "hard",
+              "concept": "balance",
+              "question": "ধাপগুলো নেয় 80, 120, 100, 200 ও 100 ps। এমন non-pipelined মেশিনের তুলনায় pipelining-এর দীর্ঘ রানের speedup কত, যার cycle হলো ধাপগুলোর যোগফল?",
+              "options": [
+                "5.0",
+                "3.0",
+                "2.0",
+                "6.0"
+              ],
+              "answer": 1,
+              "why": "যোগফল 600 ps এবং সবচেয়ে ধীর ধাপ 200 ps, তাই speedup 600 / 200 = 3.0।",
+              "misconception": "Ideal 5 শুধু তখনই খাটে যখন ধাপগুলো ব্যালান্সড; সবচেয়ে ধীর ধাপই ক্লক ঠিক করে।"
+            },
+            {
+              "level": "hard",
+              "concept": "timing",
+              "question": "আটটি স্বাধীন instruction 5-stage pipeline-এ চলে। Cycle 6-এ instruction 3 কোন ধাপে?",
+              "options": [
+                "IF",
+                "EX",
+                "MEM",
+                "WB"
+              ],
+              "answer": 2,
+              "why": "Instruction i ধাপ s-এ থাকে cycle i + s - 1-এ। i = 3 ও cycle 6 হলে s = 4: MEM।",
+              "misconception": "Instruction-এর নিজের শুরুর cycle থেকে না গুনে cycle 1 থেকে গুনলে ভুল ধাপ আসে।"
+            },
+            {
+              "level": "challenge",
+              "concept": "balance",
+              "question": "ধাপগুলো নেয় 90, 60, 100, 140 ও 70 ps। ইঞ্জিনিয়াররা WB ধাপ দ্রুত করতে পারেন (70 থেকে 40 ps) অথবা 140 ps-এর MEM ধাপকে দুটি 70 ps ধাপে ভাগ করতে পারেন। কোনটি দীর্ঘ রানে বেশি থ্রুপুট দেয়?",
+              "options": [
+                "WB দ্রুত করা: এতে pipeline প্রায় 1.4 গুণ ভালো হয়",
+                "MEM ভাগ করা: ক্লক 140 ps থেকে 100 ps হয়, প্রায় 1.4 গুণ",
+                "দুটোতে একই উন্নতি হয়",
+                "কোনোটিই ক্লক বদলায় না"
+              ],
+              "answer": 1,
+              "why": "ক্লক হলো সবচেয়ে ধীর ধাপ। MEM ভাগ করার পর ধাপগুলো হয় 90, 60, 100, 70, 70 ও 70, তাই সবচেয়ে ধীর 100 ps: হার 140 / 100 = 1.4 গুণ বেশি। WB দ্রুত করলে 140 ps-এর ধাপটিই সীমা থাকে, তাই কোনো পরিবর্তন হয় না।",
+              "misconception": "যে ধাপ সবচেয়ে ধীর নয়, তাকে দ্রুত করলে ক্লক cycle-এর কিছুই হয় না।"
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "মনে আছে কি?",
+          "items": [
+            {
+              "q": "Non-pipelined ডিজাইন হার্ডওয়্যার নষ্ট করে কেন?",
+              "a": "যেকোনো cycle-এ শুধু একটি ধাপ ব্যস্ত থাকে, তাই instruction পার হওয়ার সময় বাকি ইউনিটগুলো অলস বসে থাকে।",
+              "concept": "problem"
+            },
+            {
+              "q": "পাঁচটি ধাপের নাম বলুন এবং প্রতিটির একটি করে কাজ বলুন।",
+              "a": "IF ফেচ, ID ডিকোড ও register পড়া, EX ALU বা অ্যাড্রেস, MEM ডেটা মেমরি, WB ফলাফল লেখা।",
+              "concept": "stages"
+            },
+            {
+              "q": "Pipeline register কী এবং এটি কোথায় থাকে?",
+              "a": "দুটি ধাপের মাঝের একটি register (IF/ID, ID/EX, EX/MEM, MEM/WB), যা এক ধাপের ফলাফল পরের ধাপের জন্য ধরে রাখে।",
+              "concept": "pipereg"
+            },
+            {
+              "q": "5-stage pipeline-এ n টি স্বাধীন instruction কত cycle নেয়?",
+              "a": "n + 4 cycle।",
+              "concept": "timing"
+            },
+            {
+              "q": "Latency ও থ্রুপুটের পার্থক্য কী, এবং pipelining কোনটি উন্নত করে?",
+              "a": "Latency হলো একটি instruction-এর সময়; থ্রুপুট হলো প্রতি একক সময়ে শেষ হওয়া instruction। Pipelining থ্রুপুট উন্নত করে।",
+              "concept": "latency"
+            },
+            {
+              "q": "Ideal speedup কত, এবং কী একে কমায়?",
+              "a": "ব্যালান্সড ধাপের সংখ্যা। অসম ধাপ ও ছোট রান একে কমায়।",
+              "concept": "speedup"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "আপনার শেখার রিপোর্ট"
+        }
+      ]
+    }
+  ]
+}

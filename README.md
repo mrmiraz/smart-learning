@@ -10,9 +10,17 @@ paste the brief again. A topic becomes `content/<course>/<topic>.lesson.json`; t
 (`assets/lesson.js`) provides presentation mode, questions, practice, quiz and the learning report.
 `npm run check` validates a lesson against the spec. Examples: `content/computer-architecture/03-quantitative-principles-performance-measurement.lesson.json`, `docs/examples/cpu-basics.lesson.json`.
 
+## Home page and course pages
+The home page shows one card per course (from `content/courses.json`); each course has its own page, `courses/<id>.html`, that lists its topics. Adding a course or topic to `courses.json` is all it takes: the cards, course pages and the Courses menu in the top bar are generated from it.
+
+## Languages (English and Bangla)
+Visitors can switch between English and বাংলা at any time (switcher on every page, `G` inside a lesson); a missing translation falls back to English.
+Interface text lives in `locales/en.json` and `locales/bn.json`; translated lessons sit next to the originals as `<topic>.lesson.bn.json`
+(made with `node scripts/lesson-i18n.js`), and titles in `content/courses.bn.json`. Adding another language is just new files: see `docs/languages.md`.
+
 ## Add plain Markdown slides (older style)
 1. Add a topic to `content/courses.json`.
-2. Write slides in `content/<course>/<topic>.md` (`---` separates slides, `Note:` starts speaker notes).
+2. Write slides in `content/<course>/<topic>.md` (`---` separates slides, `Note:` starts speaker notes). A Bangla version goes in `<topic>.bn.md`.
 
 ## Build / preview locally
     cp .env.example .env      # set ACCESS_PASSWORD

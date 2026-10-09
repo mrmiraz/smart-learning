@@ -1,0 +1,1377 @@
+{
+  "id": "ca-24-vector-risc-x86-review",
+  "title": "Vector Processing, RISC/x86 ও কোর্স রিভিউ",
+  "subtitle": "Data parallelism, তিনটি ইন্সট্রাকশন সেট পরিবার, আর পুরো কোর্সটি একটি ছবিতে।",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "Appendices and ISA chapters",
+      "title": "Instruction-set architecture: RISC-V, ARM ও x86-এর তুলনা; data-level parallelism",
+      "topics": "সার্ভে পাঠ: RISC-V, ARM ও x86 পরিশিষ্ট এবং data-level parallelism অংশ"
+    },
+    {
+      "book": "CAQA",
+      "chapter": "2 (instruction sets) and 4 (vector)",
+      "title": "Instruction-Set Principles; Advanced Pipelining and ILP",
+      "topics": "RISC আর্কিটেকচার ও Intel 80x86-এর সার্ভে; vector processing (2nd edition-এর পরিশিষ্ট ও অধ্যায়ের অংশ দেখুন)"
+    }
+  ],
+  "objectives": [
+    "Scalar বনাম vector (SIMD) প্রসেসিং এবং এর ব্যবহার ব্যাখ্যা করুন",
+    "MIPS, RISC-V ও ARM-এর তুলনা করুন এবং RISC নীতিগুলো বলুন",
+    "8086 থেকে x86-64 পর্যন্ত Intel x86-এর বিবর্তন এবং একে CISC বলা হয় কেন, তা বর্ণনা করুন",
+    "আধুনিক x86 core কীভাবে CISC instruction এক্সিকিউট করে, তা ব্যাখ্যা করুন",
+    "পুরো কোর্সকে যুক্ত করুন: পারফরম্যান্স, ISA, datapath, pipelining, memory, storage ও parallelism"
+  ],
+  "concepts": [
+    {
+      "id": "vector",
+      "label": "Vector ও SIMD",
+      "section": "vector"
+    },
+    {
+      "id": "risc",
+      "label": "RISC আর্কিটেকচার",
+      "section": "risc"
+    },
+    {
+      "id": "x86",
+      "label": "Intel x86",
+      "section": "x86"
+    },
+    {
+      "id": "perf",
+      "label": "পর্ব 1: পারফরম্যান্স, ISA ও arithmetic (Class 1-9)",
+      "section": "recap"
+    },
+    {
+      "id": "cpu",
+      "label": "পর্ব 2: প্রসেসর ডিজাইন (Class 10-16)",
+      "section": "recap"
+    },
+    {
+      "id": "mem",
+      "label": "পর্ব 3: memory, storage ও parallelism (Class 17-23)",
+      "section": "recap"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "সূচনা",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "একটি ভিডিও প্লেয়ার দশ লাখ পিক্সেলে একই সংখ্যা যোগ করে। প্রতি instruction-এ 8 বা 16টি পিক্সেল যোগ করলেই তো হয়? আর 1978 সালের একটি ইন্সট্রাকশন সেট আজও আপনার ল্যাপটপে চলে কেন?",
+          "clues": [
+            "**Vector / SIMD** instruction একসঙ্গে অনেক ডেটা আইটেমে একটি অপারেশন প্রয়োগ করে।",
+            "**RISC** ডিজাইন instruction সহজ রাখে; **x86** 45 বছর ধরে compatibility ধরে রেখেছে।",
+            "আজ আমরা পুরো কোর্সটিকে একসূত্রে গাঁথব।"
+          ],
+          "notes": {
+            "explain": "ক্লু দেখানোর আগে শিক্ষার্থীদের অনুমান করতে দিন।"
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "লক্ষ্যগুলো জোরে পড়ুন; এগুলো শেখার রিপোর্টে আবার আসবে।"
+          }
+        }
+      ]
+    },
+    {
+      "id": "vector",
+      "label": "Vector processing ও SIMD",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "vector",
+          "title": "Scalar বনাম vector",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "",
+                "Scalar",
+                "Vector / SIMD"
+              ],
+              "rows": [
+                [
+                  "একটি instruction কাজ করে",
+                  "একটি ডেটা আইটেমে",
+                  "একসঙ্গে অনেক ডেটা আইটেমে (একটি vector)"
+                ],
+                [
+                  "Register",
+                  "32-bit বা 64-bit মান",
+                  "চওড়া register, যাতে কয়েকটি মান (128, 256, 512 bit) বা অনেক element থাকে"
+                ],
+                [
+                  "8টি যোগের loop",
+                  "8টি add instruction",
+                  "1টি vector add (যথেষ্ট lane থাকলে)"
+                ],
+                [
+                  "অন্য নাম",
+                  "SISD",
+                  "SIMD (একটি instruction, একাধিক ডেটা)"
+                ]
+              ]
+            }
+          ],
+          "why": "অনেক ডেটায় একই অপারেশন প্রয়োগ করতে হলে একটি instruction অনেকের কাজ করে দিতে পারে, ফলে ফেচ, ডিকোড ও শক্তি বাঁচে।",
+          "real": "x86-এ আছে SSE ও AVX; ARM-এ NEON ও SVE; RISC-V-তে vector extension; GPU হলো বিশাল SIMD মেশিন।",
+          "explainAgain": {
+            "beginner": "একজন ক্যাশিয়ার একটি একটি করে পণ্য স্ক্যান করছেন (scalar), আর একটি মেশিন পুরো ট্রে একসঙ্গে স্ক্যান করছে (vector)।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "vector",
+          "title": "নিজে করে দেখুন: lane ও cycle",
+          "blocks": [
+            {
+              "type": "simd",
+              "title": "Scalar বনাম vector add",
+              "a": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+              ],
+              "b": [
+                10,
+                20,
+                30,
+                40,
+                50,
+                60,
+                70,
+                80
+              ],
+              "lanes": 4
+            }
+          ],
+          "why": "8টি যোগ: 1 lane-এ 8 cycle, 2 lane-এ 4, 4 lane-এ 2 এবং 8 lane-এ 1। কাজ সমানভাবে ভাগ হলে speed-up lane সংখ্যার সমান।"
+        },
+        {
+          "type": "predict",
+          "concept": "vector",
+          "skill": "Apply",
+          "question": "4 lane-এর একটি vector unit আটটি element জোড়া যোগ করে। এতে কত add cycle লাগে, আর scalar-এর তুলনায় speed-up কত?",
+          "options": [
+            "2 cycle; 4 গুণ",
+            "4 cycle; 2 গুণ",
+            "8 cycle; 1 গুণ",
+            "1 cycle; 8 গুণ"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "প্রতি cycle-এ চারটি element: 8 ÷ 4 = **2 cycle**, scalar unit-এ লাগত 8: speed-up **4**।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "8 lane থাকলে লাগত 1 cycle।"
+        },
+        {
+          "type": "concept",
+          "concept": "vector",
+          "title": "Vector register ও প্রয়োগ",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "একটি **vector register**-এ অনেক element থাকে; `vadd v1, v2, v3`-এর মতো একটি vector instruction সেগুলো element ধরে ধরে যোগ করে",
+                "প্রাচীন vector সুপারকম্পিউটারে 64 element-এর register ছিল; আধুনিক SIMD 128 থেকে 512 bit ব্যবহার করে",
+                "শুধু সেই কোড লাভবান হয়, যেখানে array-তে **স্বাধীন ও নিয়মিত** অপারেশন আছে (data-level parallelism)",
+                "সাধারণ প্রয়োগ: গ্রাফিক্স, ভিডিও ও অডিও, ইমেজ প্রসেসিং, machine learning, বৈজ্ঞানিক সিমুলেশন"
+              ]
+            },
+            {
+              "type": "text",
+              "text": "সবকিছু vectorize হয় না: iteration-এর মধ্যে dependence আছে বা অনিয়মিত branch আছে, এমন loop scalar-ই থাকে। এখানেও Amdahl's Law প্রযোজ্য: 80% vectorizable কাজ এবং 8 lane থাকলে প্রোগ্রাম 1 ÷ (0.2 + 0.8 ÷ 8) = 3.33 গুণ দ্রুত হয়।",
+              "style": "muted"
+            }
+          ],
+          "why": "Data-parallel কোডে পারফরম্যান্স বাড়ানোর সবচেয়ে সস্তা উপায় হলো vector হার্ডওয়্যার।",
+          "real": "BLAS-এর মতো লাইব্রেরি এবং ইমেজ ফিল্টার হাতে SIMD instruction দিয়ে অপ্টিমাইজ করা হয়।",
+          "mistake": {
+            "wrong": "Vector হার্ডওয়্যার প্রতিটি প্রোগ্রামকে দ্রুত করে।",
+            "right": "শুধু vectorizable অংশ দ্রুত হয়; বাকিটা Amdahl's Law দ্বারা সীমিত।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "vector",
+          "title": "হিসাব করুন: আংশিক vectorization",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "SIMD দিয়ে speed-up (Amdahl's Law)",
+              "equation": "speedup = 1 ÷ ((1 − v) + v ÷ lanes)",
+              "inputs": [
+                {
+                  "id": "v",
+                  "label": "Vectorizable অংশ",
+                  "value": 80,
+                  "min": 0,
+                  "max": 100,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "l",
+                  "label": "Lane সংখ্যা",
+                  "value": 8,
+                  "min": 1,
+                  "max": 64,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "সামগ্রিক speed-up",
+                  "formula": "1 / ((1 - v/100) + (v/100) / l)",
+                  "format": "x",
+                  "digits": 2
+                },
+                {
+                  "label": "অসীম lane থাকলে সীমা",
+                  "formula": "1 / (1 - v/100)",
+                  "format": "x",
+                  "digits": 1
+                }
+              ]
+            }
+          ],
+          "why": "8 lane-এ 80% vectorizable: 3.33 গুণ। 4 lane-এ: 2.5 গুণ। Vector unit যত চওড়াই হোক, সীমা 5 গুণ।"
+        },
+        {
+          "type": "mcq",
+          "concept": "vector",
+          "question": "SIMD-এর পূর্ণরূপ:",
+          "options": [
+            "Single instruction, multiple data",
+            "Serial instruction, memory data",
+            "Simple instruction mode",
+            "Shared instruction memory"
+          ],
+          "answer": 0,
+          "why": "একটি instruction একাধিক ডেটা element-এ কাজ করে।",
+          "feedback": [
+            "",
+            "এমন কোনো শব্দ নেই।",
+            "এমন কোনো শব্দ নেই।",
+            "এমন কোনো শব্দ নেই।"
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "vector",
+          "statement": "4 lane-এর একটি vector unit সবসময় প্রতিটি প্রোগ্রামকে 4 গুণ দ্রুত চালায়।",
+          "answer": false,
+          "why": "শুধু vectorizable অংশ দ্রুত হয়, আর তাও কেবল সমানভাবে ভাগ হলে।"
+        }
+      ]
+    },
+    {
+      "id": "risc",
+      "label": "RISC আর্কিটেকচার",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "risc",
+          "title": "RISC নীতিগুলো",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**সহজ instruction**, প্রতিটি প্রায় এক cycle নেয়",
+                "**নির্দিষ্ট instruction দৈর্ঘ্য** (সাধারণত 32 bit): ফেচ ও ডিকোড সহজ",
+                "**Load/store আর্কিটেকচার**: শুধু load ও store memory ছোঁয়; arithmetic register-এ কাজ করে",
+                "**অনেক register** (32 বা তার বেশি)",
+                "**Pipelining**-এর জন্য ডিজাইন করা (Class 12 থেকে 16)"
+              ]
+            },
+            {
+              "type": "text",
+              "text": "এগুলো কোর্সের চারটি ডিজাইন নীতি অনুসরণ করে: সরলতা নিয়মিততার পক্ষে, ছোট মানে দ্রুত, সাধারণ ক্ষেত্রকে দ্রুত করুন, ভালো ডিজাইনে চাই ভালো আপস।",
+              "style": "muted"
+            }
+          ],
+          "why": "সহজ ও নিয়মিত instruction pipeline-কে দ্রুত এবং compiler-কে কার্যকর করে।",
+          "real": "সব আধুনিক উচ্চ-পারফরম্যান্স RISC ডিজাইন (ARM, RISC-V) এই ধারণাগুলো অনুসরণ করে।"
+        },
+        {
+          "type": "concept",
+          "concept": "risc",
+          "title": "MIPS, RISC-V ও ARM",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "",
+                "MIPS",
+                "RISC-V",
+                "ARM"
+              ],
+              "rows": [
+                [
+                  "উৎস",
+                  "Stanford / MIPS Computer Systems, 1980-র দশকের মাঝামাঝি",
+                  "UC Berkeley, 2010 থেকে, open standard",
+                  "Acorn RISC Machine (1985), এখন Arm Ltd"
+                ],
+                [
+                  "Register",
+                  "32টি integer",
+                  "32টি integer (x0 সবসময় 0)",
+                  "64-bit (AArch64)-এ 31টি general register"
+                ],
+                [
+                  "Instruction দৈর্ঘ্য",
+                  "নির্দিষ্ট 32 bit",
+                  "32 bit, ঐচ্ছিক 16-bit compressed",
+                  "নির্দিষ্ট 32 bit (64-bit mode)"
+                ],
+                [
+                  "ধরন",
+                  "Load/store, 3টি format (R, I, J)",
+                  "Load/store, মডুলার extension",
+                  "Load/store, অনেক addressing mode"
+                ],
+                [
+                  "ব্যবহার",
+                  "শিক্ষা, embedded, networking",
+                  "Embedded, গবেষণা, শিল্পে ক্রমবর্ধমান",
+                  "ফোন, ট্যাবলেট, সার্ভার, Apple silicon"
+                ]
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "অপারেশন",
+                "MIPS",
+                "RISC-V",
+                "ARM (64-bit)"
+              ],
+              "rows": [
+                [
+                  "add",
+                  "`add $t0,$s1,$s2`",
+                  "`add x5,x6,x7`",
+                  "`add x5,x6,x7`"
+                ],
+                [
+                  "load word",
+                  "`lw $t0,8($s1)`",
+                  "`lw x5,8(x6)`",
+                  "`ldr w5,[x6,#8]`"
+                ]
+              ]
+            }
+          ],
+          "why": "তিনটিই দেখতে খুবই কাছাকাছি: এরা একই RISC ধারণা ভাগ করে, তাই এই কোর্সের দক্ষতা সরাসরি কাজে লাগে।",
+          "real": "RISC-V open, তাই যে কেউ ISA লাইসেন্সের টাকা না দিয়েই প্রসেসর বানাতে পারে।",
+          "mistake": {
+            "wrong": "MIPS, RISC-V ও ARM সম্পূর্ণ আলাদা ডিজাইন।",
+            "right": "এরা ঘনিষ্ঠ আত্মীয়, শুধু encoding ও খুঁটিনাটি আলাদা।"
+          }
+        },
+        {
+          "type": "match",
+          "concept": "risc",
+          "skill": "Understand",
+          "title": "মিনি চ্যালেঞ্জ",
+          "prompt": "প্রতিটি ইন্সট্রাকশন সেট পরিবারকে একটি তথ্যের সঙ্গে মেলান।",
+          "pairs": [
+            {
+              "a": "MIPS",
+              "b": "এই কোর্সজুড়ে ব্যবহৃত ISA"
+            },
+            {
+              "a": "RISC-V",
+              "b": "UC Berkeley-তে শুরু হওয়া open standard"
+            },
+            {
+              "a": "ARM",
+              "b": "ফোন ও ট্যাবলেটে প্রভাবশালী"
+            },
+            {
+              "a": "RISC নীতি",
+              "b": "শুধু load ও store memory অ্যাক্সেস করে"
+            }
+          ],
+          "why": "পরিবারটি জানা থাকলে যেকোনো নতুন ISA-কে চেনা সহজ হয়।"
+        },
+        {
+          "type": "find",
+          "concept": "risc",
+          "skill": "Analyze",
+          "title": "ভুলটি খুঁজুন",
+          "prompt": "RISC নিয়ে একটি বক্তব্য ভুল। সেটিতে ক্লিক করুন।",
+          "lines": [
+            "1. RISC instruction সাধারণত নির্দিষ্ট দৈর্ঘ্যের।",
+            "2. RISC arithmetic instruction সরাসরি memory থেকে operand পড়তে পারে।",
+            "3. RISC ডিজাইন pipelining-এর জন্য সুবিধাজনক।",
+            "4. RISC মেশিনে অনেক register থাকে।"
+          ],
+          "wrong": 1,
+          "explain": "RISC load/store আর্কিটেকচারে শুধু load ও store memory অ্যাক্সেস করে।",
+          "fix": "Arithmetic শুধু register ব্যবহার করে।"
+        }
+      ]
+    },
+    {
+      "id": "x86",
+      "label": "Intel x86",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "x86",
+          "title": "8086 থেকে x86-64",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "সাল (প্রায়)",
+                "প্রসেসর",
+                "মাইলফলক"
+              ],
+              "rows": [
+                [
+                  "1978",
+                  "Intel 8086",
+                  "16-bit; 8টি general register; আর্কিটেকচারটির সূচনা"
+                ],
+                [
+                  "1981",
+                  "IBM PC-তে 8088",
+                  "x86-কে পার্সোনাল কম্পিউটারের স্ট্যান্ডার্ড করে তুলল"
+                ],
+                [
+                  "1985",
+                  "80386",
+                  "32-bit register ও অ্যাড্রেস"
+                ],
+                [
+                  "1993 থেকে 1995",
+                  "Pentium, Pentium Pro",
+                  "Superscalar, তারপর out-of-order এক্সিকিউশন"
+                ],
+                [
+                  "2003 থেকে 2004",
+                  "AMD64 / Intel 64",
+                  "64-bit extension (x86-64), 16টি general register"
+                ],
+                [
+                  "2005 থেকে",
+                  "Multicore, চওড়া SIMD (AVX)",
+                  "একাধিক core ও vector instruction"
+                ]
+              ]
+            }
+          ],
+          "why": "Backward compatibility-ই x86-এর সাফল্যের কারণ, আবার জটিলতারও: প্রতিটি প্রজন্ম পুরোনোগুলো বাদ না দিয়ে নতুন ফিচার যোগ করেছে।",
+          "real": "1980-র দশকের PC-র জন্য লেখা প্রোগ্রাম প্রায়ই আজকের আধুনিক x86 মেশিনেও চলে।",
+          "explainAgain": {
+            "beginner": "একটি শহর তার সব পুরোনো রাস্তা রেখে নতুন রাস্তা যোগ করেই চলেছে: সবকিছু এখনো চলে, কিন্তু মানচিত্র জটিল।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "x86",
+          "title": "x86-কে CISC বলা হয় কেন",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**পরিবর্তনশীল instruction দৈর্ঘ্য**: 1 থেকে 15 byte",
+                "**Two-operand** রূপ (destination-ই একটি source): `add eax, ebx`",
+                "Arithmetic-এ **memory operand** ব্যবহার করা যায়: `add eax, [rbx+8]` একটিমাত্র instruction-এ load ও add করে",
+                "অনেক **addressing mode** ও বিশেষ-উদ্দেশ্যের register",
+                "অনেক কাজ করা instruction: string অপারেশন, জটিল call"
+              ]
+            },
+            {
+              "type": "compare",
+              "left": {
+                "title": "MIPS (RISC): দুটি instruction",
+                "items": [
+                  "`lw $t0, 8($s1)`",
+                  "`add $t2, $t2, $t0`"
+                ]
+              },
+              "right": {
+                "title": "x86 (CISC): একটি instruction",
+                "items": [
+                  "`add eax, [rbx+8]`",
+                  "এক ধাপে load ও add"
+                ]
+              }
+            }
+          ],
+          "why": "CISC কোড সংক্ষিপ্ত, কিন্তু পরিবর্তনশীল দৈর্ঘ্য ও জটিল instruction ডিকোড করা কঠিন করে তোলে।",
+          "real": "Memory দুষ্প্রাপ্য থাকার সময় সংক্ষিপ্ততা গুরুত্বপূর্ণ ছিল; এখন ডিকোডের খরচ বেশি গুরুত্বপূর্ণ।"
+        },
+        {
+          "type": "concept",
+          "concept": "x86",
+          "title": "আধুনিক x86 core ভেতরে কীভাবে কাজ করে",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "Byte ফেচ",
+                  "sub": "পরিবর্তনশীল দৈর্ঘ্য",
+                  "note": "প্রতিটি instruction কোথায় শুরু হয়, তা খুঁজে বের করে।"
+                },
+                {
+                  "label": "ডিকোড",
+                  "sub": "CISC থেকে micro-op",
+                  "note": "জটিল instruction এক বা একাধিক সহজ অভ্যন্তরীণ অপারেশনে পরিণত হয়।"
+                },
+                {
+                  "label": "Micro-op",
+                  "sub": "RISC-সদৃশ",
+                  "note": "সহজ, নির্দিষ্ট-format অভ্যন্তরীণ অপারেশন।"
+                },
+                {
+                  "label": "Out-of-order core",
+                  "sub": "Class 14 থেকে 16",
+                  "note": "Register renaming, reservation station, branch prediction ও speculation micro-op গুলো এক্সিকিউট করে।"
+                }
+              ],
+              "zoom": true
+            }
+          ],
+          "why": "আধুনিক x86 প্রসেসর CISC ইন্সট্রাকশন সেটকে একটি RISC-সদৃশ ইঞ্জিনের পেছনে লুকিয়ে রাখে, তাই পুরো কোর্সের ধারণাগুলো এদের ভেতরেও প্রযোজ্য।",
+          "real": "এ কারণেই x86 পারফরম্যান্সে RISC ডিজাইনের সঙ্গে পাল্লা দিতে পারে, জটিলতা ও পাওয়ারের বিনিময়ে।",
+          "deeper": {
+            "text": "x86 core-এর এলাকা ও পাওয়ারের বড় অংশ যায় ডিকোডার, micro-op cache ও লম্বা pipeline-এ।"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "x86",
+          "question": "কোন বৈশিষ্ট্য x86-কে একটি CISC ইন্সট্রাকশন সেট বানায়?",
+          "options": [
+            "পরিবর্তনশীল দৈর্ঘ্যের instruction এবং arithmetic instruction-এ memory operand",
+            "নির্দিষ্ট 32-bit instruction",
+            "শুধু load ও store memory অ্যাক্সেস করে",
+            "তিনটি instruction format"
+          ],
+          "answer": 0,
+          "why": "CISC সহজ নিয়মিত instruction-এর বদলে শক্তিশালী জটিল instruction বেছে নেয়।",
+          "feedback": [
+            "",
+            "এটি RISC-এর বর্ণনা।",
+            "এটি load/store RISC-এর বর্ণনা।",
+            "এটি MIPS-এর বর্ণনা।"
+          ]
+        },
+        {
+          "type": "tps",
+          "title": "ভাবুন, জোড়ায় আলোচনা করুন, শেয়ার করুন",
+          "prompt": "RISC ডিজাইন প্রযুক্তিগতভাবে পরিচ্ছন্নতর হওয়া সত্ত্বেও x86 কয়েক দশক টিকে থাকল কেন?",
+          "think": 20,
+          "pair": 40,
+          "answer": "সফটওয়্যার compatibility: প্রোগ্রামের বিশাল ইনস্টল-করা ভিত্তি শুধু x86-এই চলত, তাই প্রতিটি নতুন প্রজন্ম পুরোনো instruction ধরে রেখেছে। Intel ও AMD চিপের ভেতরে x86 instruction-কে micro-operation-এ অনুবাদ করে RISC-সদৃশ পারফরম্যান্স পাওয়ার পথও খুঁজে নিয়েছে, যা পারফরম্যান্সের অধিকাংশ অসুবিধা দূর করেছে।"
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "label": "কোর্স রিভিউ",
+      "minutes": 16,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "perf",
+          "title": "পর্ব 1: পারফরম্যান্স, ISA ও arithmetic (Class 1 থেকে 9)",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "ধারণা",
+                "মূল কথা",
+                "সূত্র বা সংখ্যা"
+              ],
+              "rows": [
+                [
+                  "পারফরম্যান্স",
+                  "এক্সিকিউশন টাইম দিয়ে তুলনা করুন",
+                  "CPU time = IC × CPI ÷ clock rate"
+                ],
+                [
+                  "Amdahl's Law",
+                  "যে অংশ উন্নত হয়নি, সেটিই লাভকে সীমিত করে",
+                  "speed-up = 1 ÷ ((1 − f) + f ÷ s)"
+                ],
+                [
+                  "ISA",
+                  "হার্ডওয়্যার/সফটওয়্যারের ইন্টারফেস; RISC বনাম CISC",
+                  "MIPS: 32টি register, load/store, format R, I, J"
+                ],
+                [
+                  "অ্যাড্রেসিং",
+                  "Base + offset; byte অ্যাড্রেস; alignment",
+                  "address = base + offset"
+                ],
+                [
+                  "এনকোডিং",
+                  "R format: op rs rt rd shamt funct; I format: op rs rt imm; J format: op target",
+                  "add $t2,$s0,$s1 = 0x02115020"
+                ],
+                [
+                  "অ্যারিথমেটিক",
+                  "Two's complement; overflow; IEEE 754 (1, 8 ও 23 bit)",
+                  "5.75 = 0x40B80000"
+                ]
+              ]
+            }
+          ],
+          "why": "পারফরম্যান্সের সমীকরণ ও ISA হলো পুরো কোর্সের ভাষা।",
+          "real": "পরবর্তী প্রতিটি ক্লাসে এই সংখ্যাগুলো কাজে লেগেছে: pipelining-এ CPI, cache ও page-এ base + offset।"
+        },
+        {
+          "type": "concept",
+          "concept": "perf",
+          "title": "হিসাব করুন: CPU সমীকরণ",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "CPU এক্সিকিউশন টাইম",
+              "equation": "time = instruction count × CPI ÷ clock rate",
+              "inputs": [
+                {
+                  "id": "ic",
+                  "label": "Instruction সংখ্যা",
+                  "value": 2,
+                  "min": 0.1,
+                  "max": 10,
+                  "step": 0.1,
+                  "unit": "বিলিয়ন"
+                },
+                {
+                  "id": "cpi",
+                  "label": "CPI",
+                  "value": 1.5,
+                  "min": 0.5,
+                  "max": 6,
+                  "step": 0.1
+                },
+                {
+                  "id": "f",
+                  "label": "Clock-এর হার",
+                  "value": 3,
+                  "min": 0.5,
+                  "max": 6,
+                  "step": 0.1,
+                  "unit": "GHz"
+                }
+              ],
+              "results": [
+                {
+                  "label": "CPU এক্সিকিউশন টাইম",
+                  "formula": "ic * cpi / f",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "সেকেন্ড"
+                }
+              ]
+            }
+          ],
+          "why": "CPI 1.5 এবং 3 GHz-এ 2 বিলিয়ন instruction ঠিক 1 সেকেন্ড নেয়। যেকোনো উপাদান বদলে দেখুন, ফলাফল কীভাবে বদলায়।"
+        },
+        {
+          "type": "concept",
+          "concept": "cpu",
+          "title": "পর্ব 2: প্রসেসর ডিজাইন (Class 10 থেকে 16)",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "ধারণা",
+                "মূল কথা",
+                "সূত্র বা সংখ্যা"
+              ],
+              "rows": [
+                [
+                  "Single-cycle",
+                  "প্রতি instruction-এ একটি লম্বা cycle; clock ঠিক করে lw",
+                  "CPI = 1, ধীর clock"
+                ],
+                [
+                  "Multi-cycle",
+                  "ছোট cycle, shared হার্ডওয়্যার, FSM কন্ট্রোল",
+                  "R 4, lw 5, sw 4, beq 3 cycle"
+                ],
+                [
+                  "Pipelining",
+                  "Instruction overlap করে; থ্রুপুট বাড়ে, latency নয়",
+                  "n টি স্বাধীন instruction: n + 4 cycle"
+                ],
+                [
+                  "Hazard",
+                  "Structural, data ও control hazard; forwarding; stall",
+                  "load-use: forwarding থাকলেও 1 stall"
+                ],
+                [
+                  "ILP ও OoO",
+                  "Superscalar, dynamic scheduling ও renaming",
+                  "IPC = instructions ÷ cycles"
+                ],
+                [
+                  "Branch prediction",
+                  "2-bit counter, BTB ও speculation",
+                  "CPI = 1 + f × miss rate × penalty"
+                ]
+              ]
+            }
+          ],
+          "why": "প্রতিটি ধাপ আগের ডিজাইনের একটি করে সীমা দূর করেছে: লম্বা clock, অলস হার্ডওয়্যার, stall, dependence, branch।",
+          "real": "এই ধারণাগুলো প্রতিটি আধুনিক CPU-র ভেতরে আছে।"
+        },
+        {
+          "type": "concept",
+          "concept": "cpu",
+          "title": "হিসাব করুন: pipeline speed-up",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "আদর্শ pipeline",
+              "equation": "cycles = n + k − 1",
+              "inputs": [
+                {
+                  "id": "n",
+                  "label": "Instruction সংখ্যা",
+                  "value": 20,
+                  "min": 1,
+                  "max": 1000,
+                  "step": 1
+                },
+                {
+                  "id": "k",
+                  "label": "Pipeline-এর stage সংখ্যা",
+                  "value": 5,
+                  "min": 2,
+                  "max": 20,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "Pipelined হলে cycle",
+                  "formula": "n + k - 1",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Non-pipelined হলে cycle",
+                  "formula": "n * k",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Speedup (গুণ)",
+                  "formula": "n * k / (n + k - 1)",
+                  "format": "x",
+                  "digits": 2
+                }
+              ]
+            }
+          ],
+          "why": "5 stage-এ 20টি স্বাধীন instruction: 100-এর বদলে 24 cycle, speed-up 4.17। n বাড়লে speed-up 5-এর কাছাকাছি যায়।"
+        },
+        {
+          "type": "concept",
+          "concept": "mem",
+          "title": "পর্ব 3: memory, storage ও parallelism (Class 17 থেকে 23)",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "ধারণা",
+                "মূল কথা",
+                "সূত্র বা সংখ্যা"
+              ],
+              "rows": [
+                [
+                  "Hierarchy (স্তরবিন্যাস)",
+                  "Locality একটি ছোট দ্রুত memory-কে বড় দেখায়",
+                  "temporal ও spatial locality"
+                ],
+                [
+                  "Cache",
+                  "tag | index | offset; direct-mapped, set-associative ও fully associative",
+                  "1 KiB direct, 16-byte block, 32-bit অ্যাড্রেস: tag 22 bit"
+                ],
+                [
+                  "Cache পারফরম্যান্স",
+                  "তিন C; AMAT",
+                  "AMAT = hit time + miss rate × miss penalty"
+                ],
+                [
+                  "Virtual memory",
+                  "Page table, TLB ও page fault",
+                  "VA = page number | offset; offset অপরিবর্তিত"
+                ],
+                [
+                  "স্টোরেজ",
+                  "Disk = seek + rotation + transfer; এছাড়া flash",
+                  "disk-এ random 4 KB read প্রায় 8 ms"
+                ],
+                [
+                  "নির্ভরযোগ্যতা ও RAID",
+                  "Availability, parity ও RAID level",
+                  "availability = MTTF ÷ (MTTF + MTTR)"
+                ],
+                [
+                  "Multiprocessor",
+                  "Coherence, race, lock ও Amdahl",
+                  "8 core-এ 90% parallel: 4.71 গুণ"
+                ]
+              ]
+            }
+          ],
+          "why": "আজকের পারফরম্যান্স ঠিক হয় memory ও parallelism-এ।",
+          "real": "একই Amdahl's Law I/O, vector ও parallel প্রোগ্রামে আবার এসেছে।"
+        },
+        {
+          "type": "concept",
+          "concept": "mem",
+          "title": "হিসাব করুন: AMAT",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "গড় memory অ্যাক্সেস টাইম",
+              "equation": "AMAT = hit time + miss rate × miss penalty",
+              "inputs": [
+                {
+                  "id": "h",
+                  "label": "Hit-এর সময়",
+                  "value": 1,
+                  "min": 1,
+                  "max": 5,
+                  "step": 1,
+                  "unit": "cycle"
+                },
+                {
+                  "id": "m",
+                  "label": "Miss-এর হার",
+                  "value": 5,
+                  "min": 0,
+                  "max": 30,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "p",
+                  "label": "Miss penalty (miss হলে অতিরিক্ত সময়)",
+                  "value": 20,
+                  "min": 5,
+                  "max": 300,
+                  "step": 5,
+                  "unit": "cycle"
+                }
+              ],
+              "results": [
+                {
+                  "label": "AMAT (গড় অ্যাক্সেস টাইম)",
+                  "formula": "h + (m/100) * p",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "cycle"
+                }
+              ]
+            }
+          ],
+          "why": "1 + 0.05 × 20 = 2.0 cycle। একই সূত্র hierarchy-র প্রতিটি স্তরে প্রযোজ্য।"
+        },
+        {
+          "type": "arrange",
+          "concept": "mem",
+          "skill": "Understand",
+          "title": "সব একসঙ্গে",
+          "prompt": "ডেটা L1 cache-এ আছে কিন্তু তার translation TLB-তে নেই, এমন অবস্থায় একটি data load-এর পথ ক্রমানুসারে সাজান।",
+          "items": [
+            "CPU একটি virtual address দেয়",
+            "TLB miss করে এবং page table পড়া হয়",
+            "Physical address তৈরি হয়",
+            "Physical address দিয়ে L1 cache-এ খোঁজা হয় এবং hit হয়",
+            "ডেটা CPU-তে ফিরে আসে"
+          ],
+          "why": "এই সরল মডেলে translation আসে cache খোঁজার আগে।"
+        },
+        {
+          "type": "match",
+          "concept": "cpu",
+          "skill": "Understand",
+          "title": "সমস্যা ও সমাধান",
+          "prompt": "প্রতিটি সমস্যাকে তার সমাধানের সঙ্গে মেলান।",
+          "pairs": [
+            {
+              "a": "Single-cycle-এ লম্বা clock cycle",
+              "b": "Multi-cycle বা pipelining"
+            },
+            {
+              "a": "নির্ভরশীল instruction অপেক্ষা করে",
+              "b": "Forwarding চালু করা"
+            },
+            {
+              "a": "Branch-জনিত penalty",
+              "b": "Branch prediction ব্যবহার"
+            },
+            {
+              "a": "ধীর DRAM",
+              "b": "Cache যোগ করা"
+            }
+          ],
+          "why": "প্রতিটি ডিজাইন ধাপ একটি নির্দিষ্ট সীমার সমাধান করে।"
+        },
+        {
+          "type": "mcq",
+          "concept": "perf",
+          "question": "কোন বক্তব্য পুরো কোর্সকে একসূত্রে বাঁধে?",
+          "options": [
+            "পারফরম্যান্স আসে অনেক স্তর থেকে: ISA, pipeline, cache, parallelism, প্রতিটি Amdahl-ধরনের bottleneck দ্বারা সীমিত",
+            "শুধু clock rate-ই গুরুত্বপূর্ণ",
+            "শুধু core সংখ্যাই গুরুত্বপূর্ণ",
+            "Memory-র গতি অপ্রাসঙ্গিক"
+          ],
+          "answer": 0,
+          "why": "প্রতিটি স্তর একটি bottleneck দূর করে, আর বাকি সবচেয়ে ধীর অংশটি পুরোটাকে সীমিত করে।",
+          "feedback": [
+            "",
+            "CPU time-এর অনেক উপাদানের মধ্যে clock rate একটি মাত্র।",
+            "Core শুধু parallel প্রোগ্রামকে সাহায্য করে।",
+            "Memory-র গতি অনেক প্রোগ্রামকে সীমিত করে।"
+          ],
+          "title": "সামগ্রিক চিত্র"
+        },
+        {
+          "type": "discussion",
+          "title": "আলোচনা",
+          "concept": "mem",
+          "question": "এই কোর্স থেকে একটি ধারণা বেছে নিন এবং তিনটি ভিন্ন জায়গায় তা কীভাবে দেখা যায়, ব্যাখ্যা করুন।",
+          "seconds": 60,
+          "ideas": [
+            "Locality: cache, TLB, disk cache ও prefetching।",
+            "Amdahl's Law: speed-up, I/O, vector ও multicore।",
+            "সাম্প্রতিক ফলাফল cache করা: TLB, branch target buffer, register file।",
+            "Parallelism: pipelining, ILP, vector, multicore ও RAID।"
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "চেকপয়েন্ট",
+          "questions": [
+            {
+              "q": "x86-এর একটি RISC নীতি ও একটি CISC বৈশিষ্ট্যের নাম বলুন।",
+              "a": "RISC: নির্দিষ্ট দৈর্ঘ্যের সহজ instruction (বা load/store)। x86: memory operand সহ পরিবর্তনশীল দৈর্ঘ্যের instruction।",
+              "concept": "risc"
+            },
+            {
+              "q": "SIMD বা অতিরিক্ত core থেকে পাওয়া speed-up-কে কী সীমিত করে?",
+              "a": "যে অংশ vectorize বা parallelize করা যায় না (Amdahl's Law)।",
+              "concept": "vector"
+            },
+            {
+              "q": "কোন ধারণা cache, TLB ও disk cache-কে একসূত্রে বাঁধে?",
+              "a": "Locality: সম্প্রতি ও কাছাকাছি ব্যবহৃত ডেটা আবার ব্যবহার হয়।",
+              "concept": "mem"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "অনুশীলন",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "vector",
+          "question": "SIMD-এর পেছনের ধারণাটি এক বাক্যে বলুন।",
+          "answer": "একটি instruction একসঙ্গে অনেক ডেটা element-এ একই অপারেশন প্রয়োগ করে।",
+          "solution": "এটি data-level parallelism।",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "risc",
+          "question": "তিনটি RISC নীতি বলুন।",
+          "answer": "সহজ নির্দিষ্ট-দৈর্ঘ্যের instruction; load/store আর্কিটেকচার; অনেক register (এবং pipelining-এর জন্য ডিজাইন)।",
+          "solution": "এগুলো ডিকোড সহজ ও pipeline দ্রুত করে।",
+          "think": 45
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "x86",
+          "question": "x86-কে CISC বলার দুটি কারণ এবং আধুনিক x86 core তা কীভাবে আড়াল করে, তার একটি উপায় বলুন।",
+          "answer": "পরিবর্তনশীল দৈর্ঘ্যের instruction (1 থেকে 15 byte) এবং memory operand সহ arithmetic instruction; core এগুলোকে সহজ micro-operation-এ ডিকোড করে, যা একটি RISC-সদৃশ ইঞ্জিন এক্সিকিউট করে।",
+          "solution": "CISC-এর জটিলতা ডিকোডারের মধ্যেই সীমাবদ্ধ থাকে।",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "perf",
+          "question": "একটি প্রোগ্রাম CPI 1.5 এবং 3 GHz clock-এ 2 বিলিয়ন instruction এক্সিকিউট করে। তারপর এক্সিকিউশন টাইমের 40% অংশ 10 গুণ দ্রুত করা হয়। মূল সময় এবং সামগ্রিক speed-up বের করুন।",
+          "answer": "1.0 সেকেন্ড; speed-up 1.5625।",
+          "solution": "সময় = 2×10⁹ × 1.5 ÷ 3×10⁹ = 1.0 সেকেন্ড। Speed-up = 1 ÷ (0.6 + 0.4 ÷ 10) = 1.5625।",
+          "mistake": "10×-কে পুরো প্রোগ্রামে প্রয়োগ করা।",
+          "title": "পরীক্ষার অনুশীলন: CPU সমীকরণ",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "perf",
+          "question": "`add $t2, $s0, $s1`-কে hex-এ encode করুন। 5.75-কে IEEE 754 single precision (hex)-এ রূপান্তর করুন।",
+          "answer": "hex: 0x02115020; hex: 0x40B80000।",
+          "solution": "add-এর জন্য: op 0, rs = $s0 = 16, rt = $s1 = 17, rd = $t2 = 10, shamt 0, funct 32। 5.75 = 101.11₂ = 1.0111 × 2², তাই exponent 129 ও fraction 0111…",
+          "mistake": "Machine word-এ rd আগে বসানো।",
+          "title": "পরীক্ষার অনুশীলন: encoding ও arithmetic",
+          "think": 105,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "cpu",
+          "question": "5-stage pipeline-এ 20টি স্বাধীন instruction চলে। কত cycle লাগে, প্রতি instruction 5 cycle ধরলে speed-up কত, এবং তা 5-এর কম কেন?",
+          "answer": "24 cycle; speed-up 100 ÷ 24 = 4.17; 4টি fill cycle থাকায় তা 5-এর কম।",
+          "solution": "Pipelined সময় n + k − 1 = 24। Non-pipelined সময় 20 × 5 = 100।",
+          "mistake": "Fill cycle ভুলে যাওয়া।",
+          "title": "পরীক্ষার অনুশীলন: pipelining",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "mem",
+          "question": "16-byte block ও 32-bit অ্যাড্রেসসহ 1 KiB direct-mapped cache-এ tag, index ও offset bit কয়টি? Hit time 1, miss rate 5% ও penalty 20 cycle হলে AMAT কত?",
+          "answer": "Tag 22 bit, index 6 bit, offset 4 bit; AMAT = 2.0 cycle।",
+          "solution": "Line সংখ্যা 64 (6 index bit); offset 4 bit; tag 32 − 10 = 22 bit। AMAT = 1 + 0.05 × 20 = 2.0।",
+          "mistake": "Miss rate-এর বদলে hit rate ব্যবহার করা।",
+          "title": "পরীক্ষার অনুশীলন: cache ও AMAT",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "mem",
+          "question": "4 KiB page। Virtual address 0x3A7C-কে page number ও offset-এ ভাগ করুন। Page 3 যদি frame 5-এ থাকে, তাহলে physical address কত?",
+          "answer": "Page 3, offset 2,684; তাই physical address 5 × 4096 + 2684 = 23,164।",
+          "solution": "0x3A7C = 14,972 = 3 × 4096 + 2,684। Frame number page number-এর জায়গা নেয়: 5 × 4,096 = 20,480; 20,480 + 2,684 = 23,164।",
+          "mistake": "Offset-ও translate করা।",
+          "title": "পরীক্ষার অনুশীলন: virtual memory",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "mem",
+          "question": "(a) MTTF 1,000 h এবং MTTR 1 h: availability কত? (b) RAID 5-এ ছয়টি 2 TB disk: ব্যবহারযোগ্য ধারণক্ষমতা কত? (c) একটি প্রোগ্রাম 90% parallel: 8 core-এ speed-up কত?",
+          "answer": "(a) 99.9%; (b) 10 TB; (c) 4.71 গুণ।",
+          "solution": "(a) 1000 ÷ 1001। (b) (6 − 1) × 2 TB। (c) 1 ÷ (0.1 + 0.9 ÷ 8)।",
+          "mistake": "ছয়টি disk-এর সবটার ধারণক্ষমতাকে RAID 5-এর ক্ষমতা ধরা।",
+          "title": "পরীক্ষার অনুশীলন: storage ও parallelism",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "x86",
+          "question": "আধুনিক x86 প্রসেসরের ভেতরে RISC ধারণা ও CISC compatibility কীভাবে মিলিত হয়, ব্যাখ্যা করুন এবং এই কোর্সের দুটি টেকনিকের নাম বলুন যা এটি ব্যবহার করে।",
+          "answer": "Compatibility-র জন্য x86 ইন্সট্রাকশন সেট CISC-ই থাকে, কিন্তু ডিকোডার instruction-গুলোকে সহজ micro-operation-এ অনুবাদ করে, যা একটি RISC-সদৃশ core-এ এক্সিকিউট হয়। সেই core এই কোর্সের টেকনিক ব্যবহার করে, যেমন deep pipelining, register renaming সহ out-of-order এক্সিকিউশন, branch prediction ও speculation, cache এবং SIMD।",
+          "solution": "ভালো উত্তরে micro-operation এবং অন্তত দুটি টেকনিকের কথা থাকে।",
+          "mistake": "x86 প্রসেসর pipelined নয়, এমন বলা।",
+          "title": "পরীক্ষার অনুশীলন: সংশ্লেষণ",
+          "think": 105,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "পুনরালোচনা",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "সবকিছু কীভাবে যুক্ত",
+          "root": "কম্পিউটার আর্কিটেকচার",
+          "branches": [
+            {
+              "label": "পর্ব 1",
+              "example": "পারফরম্যান্স, ISA, arithmetic",
+              "section": "recap"
+            },
+            {
+              "label": "পর্ব 2",
+              "example": "datapath, pipeline ও ILP",
+              "section": "recap"
+            },
+            {
+              "label": "পর্ব 3",
+              "example": "memory, storage ও parallelism",
+              "section": "recap"
+            },
+            {
+              "label": "Vector প্রসেসিং",
+              "example": "SIMD",
+              "section": "vector"
+            },
+            {
+              "label": "RISC",
+              "example": "MIPS, RISC-V, ARM",
+              "section": "risc"
+            },
+            {
+              "label": "x86",
+              "example": "বাইরে CISC, ভেতরে RISC",
+              "section": "x86"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "যা মনে রাখবেন",
+          "remember": [
+            "SIMD একটি instruction একসঙ্গে অনেক ডেটা element-এ প্রয়োগ করে; লাভ সীমিত হয় vectorizable অংশ দ্বারা (Amdahl's Law)।",
+            "RISC: সহজ নির্দিষ্ট-দৈর্ঘ্যের instruction, load/store, অনেক register, pipelining-বান্ধব; MIPS, RISC-V ও ARM ঘনিষ্ঠ আত্মীয়।",
+            "x86 8086 (1978) থেকে x86-64 পর্যন্ত পূর্ণ compatibility বজায় রেখে বেড়েছে: পরিবর্তনশীল দৈর্ঘ্যের CISC instruction, যা ভেতরে micro-operation-এ অনূদিত হয়।",
+            "পারফরম্যান্স: CPU time = IC × CPI ÷ clock rate; Amdahl's Law প্রতিটি উন্নতিকে সীমিত করে।",
+            "প্রসেসর: single-cycle, multi-cycle, pipelining, hazard, ILP, out-of-order, branch prediction।",
+            "Memory: locality, cache (tag/index/offset, AMAT), virtual memory ও TLB; storage ও RAID; coherence, lock ও Amdahl সহ multicore।"
+          ]
+        },
+        {
+          "type": "review",
+          "title": "সাধারণ ভুল",
+          "mistakes": [
+            {
+              "wrong": "Vector হার্ডওয়্যার প্রতিটি প্রোগ্রামকে দ্রুত করে।",
+              "right": "শুধু vectorizable অংশকে।"
+            },
+            {
+              "wrong": "RISC ও CISC-এর সঙ্গে আধুনিক চিপের কোনো সম্পর্ক নেই।",
+              "right": "x86 CISC instruction-কে RISC-সদৃশ micro-operation-এ অনুবাদ করে।"
+            },
+            {
+              "wrong": "কোর্সের প্রতিটি বিষয় আলাদা, একা দাঁড়ানো।",
+              "right": "এরা যুক্ত: locality, Amdahl's Law ও parallelism বারবার ফিরে আসে।"
+            },
+            {
+              "wrong": "Clock speed-ই পারফরম্যান্স।",
+              "right": "CPU time নির্ভর করে instruction count, CPI ও clock rate-এর ওপর।"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "এক মিনিটের সারসংক্ষেপ",
+          "summary": "Vector ও SIMD instruction data parallelism কাজে লাগায়, কিন্তু Amdahl's Law দ্বারা সীমিত। MIPS, RISC-V ও ARM-এর মতো RISC আর্কিটেকচার সহজ, নিয়মিত ডিজাইন ভাগ করে নেয়, আর x86 CISC compatibility ধরে রেখেছে এবং RISC-সদৃশ core-এর ভেতরে micro-operation ব্যবহার করে। কোর্সটি পারফরম্যান্স সমীকরণ, ইন্সট্রাকশন সেট, datapath ও pipelining, memory hierarchy, storage ও multiprocessor-কে যুক্ত করেছে সাধারণ কিছু ধারণা দিয়ে: locality, parallelism ও Amdahl's Law।"
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "কুইজ",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "চূড়ান্ত কুইজ",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "vector",
+              "question": "SIMD কী করে?",
+              "options": [
+                "একটি instruction অনেক ডেটা আইটেমে প্রয়োগ করে",
+                "অনেক প্রোগ্রাম চালায়",
+                "Clock দ্বিগুণ করে",
+                "Register যোগ করে"
+              ],
+              "answer": 0,
+              "why": "একটি instruction, একাধিক ডেটা (Single instruction, multiple data)।",
+              "misconception": "এটি data-level parallelism।"
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "risc",
+              "statement": "RISC load/store আর্কিটেকচারে শুধু load ও store memory অ্যাক্সেস করে।",
+              "answer": true,
+              "why": "Arithmetic register ব্যবহার করে।",
+              "misconception": "CISC arithmetic-এ memory operand অনুমোদন করে।"
+            },
+            {
+              "level": "easy",
+              "concept": "x86",
+              "question": "x86 আর্কিটেকচার কোন প্রসেসর দিয়ে শুরু হয়েছিল?",
+              "options": [
+                "Intel 8086 (1978)",
+                "Pentium (1993)",
+                "80386 (1985)",
+                "x86-64 (2003)"
+              ],
+              "answer": 0,
+              "why": "1978 সালের 8086-ই উৎস।",
+              "misconception": "পরবর্তী প্রজন্মগুলো compatibility ধরে রেখেছে।"
+            },
+            {
+              "level": "medium",
+              "concept": "perf",
+              "question": "2 বিলিয়ন instruction, CPI 1.5, 3 GHz: CPU time কত?",
+              "options": [
+                "1.0 s",
+                "2.0 s",
+                "0.5 s",
+                "4.5 s"
+              ],
+              "answer": 0,
+              "why": "2×10⁹ × 1.5 ÷ 3×10⁹ = 1 s।",
+              "misconception": "CPI ও clock দুটিই গুরুত্বপূর্ণ।"
+            },
+            {
+              "level": "medium",
+              "concept": "cpu",
+              "question": "5-stage pipeline-এ 20টি স্বাধীন instruction নেয়:",
+              "options": [
+                "24 cycle",
+                "100 cycle",
+                "20 cycle",
+                "25 cycle"
+              ],
+              "answer": 0,
+              "why": "n + 4 = 24।",
+              "misconception": "100 হতো non-pipelined সময়।"
+            },
+            {
+              "level": "medium",
+              "concept": "mem",
+              "question": "1 KiB direct-mapped cache, 16-byte block, 32-bit অ্যাড্রেস: tag bit কয়টি?",
+              "options": [
+                "22",
+                "26",
+                "16",
+                "10"
+              ],
+              "answer": 0,
+              "why": "32 − 6 − 4 = 22।",
+              "misconception": "Index 6 bit, offset 4 bit।"
+            },
+            {
+              "level": "hard",
+              "concept": "mem",
+              "question": "4 KiB page: virtual address 0x3A7C কোন page-এ?",
+              "options": [
+                "3 (offset 2,684)",
+                "14 (offset 972)",
+                "1 (offset 4,096)",
+                "0x3A (offset 0x7C)"
+              ],
+              "answer": 0,
+              "why": "14,972 ÷ 4,096 = 3, ভাগশেষ 2,684।",
+              "misconception": "Offset হলো নিচের 12 bit।"
+            },
+            {
+              "level": "hard",
+              "concept": "vector",
+              "question": "80% vectorizable, 8 lane: সামগ্রিক speed-up কত?",
+              "options": [
+                "3.33",
+                "8",
+                "6.4",
+                "5"
+              ],
+              "answer": 0,
+              "why": "1 ÷ (0.2 + 0.8 ÷ 8) = 3.33.",
+              "misconception": "সীমা 5।"
+            },
+            {
+              "level": "challenge",
+              "concept": "x86",
+              "question": "আধুনিক x86 core RISC ডিজাইনের সঙ্গে পাল্লা দিতে পারে কেন?",
+              "options": [
+                "এটি CISC instruction-কে সহজ micro-operation-এ অনুবাদ করে একটি RISC-সদৃশ out-of-order core-এর জন্য",
+                "এতে কোনো pipeline নেই",
+                "এটি নির্দিষ্ট-দৈর্ঘ্যের instruction ব্যবহার করে",
+                "এতে কোনো cache নেই"
+              ],
+              "answer": 0,
+              "why": "CISC-এর জটিলতা ডিকোডারের মধ্যেই সীমাবদ্ধ।",
+              "misconception": "Core pipelining, renaming, prediction ও cache ব্যবহার করে।"
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "মনে আছে কি?",
+          "items": [
+            {
+              "q": "তিনটি RISC নীতি বলুন।",
+              "a": "নির্দিষ্ট-দৈর্ঘ্যের সহজ instruction, load/store, অনেক register।",
+              "concept": "risc"
+            },
+            {
+              "q": "CPU time-এর সূত্র কী?",
+              "a": "IC × CPI ÷ clock rate।",
+              "concept": "perf"
+            },
+            {
+              "q": "Pipelining-এর speed-up stage সংখ্যার কম হয় কেন?",
+              "a": "Fill cycle, stall ও অসম stage।",
+              "concept": "cpu"
+            },
+            {
+              "q": "কোন ধারণা cache, TLB ও disk-এ দেখা যায়?",
+              "a": "Locality-র নীতি।",
+              "concept": "mem"
+            },
+            {
+              "q": "SIMD কী কাজে লাগায়?",
+              "a": "Data-level parallelism (ডেটা-স্তরের সমান্তরালতা)।",
+              "concept": "vector"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "আপনার শেখার রিপোর্ট"
+        }
+      ]
+    }
+  ]
+}

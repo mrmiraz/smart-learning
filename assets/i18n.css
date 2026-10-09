@@ -1,0 +1,17 @@
+/* Language switcher and per-language typography. Linked from every page; inlined into the login page. */
+.lang-switch { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 999px; border: 1px solid var(--line, #e2e8f0); background: var(--card, #fff); font-size: .82rem; line-height: 1; }
+.lang-switch[hidden] { display: none; }
+.lang-switch button { font: inherit; font-weight: 600; color: var(--muted, #64748b); background: transparent; border: 0; border-radius: 999px; padding: .42rem .75rem; cursor: pointer; white-space: nowrap; }
+.lang-switch button:hover { color: var(--text, #0f172a); }
+.lang-switch button[aria-pressed="true"] { color: #fff; background: linear-gradient(135deg, var(--accent, #4f46e5), var(--accent2, #7c3aed)); }
+.lang-switch button:focus-visible, .lang-switch select:focus-visible { outline: 2px solid var(--accent, #4f46e5); outline-offset: 2px; }
+.lang-switch select { font: inherit; font-weight: 600; color: var(--text, #0f172a); background: transparent; border: 0; padding: .4rem .6rem; cursor: pointer; }
+.lang-floating { position: fixed; top: 12px; right: 64px; z-index: 50; }
+
+/* Bangla (and other scripts): a font stack with real glyphs and a taller line so matras are not clipped.
+   Code stays monospace. To tune another language, add an html[lang="xx"] rule here. */
+html[lang="bn"] body, html[lang="bn"] .reveal, html[lang="bn"] .sl-loader, html[lang="bn"] .qr-dialog, html[lang="bn"] .sitenav, html[lang="bn"] .sn-panel {
+  font-family: "Noto Sans Bengali", "Hind Siliguri", "Nirmala UI", "Bangla Sangam MN", "Kohinoor Bangla", "Shonar Bangla", ui-sans-serif, system-ui, sans-serif; line-height: 1.7; }
+html[lang="bn"] code, html[lang="bn"] pre, html[lang="bn"] .trace { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; line-height: 1.5; }
+html[lang="bn"] h1, html[lang="bn"] h2, html[lang="bn"] h3 { line-height: 1.35; letter-spacing: 0; }
+

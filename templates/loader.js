@@ -30,6 +30,8 @@
     var l = el();
     root.classList.remove('sl-loading');
     if (!l) return;
+    // keep a copy of the loader so a language switch can show the very same screen (assets/i18n.js)
+    window.__slLoaderTpl = l.cloneNode(true);
     l.classList.add('sl-done');
     setTimeout(function () { if (l.parentNode) l.parentNode.removeChild(l); }, 450);
   }

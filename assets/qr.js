@@ -9,6 +9,8 @@
     get: function () { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } },
     set: function (v) { try { if (v) localStorage.setItem(KEY, v); else localStorage.removeItem(KEY); } catch (e) { /* storage unavailable */ } },
   };
+  var t = function (k, v) { return window.SL ? window.SL.t(k, v) : k; }; // strings live in locales/*.json
+  var bold = function (s) { return esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'); };
   var withSlash = function (u) { return /\/$/.test(u) ? u : u + '/'; };
 
   // Site root URL set by the teacher (override), or baked in at build time (PUBLIC_URL), else ''.
@@ -30,11 +32,11 @@
     var n = q.getModuleCount(), m = 4, d = '', r, c;
     for (r = 0; r < n; r++) for (c = 0; c < n; c++) if (q.isDark(r, c)) d += 'M' + (c + m) + ' ' + (r + m) + 'h1v1h-1z';
     var s = n + 2 * m;
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + s + ' ' + s + '" shape-rendering="crispEdges" role="img" aria-label="' + esc(label || 'QR code') + '"><rect width="' + s + '" height="' + s + '" fill="#fff"/><path d="' + d + '" fill="#000"/></svg>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + s + ' ' + s + '" shape-rendering="crispEdges" role="img" aria-label="' + esc(label || t('qr.codeAlt')) + '"><rect width="' + s + '" height="' + s + '" fill="#fff"/><path d="' + d + '" fill="#000"/></svg>';
   }
   function el(text, label) {
     var d = document.createElement('div'); d.className = 'qr'; d.dataset.url = text;
-    if (!window.qrcode) { d.textContent = 'QR code unavailable'; return d; }
+    if (!window.qrcode) { d.textContent = t('qr.codeUnavailable'); return d; }
     d.innerHTML = svg(text, label); return d;
   }
 
@@ -52,8 +54,8 @@
       card.innerHTML = '';
       var head = document.createElement('div'); head.className = 'qr-head';
       var h2 = document.createElement('h2'); h2.textContent = title; head.appendChild(h2);
-      var pr = document.createElement('button'); pr.type = 'button'; pr.className = 'qr-btn'; pr.textContent = 'Print'; pr.onclick = function () { window.print(); };
-      var cl = document.createElement('button'); cl.type = 'button'; cl.className = 'qr-btn primary'; cl.textContent = 'Close'; cl.onclick = close; cl.dataset.autofocus = '1';
+      var pr = document.createElement('button'); pr.type = 'button'; pr.className = 'qr-btn'; pr.textContent = t('qr.print'); pr.onclick = function () { window.print(); };
+      var cl = document.createElement('button'); cl.type = 'button'; cl.className = 'qr-btn primary'; cl.textContent = t('qr.close'); cl.onclick = close; cl.dataset.autofocus = '1';
       head.appendChild(pr); head.appendChild(cl); card.appendChild(head);
       var grid = document.createElement('div'); grid.className = 'qr-grid'; card.appendChild(grid);
       items.forEach(function (it) {
@@ -62,20 +64,20 @@
         fig.appendChild(el(url, it.label + ': ' + url));
         var cap = document.createElement('figcaption');
         cap.innerHTML = '<strong>' + esc(it.label) + '</strong><span class="qr-note">' + esc(it.note || '') + '</span><code class="qr-url">' + esc(url) + '</code>';
-        var copy = document.createElement('button'); copy.type = 'button'; copy.className = 'qr-btn'; copy.textContent = 'Copy link';
-        copy.onclick = function () { (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () { copy.textContent = 'Copied'; }, function () { copy.textContent = 'Select the link and copy it'; }); };
+        var copy = document.createElement('button'); copy.type = 'button'; copy.className = 'qr-btn'; copy.textContent = t('qr.copy');
+        copy.onclick = function () { (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () { copy.textContent = t('qr.copied'); }, function () { copy.textContent = t('qr.copyFail'); }); };
         fig.appendChild(cap); fig.appendChild(copy); grid.appendChild(fig);
       });
       var note = document.createElement('div'); note.className = 'qr-base';
-      var warn = isLocal() ? '<p class="qr-warn"><strong>Heads up:</strong> this address (' + esc(location.host || 'this file') + ') only works on this computer. Students’ phones cannot open it. Enter your site’s public address below so the codes point to it.</p>' : '';
-      note.innerHTML = warn + '<label>Site address used in the QR codes <input type="url" placeholder="https://your-name.github.io/smart-learning/" value="' + esc(store.get()) + '" aria-label="Site address"></label>';
+      var warn = isLocal() ? '<p class="qr-warn">' + bold(t('qr.warn', { host: location.host || t('qr.thisFile') })) + '</p>' : '';
+      note.innerHTML = warn + '<label>' + esc(t('qr.baseLabel')) + ' <input type="url" placeholder="https://your-name.github.io/smart-learning/" value="' + esc(store.get()) + '" aria-label="' + esc(t('qr.baseAria')) + '"></label>';
       var input = note.querySelector('input');
-      var save = document.createElement('button'); save.type = 'button'; save.className = 'qr-btn'; save.textContent = 'Use this address';
+      var save = document.createElement('button'); save.type = 'button'; save.className = 'qr-btn'; save.textContent = t('qr.use');
       save.onclick = function () { store.set(input.value.trim()); render(); };
-      var reset = document.createElement('button'); reset.type = 'button'; reset.className = 'qr-btn'; reset.textContent = 'Reset';
+      var reset = document.createElement('button'); reset.type = 'button'; reset.className = 'qr-btn'; reset.textContent = t('qr.reset');
       reset.onclick = function () { store.set(''); render(); };
       note.appendChild(save); note.appendChild(reset);
-      var tip = document.createElement('p'); tip.className = 'qr-tip'; tip.textContent = 'Students may be asked for the course password the first time they open the link.'; note.appendChild(tip);
+      var tip = document.createElement('p'); tip.className = 'qr-tip'; tip.textContent = t('qr.tip'); note.appendChild(tip);
       card.appendChild(note);
     }
     render(); document.body.appendChild(dialog);

@@ -1,0 +1,1330 @@
+{
+  "id": "ca-19-cache-performance",
+  "title": "Cache miss, hit time ও miss penalty",
+  "subtitle": "Cache কেন miss করে, miss-এর খরচ কত, আর ডিজাইনাররা এর ট্রেড-অফ কীভাবে সামলান।",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "5",
+      "title": "Large and Fast: Exploiting Memory Hierarchy",
+      "topics": "Cache পারফরম্যান্স মাপা ও উন্নত করা; write সামলানো; multilevel cache"
+    },
+    {
+      "book": "CAQA",
+      "chapter": "5",
+      "title": "Memory-Hierarchy Design",
+      "topics": "Cache পারফরম্যান্স; miss-এর তিনটি C; miss rate ও miss penalty কমানো; write policy"
+    }
+  ],
+  "objectives": [
+    "Miss-কে compulsory, capacity বা conflict হিসেবে ভাগ করুন",
+    "Hit time, miss rate ও miss penalty-র সংজ্ঞা দিন এবং AMAT হিসাব করুন",
+    "বড় block ও বেশি associativity-র ট্রেড-অফ ব্যাখ্যা করুন",
+    "দুই-লেভেল cache-এর জন্য AMAT হিসাব করুন",
+    "Write-through ও write-back তুলনা করুন"
+  ],
+  "concepts": [
+    {
+      "id": "misses",
+      "label": "তিনটি C",
+      "section": "misses"
+    },
+    {
+      "id": "amat",
+      "label": "গড় মেমরি অ্যাক্সেস টাইম",
+      "section": "amat"
+    },
+    {
+      "id": "design",
+      "label": "ডিজাইনের ট্রেড-অফ",
+      "section": "design"
+    },
+    {
+      "id": "write",
+      "label": "Write policy",
+      "section": "write"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "সূচনা",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "আপনার প্রোগ্রাম মেমরি অ্যাক্সেস করে 100 million বার। এর 95% নাকি 98% cache-এ hit করল, তাতে কি কিছু আসে-যায়?",
+          "clues": [
+            "একটি hit-এর খরচ প্রায় **1 cycle**; একটি miss-এর খরচ হতে পারে **কয়েক ডজন বা কয়েকশো**।",
+            "Miss rate-এ সামান্য বদল **গতিতে বড় বদল** আনে।",
+            "Miss কমাতে হলে আগে জানতে হবে সেগুলো **কেন** ঘটে।"
+          ],
+          "notes": {
+            "explain": "ক্লু দেখানোর আগে শিক্ষার্থীদের অনুমান করতে দিন।"
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "উদ্দেশ্যগুলো জোরে পড়ুন; এগুলো লার্নিং রিপোর্টে আবার আসবে।"
+          }
+        }
+      ]
+    },
+    {
+      "id": "misses",
+      "label": "তিনটি C",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "misses",
+          "title": "Miss কেন ঘটে",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Miss-এর ধরন",
+                "কারণ",
+                "সাধারণ প্রতিকার"
+              ],
+              "rows": [
+                [
+                  "Compulsory (cold)",
+                  "ওই block-এ প্রথমবার অ্যাক্সেস: সেটি আগে থেকে cache-এ থাকতে পারে না",
+                  "বড় block, prefetching"
+                ],
+                [
+                  "Capacity",
+                  "Working set cache-এর চেয়ে বড়, তাই দরকারি block বের হয়ে যায়",
+                  "বড় cache"
+                ],
+                [
+                  "Conflict",
+                  "অনেক block একই set-এ map হয়, অথচ অন্য set-এ জায়গা খালি",
+                  "বেশি associativity"
+                ]
+              ]
+            }
+          ],
+          "why": "প্রতিকার নির্ভর করে কারণের ওপর, তাই miss-এর ধরন বুঝলে ডিজাইনার জানেন কী বদলাতে হবে।",
+          "real": "আর্কিটেক্টরা ঠিক এই সিমুলেটরের মতো সিমুলেটর দিয়ে বাস্তব প্রোগ্রাম চালিয়ে দেখেন তিনটি C-র মধ্যে কোনটি প্রধান।",
+          "explainAgain": {
+            "beginner": "ছোট একটি ডেস্কের কথা ভাবুন: প্রথমবার বইটি দরকার হলে সেটি ডেস্কে নেই (compulsory); ডেস্কে যত বই ধরে তার চেয়ে বেশি লাগলে অদলবদল করতে হয় (capacity); আর যে দুটি বই দরকার সে দুটিকেই একই ড্রয়ারে রাখতে হলে বারবার বদলাতে হয় (conflict)।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "misses",
+          "title": "করে দেখুন: miss-গুলো ভাগ করুন",
+          "blocks": [
+            {
+              "type": "cache",
+              "title": "Compulsory, capacity নাকি conflict?",
+              "config": {
+                "blockBytes": 4,
+                "lines": 4,
+                "addrBits": 8,
+                "assoc": 1
+              },
+              "controls": [
+                "assoc"
+              ],
+              "sequences": [
+                {
+                  "name": "প্রথমবার ছোঁয়া",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    16,
+                    20,
+                    24,
+                    28
+                  ]
+                },
+                {
+                  "name": "লুপে পাঁচটি block",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    16,
+                    0,
+                    4,
+                    8,
+                    12,
+                    16
+                  ]
+                },
+                {
+                  "name": "দুটি block, একটি line",
+                  "accesses": [
+                    0,
+                    16,
+                    0,
+                    16,
+                    0,
+                    16
+                  ]
+                }
+              ],
+              "hint": "প্রতিটি প্যাটার্ন চালান। তারপর mapping বদলে **Fully associative** বা **2-way** করুন এবং দেখুন কোন miss-গুলো উধাও হয়।"
+            }
+          ],
+          "why": "প্রথমবার ছোঁয়া: 8টি compulsory। Fully associative cache-এ লুপে পাঁচটি block: 5টি compulsory + 5টি capacity (cache-এ মাত্র 4টি ধরে)। একটি line ভাগ করা দুটি block: 2টি compulsory + 4টি conflict; 2-way সেই 4টিই সরিয়ে দেয়।"
+        },
+        {
+          "type": "predict",
+          "concept": "misses",
+          "skill": "Apply",
+          "question": "একটি fully associative 4-line cache লুপে পাঁচটি block পড়ে (0, 4, 8, 12, 16, তারপর আবার)। 10টি অ্যাক্সেসের কতগুলো miss করে, এবং কেন?",
+          "options": [
+            "সবগুলো 10টি: 5টি compulsory + 5টি capacity",
+            "5টি: শুধু compulsory-গুলো",
+            "0",
+            "2"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "লুপ 5টি block ছোঁয়, কিন্তু cache-এ ধরে 4টি। LRU-তে পরের বার যে block দরকার সেটিই ঠিক আগে evict হয়ে গেছে, তাই **প্রতিটি অ্যাক্সেস miss করে**: প্রথম পাসে 5টি compulsory এবং দ্বিতীয় পাসে 5টি capacity miss।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "এখানে conflict miss অসম্ভব: fully associative cache-এ সংঘর্ষের মতো কোনো set নেই।"
+        },
+        {
+          "type": "concept",
+          "concept": "misses",
+          "title": "পার্থক্য ধরা",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**Infinite** cache-এও কি miss ঘটত? হ্যাঁ: **compulsory**",
+                "একই আকারের **fully associative** cache-এ কি ঘটত? হ্যাঁ: **capacity**",
+                "এটি কি শুধু **mapping**-এর কারণে ঘটে? হ্যাঁ: **conflict**"
+              ]
+            },
+            {
+              "type": "text",
+              "text": "সিমুলেটর ঠিক এই পরীক্ষাগুলোই ব্যবহার করে।",
+              "style": "muted"
+            }
+          ],
+          "why": "এই তিনটি প্রশ্ন প্রতিটি miss-কে ভাগ করে দেয়।",
+          "real": "Multiprocessor চতুর্থ এক ধরন যোগ করে (coherence miss), Class 23-এ।",
+          "mistake": {
+            "wrong": "ছোট cache-এর প্রতিটি miss-ই capacity miss।",
+            "right": "একই আকারের fully associative cache-এ hit হলে সেটি conflict miss।"
+          }
+        },
+        {
+          "type": "match",
+          "concept": "misses",
+          "skill": "Understand",
+          "title": "ছোট চ্যালেঞ্জ",
+          "prompt": "প্রতিটি miss-কে তার কারণের সাথে মেলান।",
+          "pairs": [
+            {
+              "a": "Compulsory",
+              "b": "Block-এ প্রথমবারের অ্যাক্সেস"
+            },
+            {
+              "a": "Capacity",
+              "b": "Working set cache-এর চেয়ে বড়"
+            },
+            {
+              "a": "Conflict",
+              "b": "একই set-এর জন্য block-দের প্রতিযোগিতা"
+            },
+            {
+              "a": "Hit",
+              "b": "Block আগে থেকেই আছে"
+            }
+          ],
+          "why": "প্রতিটি miss-এর ধরনের প্রতিকার আলাদা।"
+        },
+        {
+          "type": "mcq",
+          "concept": "misses",
+          "question": "কোন পরিবর্তন conflict miss সরায় কিন্তু capacity miss সরায় না?",
+          "options": [
+            "বেশি associativity",
+            "বড় cache",
+            "ছোট block",
+            "শুধু prefetching"
+          ],
+          "answer": 0,
+          "why": "বেশি way থাকলে পরস্পর conflict করা block-গুলো একসাথে থাকতে পারে।",
+          "feedback": [
+            "",
+            "বড় cache মূলত capacity miss কমায়।",
+            "ছোট block compulsory miss বাড়ায়।",
+            "Prefetching লক্ষ্য করে compulsory miss-কে।"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "amat",
+      "label": "গড় মেমরি অ্যাক্সেস টাইম",
+      "minutes": 12,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "amat",
+          "title": "তিনটি সংখ্যা",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "টার্ম",
+                "অর্থ"
+              ],
+              "rows": [
+                [
+                  "Hit time",
+                  "ডেটা cache-এ থাকলে cache অ্যাক্সেস করার সময় (cycle)"
+                ],
+                [
+                  "Miss rate",
+                  "যে ভগ্নাংশ অ্যাক্সেস miss করে = miss ÷ অ্যাক্সেস"
+                ],
+                [
+                  "Miss penalty",
+                  "পরের লেভেল থেকে block আনার বাড়তি সময় (cycle)"
+                ]
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "AMAT = hit time + miss rate × miss penalty",
+                  "note": "গড় মেমরি অ্যাক্সেস টাইম"
+                }
+              ]
+            }
+          ],
+          "why": "AMAT তিনটি সংখ্যাকে একটি সংখ্যায় আনে, যেটি আসলে গুরুত্বপূর্ণ: প্রতি মেমরি অ্যাক্সেসের গড় সময়।",
+          "real": "তিনটিকেই আলাদা আলাদা উপায়ে উন্নত করা যায়, সাধারণত অন্যগুলোর বিনিময়ে।",
+          "explainAgain": {
+            "beginner": "বেশিরভাগ সময় আপনি ফ্রিজ পর্যন্ত হেঁটে যান (hit time); মাঝে মাঝে দোকানে গাড়ি চালিয়ে যান (miss penalty): আপনার গড় সময় নির্ভর করে কত ঘন ঘন দোকানে যেতে হয় তার ওপর।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "amat",
+          "title": "AMAT হিসাব করুন",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "গড় মেমরি অ্যাক্সেস টাইম (উদাহরণের সংখ্যা)",
+              "equation": "AMAT = hit time + miss rate × miss penalty",
+              "inputs": [
+                {
+                  "id": "ht",
+                  "label": "Hit time",
+                  "value": 1,
+                  "min": 1,
+                  "max": 5,
+                  "step": 1,
+                  "unit": "cycles"
+                },
+                {
+                  "id": "mr",
+                  "label": "Miss rate",
+                  "value": 5,
+                  "min": 0,
+                  "max": 30,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "mp",
+                  "label": "Miss penalty",
+                  "value": 20,
+                  "min": 5,
+                  "max": 300,
+                  "step": 5,
+                  "unit": "cycles"
+                }
+              ],
+              "results": [
+                {
+                  "label": "AMAT",
+                  "formula": "ht + (mr/100) * mp",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "cycles"
+                },
+                {
+                  "label": "সবসময় hit হলে যা হতো, তার তুলনায় ধীর",
+                  "formula": "(ht + (mr/100) * mp) / ht",
+                  "format": "x",
+                  "digits": 2
+                }
+              ]
+            }
+          ],
+          "why": "1 + 0.05 × 20 = 2.0 cycles: 5% miss গড় সময়কে দ্বিগুণ করে। Penalty 100 cycle হলে AMAT হয় 6.0। Miss rate সরিয়ে দেখুন এটি কত সংবেদনশীল।"
+        },
+        {
+          "type": "predict",
+          "concept": "amat",
+          "skill": "Apply",
+          "question": "Hit time 1 cycle, miss rate 5%, miss penalty 20 cycles। AMAT কত?",
+          "options": [
+            "2.0 cycles",
+            "1.0 cycle",
+            "21 cycles",
+            "1.05 cycles"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "AMAT = 1 + 0.05 × 20 = **2.0 cycles**।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "এখানে 5% miss rate-ও গড় অ্যাক্সেস টাইমকে দ্বিগুণ করে দেয়।"
+        },
+        {
+          "type": "concept",
+          "concept": "amat",
+          "title": "দুই-লেভেল cache",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "L1 miss সরাসরি মেমরিতে নয়, যায় **L2**-তে",
+                "**L1 AMAT** = L1 hit time + L1 miss rate × L1 miss penalty",
+                "**L1 miss penalty** = L2 hit time + L2 local miss rate × মেমরি টাইম",
+                "L2 local miss rate হলো **L2 অ্যাক্সেস**-এর যে ভগ্নাংশ miss করে"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "রাশি",
+                "মান"
+              ],
+              "rows": [
+                [
+                  "L1 hit time",
+                  "1 cycle"
+                ],
+                [
+                  "L1 miss rate",
+                  "5%"
+                ],
+                [
+                  "L2 hit time",
+                  "10 cycles"
+                ],
+                [
+                  "L2 local miss rate",
+                  "20%"
+                ],
+                [
+                  "মেমরি অ্যাক্সেস",
+                  "100 cycles"
+                ],
+                [
+                  "L1 miss penalty",
+                  "10 + 0.2 × 100 = 30 cycles"
+                ],
+                [
+                  "L2 সহ AMAT",
+                  "1 + 0.05 × 30 = 2.5 cycles"
+                ],
+                [
+                  "L2 ছাড়া AMAT",
+                  "1 + 0.05 × 100 = 6.0 cycles"
+                ]
+              ]
+            }
+          ],
+          "why": "L2 cache L1-এর কার্যকর miss penalty 100 থেকে কমিয়ে 30 cycle করে।",
+          "real": "বেশিরভাগ প্রসেসরে L1, L2 এবং প্রায়ই L3 থাকে। L1 ছোট ও দ্রুত; পরের লেভেলগুলো বড় ও ধীর।",
+          "mistake": {
+            "wrong": "L2 miss rate হলো সব অ্যাক্সেসের একটি ভগ্নাংশ।",
+            "right": "Local miss rate হলো যেসব অ্যাক্সেস L2-তে পৌঁছায় তাদের ভগ্নাংশ; এই লেসনে local rate ব্যবহার করা হয়েছে।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "amat",
+          "title": "দুই-লেভেল AMAT হিসাব করুন",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "দুই-লেভেল cache",
+              "equation": "AMAT = L1 hit + L1 miss rate × (L2 hit + L2 local miss rate × memory)",
+              "inputs": [
+                {
+                  "id": "h1",
+                  "label": "L1 hit time",
+                  "value": 1,
+                  "min": 1,
+                  "max": 4,
+                  "step": 1,
+                  "unit": "cycles"
+                },
+                {
+                  "id": "m1",
+                  "label": "L1 miss rate",
+                  "value": 5,
+                  "min": 0,
+                  "max": 30,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "h2",
+                  "label": "L2 hit time",
+                  "value": 10,
+                  "min": 4,
+                  "max": 30,
+                  "step": 1,
+                  "unit": "cycles"
+                },
+                {
+                  "id": "m2",
+                  "label": "L2 local miss rate",
+                  "value": 20,
+                  "min": 0,
+                  "max": 100,
+                  "step": 5,
+                  "unit": "%"
+                },
+                {
+                  "id": "mem",
+                  "label": "মেমরি টাইম",
+                  "value": 100,
+                  "min": 20,
+                  "max": 400,
+                  "step": 10,
+                  "unit": "cycles"
+                }
+              ],
+              "results": [
+                {
+                  "label": "L1 miss penalty",
+                  "formula": "h2 + (m2/100) * mem",
+                  "format": "num",
+                  "digits": 1,
+                  "unit": "cycles"
+                },
+                {
+                  "label": "L2 সহ AMAT",
+                  "formula": "h1 + (m1/100) * (h2 + (m2/100) * mem)",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "cycles"
+                },
+                {
+                  "label": "L2 ছাড়া AMAT",
+                  "formula": "h1 + (m1/100) * mem",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "cycles"
+                }
+              ]
+            }
+          ],
+          "why": "ডিফল্ট মানে: L2 সহ 2.5 cycles, L2 ছাড়া 6.0।"
+        },
+        {
+          "type": "predict",
+          "concept": "amat",
+          "skill": "Apply",
+          "question": "উপরের টেবিল ব্যবহার করে L2 cache সহ AMAT কত?",
+          "options": [
+            "2.5 cycles",
+            "6.0 cycles",
+            "1.5 cycles",
+            "30 cycles"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "L1 miss penalty = 10 + 0.2 × 100 = 30। AMAT = 1 + 0.05 × 30 = **2.5 cycles**।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "L2 ছাড়া এটি হতো 6.0।"
+        },
+        {
+          "type": "tf",
+          "concept": "amat",
+          "statement": "Miss rate কমালে AMAT সবসময় কমে।",
+          "answer": false,
+          "why": "না, যদি পরিবর্তনটি hit time বা miss penalty যতটা বাঁচায় তার চেয়ে বেশি বাড়ায়।"
+        },
+        {
+          "type": "find",
+          "concept": "amat",
+          "skill": "Analyze",
+          "title": "ভুলটি খুঁজুন",
+          "prompt": "AMAT নিয়ে একটি বক্তব্য ভুল। সেটিতে ক্লিক করুন।",
+          "lines": [
+            "1. AMAT = hit time + miss rate × miss penalty।",
+            "2. দ্বিতীয় লেভেলের cache L1-এর কার্যকর miss penalty কমায়।",
+            "3. Miss rate 0% হলে AMAT হয় hit time-এর সমান।",
+            "4. Miss penalty হলো একটি hit-এর সময়।"
+          ],
+          "wrong": 3,
+          "explain": "Miss penalty হলো miss-এর পর block আনার বাড়তি সময়, hit time নয়।",
+          "fix": "Miss penalty হলো miss হলে লাগা বাড়তি সময়।"
+        }
+      ]
+    },
+    {
+      "id": "design",
+      "label": "ডিজাইনের ট্রেড-অফ",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "design",
+          "title": "বড় block",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "সুবিধা: আরও বেশি **spatial locality** ধরা পড়ে, তাই compulsory miss কমে",
+                "খরচ ১: বড় block আনতে **বেশি সময় লাগে**: miss penalty বাড়ে",
+                "খরচ ২: line কম থাকলে বড় block দরকারি ডেটাকে **ঠেলে সরিয়ে দিতে** পারে (conflict ও capacity miss বাড়ে)",
+                "তাই সেরা block size একটি আপস (সাধারণত 32 থেকে 128 byte)"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Block size (4 line)",
+                "ক্রমানুসারে: 32-এর মধ্যে hit",
+                "Penalty (10 + size/4)",
+                "AMAT ক্রমানুসারে",
+                "AMAT strided (reuse নেই)"
+              ],
+              "rows": [
+                [
+                  "4 bytes",
+                  "0",
+                  "11",
+                  "12.0",
+                  "12"
+                ],
+                [
+                  "8 bytes",
+                  "16",
+                  "12",
+                  "7.0",
+                  "13"
+                ],
+                [
+                  "16 bytes",
+                  "24",
+                  "14",
+                  "4.5",
+                  "15"
+                ]
+              ]
+            }
+          ],
+          "why": "বড় block সেই প্রোগ্রামকে সাহায্য করে যা মেমরির ওপর দিয়ে ধারাবাহিকভাবে হাঁটে, আর যে প্রোগ্রাম লাফিয়ে লাফিয়ে চলে তার ক্ষতি করে, কারণ penalty দুই ক্ষেত্রেই বাড়ে।",
+          "real": "বর্তমানে L1-এর সাধারণ block size 32 বা 64 byte।",
+          "mistake": {
+            "wrong": "বড় block মানেই কম miss ও দ্রুত cache।",
+            "right": "এগুলো spatial locality-তে সাহায্য করে, কিন্তু miss penalty বাড়ায় এবং cache-এর জায়গা নষ্ট করতে পারে।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "design",
+          "title": "করে দেখুন: block size",
+          "blocks": [
+            {
+              "type": "cache",
+              "title": "Block size ও spatial locality",
+              "config": {
+                "blockBytes": 4,
+                "lines": 4,
+                "addrBits": 8,
+                "assoc": 1
+              },
+              "controls": [
+                "block"
+              ],
+              "sequences": [
+                {
+                  "name": "ক্রমানুসারে word (32টি অ্যাক্সেস)",
+                  "accesses": [
+                    0,
+                    4,
+                    8,
+                    12,
+                    16,
+                    20,
+                    24,
+                    28,
+                    32,
+                    36,
+                    40,
+                    44,
+                    48,
+                    52,
+                    56,
+                    60,
+                    64,
+                    68,
+                    72,
+                    76,
+                    80,
+                    84,
+                    88,
+                    92,
+                    96,
+                    100,
+                    104,
+                    108,
+                    112,
+                    116,
+                    120,
+                    124
+                  ]
+                },
+                {
+                  "name": "32 byte stride",
+                  "accesses": [
+                    0,
+                    32,
+                    64,
+                    96,
+                    128,
+                    160,
+                    192,
+                    224,
+                    0,
+                    32,
+                    64,
+                    96,
+                    128,
+                    160,
+                    192,
+                    224
+                  ]
+                }
+              ],
+              "hint": "**Block size** 4, 8 ও 16 byte-এর মধ্যে বদলান (4 line)।"
+            }
+          ],
+          "why": "ক্রমানুসারে: 32-এর মধ্যে 0, 16 ও 24টি hit। 32 byte stride প্রতিটি block টপকে যায়: এই block size-গুলোর কোনোটিতেই hit নেই (0)।"
+        },
+        {
+          "type": "predict",
+          "concept": "design",
+          "skill": "Apply",
+          "question": "একটি প্রোগ্রাম একের পর এক word পড়ে। 4-byte block থেকে 16-byte block-এ গেলে 32টি অ্যাক্সেসে hit 0 থেকে বদলে হয়:",
+          "options": [
+            "24",
+            "8",
+            "16",
+            "32"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "16-byte block-এ 4টি word ধরে: একটি miss, তারপর 3টি hit, অর্থাৎ 8টি miss এবং **24টি hit**। Miss penalty বেশি, তবু AMAT কমে (আমাদের উদাহরণে 12.0 থেকে 4.5)।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "একই block strided প্রোগ্রামকে সাহায্য করত না।"
+        },
+        {
+          "type": "concept",
+          "concept": "design",
+          "title": "বেশি associativity",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "কম **conflict** miss (Class 18)",
+                "কিন্তু **ধীর hit time**: তুলনা করতে হয় বেশি tag, আর multiplexer বড়",
+                "এবং বেশি পাওয়ার ও চিপের জায়গা",
+                "4 থেকে 8 way-এর পর লাভ সামান্য"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "Cache (4 line, 0,16,0,16,0,16)",
+                "Hit",
+                "Miss"
+              ],
+              "rows": [
+                [
+                  "Direct mapped",
+                  "0",
+                  "6"
+                ],
+                [
+                  "2-way",
+                  "4",
+                  "2"
+                ],
+                [
+                  "Fully associative",
+                  "4",
+                  "2"
+                ]
+              ]
+            }
+          ],
+          "why": "Associativity AMAT-এর miss rate অংশ কমায়, কিন্তু hit time অংশ বাড়ায়।",
+          "real": "L1 cache ছোট ও কম-associativity রাখা হয়, যাতে hit time এক বা দুই cycle-এ থাকে।"
+        },
+        {
+          "type": "tps",
+          "title": "ভাবুন, জোড়ায় আলোচনা করুন, শেয়ার করুন",
+          "prompt": "একজন ডিজাইনার cache associativity দ্বিগুণ করলেন। Miss rate 5% থেকে কমে 4% হলো, কিন্তু hit time 1.0 থেকে বেড়ে 1.1 cycle হলো। Miss penalty 20 cycle। এটি কি উন্নতি?",
+          "think": 20,
+          "pair": 40,
+          "answer": "আগে AMAT: 1.0 + 0.05 × 20 = 2.0। পরে: 1.1 + 0.04 × 20 = 1.9। এটি সামান্য উন্নতি। Hit time 1.3 হলে হতো 2.1, অর্থাৎ ক্ষতি। উত্তর নির্ভর করে দুটি অংশের ওপরই।"
+        },
+        {
+          "type": "checkpoint",
+          "title": "চেকপয়েন্ট",
+          "questions": [
+            {
+              "q": "তিনটি C-এর নাম বলুন।",
+              "a": "Compulsory, capacity ও conflict।",
+              "concept": "misses"
+            },
+            {
+              "q": "AMAT কী?",
+              "a": "Hit time + miss rate × miss penalty।",
+              "concept": "amat"
+            },
+            {
+              "q": "বড় block কেন ক্ষতি করতে পারে?",
+              "a": "বেশি miss penalty এবং দরকারি ডেটা ধরে রাখার জন্য কম line।",
+              "concept": "design"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "write",
+      "label": "Write policy",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "write",
+          "title": "Write করলে কী ঘটে?",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Policy",
+                "Write hit হলে",
+                "মেমরি ট্রাফিক"
+              ],
+              "rows": [
+                [
+                  "Write-through",
+                  "Cache **এবং** মেমরি দুটিকেই সাথে সাথে আপডেট করে",
+                  "প্রতিটি write মেমরিতে যায়"
+                ],
+                [
+                  "Write-back",
+                  "শুধু cache আপডেট করে এবং line-কে **dirty** চিহ্নিত করে; line evict হলে মেমরিতে লেখে",
+                  "শুধু evict হওয়া dirty line লেখা হয়"
+                ]
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "**Write buffer** মেমরিতে অপেক্ষমাণ write ধরে রাখে, যাতে CPU-কে সেগুলোর জন্য অপেক্ষা করতে না হয়",
+                "**Write-allocate**: write miss হলে আগে block-টি cache-এ আনা হয় (write-back-এর সাথে সাধারণত এটাই হয়)"
+              ]
+            }
+          ],
+          "why": "Write-through সহজ এবং মেমরিকে হালনাগাদ রাখে; একই block অনেকবার লেখা হলে write-back ব্যান্ডউইথ বাঁচায়।",
+          "real": "L1 data cache প্রায়ই write buffer সহ write-through ব্যবহার করে; L2 ও L3 cache সাধারণত write-back ব্যবহার করে।",
+          "mistake": {
+            "wrong": "Write-back ডেটা হারায়, কারণ মেমরি stale থাকে।",
+            "right": "Line cache-এ থাকা পর্যন্তই শুধু মেমরি stale থাকে; dirty line evict করলে সেটি মেমরিতে ফেরত লেখা হয়।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "write",
+          "title": "করে দেখুন: write-through বনাম write-back",
+          "blocks": [
+            {
+              "type": "cache",
+              "title": "মেমরি write গোনা",
+              "config": {
+                "blockBytes": 4,
+                "lines": 4,
+                "addrBits": 8,
+                "assoc": 1,
+                "write": "back"
+              },
+              "controls": [
+                "write"
+              ],
+              "sequences": [
+                {
+                  "name": "একটি word-এ চারটি write, তারপর conflict করা একটি read",
+                  "accesses": [
+                    {
+                      "addr": 0,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 0,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 0,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 0,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 16,
+                      "op": "R"
+                    }
+                  ]
+                },
+                {
+                  "name": "দুটি word-এ write, তারপর একটি read",
+                  "accesses": [
+                    {
+                      "addr": 0,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 4,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 0,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 4,
+                      "op": "W"
+                    },
+                    {
+                      "addr": 0,
+                      "op": "R"
+                    }
+                  ]
+                }
+              ],
+              "hint": "**Write policy** বদলান এবং **Memory writes** কাউন্টার তুলনা করুন।"
+            }
+          ],
+          "why": "একই word-এ চারটি write, তারপর conflict করা read: write-through মেমরিতে 4টি write পাঠায়, write-back পাঠায় 1টি (dirty block evict হলে)। দ্বিতীয় প্যাটার্ন: write-through-এ 4টি write, write-back-এ 0টি (এখনো কোনো eviction হয়নি)।"
+        },
+        {
+          "type": "predict",
+          "concept": "write",
+          "skill": "Apply",
+          "question": "একই word চারবার লেখা হলো, তারপর conflict করা read সেটিকে evict করল। Write-back কয়টি মেমরি write করে?",
+          "options": [
+            "1",
+            "4",
+            "0",
+            "5"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Cache চারটি write নিজেই সামলায় এবং dirty block eviction-এর সময় একবার লেখা হয়: **1টি মেমরি write** (write-through করত 4টি)।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Line কখনো evict না হলে write-back পরে না আসা পর্যন্ত কিছুই লেখে না।"
+        },
+        {
+          "type": "discussion",
+          "title": "আলোচনা",
+          "concept": "write",
+          "question": "Write-back-এর সুবিধা ও ঝুঁকি কী?",
+          "seconds": 60,
+          "ideas": [
+            "Block বারবার লেখা হলে কম মেমরি write।",
+            "মেমরি stale থাকতে পারে, তাই dirty bit ট্র্যাক করতে হয়।",
+            "অন্য প্রসেসর যেন stale মেমরি না পড়ে (Class 23)।",
+            "Dirty line evict করতে একটি বাড়তি write লাগে।"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "অনুশীলন",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "misses",
+          "question": "তিন ধরনের cache miss-এর নাম বলুন ও সংজ্ঞা দিন।",
+          "answer": "Compulsory (প্রথম অ্যাক্সেস), capacity (working set খুব বড়), conflict (block-রা একই set ভাগ করে)।",
+          "solution": "প্রতিটি ধরনের কারণ ও প্রতিকার আলাদা।",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "amat",
+          "question": "Hit time 1 cycle, miss rate 5%, miss penalty 20 cycles: AMAT বের করুন।",
+          "answer": "2.0 cycles।",
+          "solution": "1 + 0.05 × 20 = 2.0.",
+          "hint": "Hit rate নয়, miss rate ব্যবহার করুন।",
+          "think": 40
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "amat",
+          "question": "L1 hit 1, L1 miss rate 5%, L2 hit 10, L2 local miss rate 20%, memory 100 cycles। L2 সহ ও L2 ছাড়া AMAT বের করুন।",
+          "answer": "L2 সহ: 2.5 cycles। L2 ছাড়া: 6.0 cycles।",
+          "solution": "L2 সহ L1 miss penalty = 10 + 0.2 × 100 = 30; AMAT = 1 + 0.05 × 30 = 2.5। L2 ছাড়া: 1 + 0.05 × 100 = 6।",
+          "hint": "আগে L1-এর কার্যকর miss penalty বের করুন।",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "misses",
+          "question": "4-line, 4-byte-block cache। Direct-mapped cache এবং 2-way cache-এ 0, 16, 0, 16, 0, 16-এর miss-গুলোকে ভাগ করুন।",
+          "answer": "Direct mapped: 6টি miss (2টি compulsory + 4টি conflict)। 2-way: 2টি miss (দুটোই compulsory), 4টি hit।",
+          "solution": "Direct-mapped cache-এ block 0 ও 4 line 0 ভাগ করে নেয় এবং একে অপরকে evict করে। 2-way cache-এ তারা একই set-এ একসাথে থাকে।",
+          "mistake": "Conflict miss-কে capacity miss বলা।",
+          "title": "পরীক্ষার অনুশীলন: শ্রেণিবিভাগ",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "design",
+          "question": "উদাহরণের miss penalty = 10 + block bytes ÷ 4 cycles, hit time 1 cycle। 4-line cache-এ 32টি word ক্রমানুসারে পড়লে 4, 8 ও 16-byte block-এর জন্য hit হয় যথাক্রমে 0, 16 ও 24টি। প্রতিটির AMAT বের করুন।",
+          "answer": "12.0, 7.0 ও 4.5 cycles।",
+          "solution": "Miss rate: 32/32, 16/32, 8/32। Penalty: 11, 12, 14। AMAT = 1 + 1.0×11 = 12; 1 + 0.5×12 = 7; 1 + 0.25×14 = 4.5।",
+          "mistake": "ভুলে যাওয়া যে block size বাড়লে penalty বাড়ে।",
+          "title": "পরীক্ষার অনুশীলন: block size",
+          "think": 105,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "write",
+          "question": "একটি word চারবার লেখা হলো, তারপর conflict করা read সেটিকে evict করল। Write-through ও write-back-এ কয়টি মেমরি write হয়?",
+          "answer": "Write-through 4; write-back 1।",
+          "solution": "Write-through প্রতিটি write-এ মেমরি আপডেট করে। Write-back line-কে dirty চিহ্নিত করে এবং evict হলে একবার লেখে।",
+          "mistake": "Write-back-কে প্রতি CPU write-এ একটি write গোনা।",
+          "title": "পরীক্ষার অনুশীলন: মেমরি ট্রাফিক",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "amat",
+          "question": "Associativity দ্বিগুণ করা হলো: miss rate 6% থেকে কমে 4.5% হলো, কিন্তু hit time 1 থেকে বেড়ে 1.2 cycle হলো। Miss penalty 40 cycles। কোন ডিজাইনের AMAT কম?",
+          "answer": "আগে: 3.4 cycles; পরে: 3.0 cycles। Associativity দ্বিগুণ করা ডিজাইনটি ভালো।",
+          "solution": "আগে: 1 + 0.06 × 40 = 3.4। পরে: 1.2 + 0.045 × 40 = 3.0।",
+          "mistake": "শুধু miss rate তুলনা করা।",
+          "title": "পরীক্ষার অনুশীলন: হিসাব",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "misses",
+          "question": "বড় cache কেন conflict miss দূর করে না, আর কোন পরিবর্তন করে?",
+          "answer": "Conflict miss ঘটে কারণ কয়েকটি block একই set-এ map হয় অথচ অন্য set-এ জায়গা খালি থাকে, তাই mapping না বদলালে মোট capacity বাড়িয়ে লাভ হয় না। বেশি associativity ওই block-গুলোকে set ভাগ করতে দেয় এবং conflict miss সরিয়ে দেয়।",
+          "solution": "ভালো উত্তরে fully associative পরীক্ষা দিয়ে capacity ও conflict আলাদা করা হয়।",
+          "mistake": "বলা যে বড় cache সব miss ঠিক করে।",
+          "title": "পরীক্ষার অনুশীলন: ধারণাগত",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "পুনর্বিবেচনা",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "সবকিছু কীভাবে জুড়ে আছে",
+          "root": "Cache পারফরম্যান্স",
+          "branches": [
+            {
+              "label": "তিনটি C",
+              "example": "compulsory, capacity, conflict",
+              "section": "misses"
+            },
+            {
+              "label": "AMAT",
+              "example": "hit time + miss rate × penalty",
+              "section": "amat"
+            },
+            {
+              "label": "ট্রেড-অফ",
+              "example": "block ও associativity",
+              "section": "design"
+            },
+            {
+              "label": "Write",
+              "example": "through বনাম back",
+              "section": "write"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "যা মনে রাখবেন",
+          "remember": [
+            "Miss হয় compulsory (প্রথম ব্যবহার), capacity (cache খুব ছোট) বা conflict (mapping)।",
+            "AMAT = hit time + miss rate × miss penalty।",
+            "দুই-লেভেল: L1 penalty = L2 hit time + L2 local miss rate × মেমরি টাইম।",
+            "বড় block compulsory miss কমায়, কিন্তু miss penalty বাড়ায় এবং cache-কে ভিড়ে ঠাসা করতে পারে।",
+            "বেশি associativity conflict miss কমায়, কিন্তু hit ধীর করে।",
+            "Write-through প্রতিটি write-এ মেমরি আপডেট করে; write-back dirty block একবার লেখে, eviction-এর সময়।"
+          ]
+        },
+        {
+          "type": "review",
+          "title": "সাধারণ ভুল",
+          "mistakes": [
+            {
+              "wrong": "বড় cache conflict miss ঠিক করে।",
+              "right": "Associativity করে; capacity আলাদা বিষয়।"
+            },
+            {
+              "wrong": "কম miss rate সবসময় AMAT কমায়।",
+              "right": "Hit time ও penalty বাড়তে পারে।"
+            },
+            {
+              "wrong": "Write-back ডেটা হারায়।",
+              "right": "Dirty line evict হলে ফেরত লেখা হয়।"
+            },
+            {
+              "wrong": "বড় block সবসময় ভালো।",
+              "right": "এগুলো miss penalty বাড়ায় এবং জায়গা নষ্ট করতে পারে।"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "এক মিনিটের সারসংক্ষেপ",
+          "summary": "Cache miss আসে প্রথম ব্যবহার, সীমিত capacity ও conflict থেকে। গড় অ্যাক্সেস টাইম হলো hit time যোগ miss rate গুণ miss penalty, আর দ্বিতীয় cache লেভেল কার্যকর penalty কমায়। বড় block ও বেশি associativity কিছু miss কমায়, কিন্তু penalty বা hit time বাড়ায়। Write-through প্রতিটি write-এ মেমরি আপডেট করে; write-back শুধু dirty block evict হলে আপডেট করে।"
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "কুইজ",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "চূড়ান্ত কুইজ",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "misses",
+              "question": "একটি block-এ প্রথম অ্যাক্সেস কোন ধরনের miss?",
+              "options": [
+                "Compulsory",
+                "Capacity",
+                "Conflict",
+                "Coherence"
+              ],
+              "answer": 0,
+              "why": "প্রথম ব্যবহারের আগে block cache-এ থাকতে পারে না।",
+              "misconception": "Capacity ও conflict-এর জন্য আগে একটি eviction লাগে।"
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "amat",
+              "statement": "AMAT = hit time + miss rate × miss penalty।",
+              "answer": true,
+              "why": "এটাই সূত্র।",
+              "misconception": "Miss rate ব্যবহার করুন।"
+            },
+            {
+              "level": "easy",
+              "concept": "write",
+              "question": "কোন policy শুধু dirty block evict হলে মেমরিতে লেখে?",
+              "options": [
+                "Write-back",
+                "Write-through",
+                "Write-around",
+                "Read-through"
+              ],
+              "answer": 0,
+              "why": "Write-back মেমরি write পিছিয়ে দেয়।",
+              "misconception": "Write-through প্রতিবার লেখে।"
+            },
+            {
+              "level": "medium",
+              "concept": "amat",
+              "question": "Hit time 1, miss rate 5%, penalty 20। AMAT কত?",
+              "options": [
+                "2.0",
+                "1.05",
+                "21",
+                "1.0"
+              ],
+              "answer": 0,
+              "why": "1 + 0.05 × 20 = 2.0.",
+              "misconception": "Miss rate দিয়ে ভারিত না করে penalty যোগ করবেন না।"
+            },
+            {
+              "level": "medium",
+              "concept": "misses",
+              "question": "4-line direct-mapped cache-এ 0,16,0,16,0,16: কতগুলো conflict miss?",
+              "options": [
+                "4",
+                "6",
+                "2",
+                "0"
+              ],
+              "answer": 0,
+              "why": "2টি compulsory, তারপর 4টি conflict miss।",
+              "misconception": "2-way cache-এ conflict হতো 0টি।"
+            },
+            {
+              "level": "medium",
+              "concept": "design",
+              "question": "কোন পরিবর্তন সবচেয়ে সরাসরি conflict miss কমায়?",
+              "options": [
+                "বেশি associativity",
+                "বড় block",
+                "ছোট cache",
+                "Write-back"
+              ],
+              "answer": 0,
+              "why": "প্রতি set-এ বেশি way।",
+              "misconception": "বড় block মূলত compulsory miss-কে লক্ষ্য করে।"
+            },
+            {
+              "level": "hard",
+              "concept": "amat",
+              "question": "L1 hit 1, miss 5%, L2 hit 10, local miss 20%, memory 100: AMAT কত?",
+              "options": [
+                "2.5",
+                "6.0",
+                "1.5",
+                "3.0"
+              ],
+              "answer": 0,
+              "why": "1 + 0.05 × (10 + 0.2 × 100) = 2.5.",
+              "misconception": "L2 ছাড়া এটি 6.0।"
+            },
+            {
+              "level": "hard",
+              "concept": "write",
+              "question": "একটি word চারবার লেখা হয়ে তারপর evict হলো। Write-back-এ মেমরি write কয়টি?",
+              "options": [
+                "1",
+                "4",
+                "0",
+                "2"
+              ],
+              "answer": 0,
+              "why": "Eviction-এর সময় একটি write।",
+              "misconception": "Write-through করত 4টি।"
+            },
+            {
+              "level": "challenge",
+              "concept": "amat",
+              "question": "Associativity দ্বিগুণ: miss rate 6% থেকে 4.5%, hit time 1 থেকে 1.2, penalty 40। নতুন AMAT কত?",
+              "options": [
+                "3.0",
+                "3.4",
+                "2.5",
+                "3.6"
+              ],
+              "answer": 0,
+              "why": "1.2 + 0.045 × 40 = 3.0, যা 3.4-এর চেয়ে ভালো।",
+              "misconception": "বাড়তি hit time সাশ্রয়ের চেয়ে ছোট।"
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "মনে আছে কি?",
+          "items": [
+            {
+              "q": "তিনটি C-এর নাম বলুন।",
+              "a": "Compulsory, capacity, conflict।",
+              "concept": "misses"
+            },
+            {
+              "q": "AMAT-এর সূত্র দিন।",
+              "a": "Hit time + miss rate × miss penalty।",
+              "concept": "amat"
+            },
+            {
+              "q": "বড় block কেন ক্ষতি করতে পারে?",
+              "a": "এগুলো miss penalty বাড়ায় এবং দরকারি ডেটাকে ঠেলে সরিয়ে দিতে পারে।",
+              "concept": "design"
+            },
+            {
+              "q": "Dirty bit-এর অর্থ কী?",
+              "a": "Cache-এর block পরিবর্তিত হয়েছে এবং evict হওয়ার সময় ফেরত লিখতে হবে।",
+              "concept": "write"
+            },
+            {
+              "q": "L2 কীভাবে L1-কে সাহায্য করে?",
+              "a": "এটি L1-এর কার্যকর miss penalty কমায়।",
+              "concept": "amat"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "আপনার লার্নিং রিপোর্ট"
+        }
+      ]
+    }
+  ]
+}

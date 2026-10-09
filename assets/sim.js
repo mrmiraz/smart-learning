@@ -9,6 +9,8 @@
   const bin = (n, d) => (n >>> 0).toString(2).padStart(d || 1, '0').slice(-(d || 32));
   const isPow2 = (n) => n > 0 && (n & (n - 1)) === 0;
   const log2 = (n) => Math.round(Math.log2(n));
+  // Errors and descriptions keep their English text and also carry a stable code + args, so the page can translate them (keys sim.err.*, sim.desc.*, sim.decode.*, sim.vm.*, sim.msi.*, sim.race.*).
+  const coded = (code, args, message) => Object.assign(new Error(message), { code, args });
 
   /* ======================= MIPS ======================= */
   const REGS = ['$zero', '$at', '$v0', '$v1', '$a0', '$a1', '$a2', '$a3', '$t0', '$t1', '$t2', '$t3', '$t4', '$t5', '$t6', '$t7',
@@ -42,25 +44,25 @@
     const sp = t.search(/\s/);
     const op = (sp < 0 ? t : t.slice(0, sp)).toLowerCase(); const rest = sp < 0 ? '' : t.slice(sp + 1);
     const o = splitOps(rest);
-    const reg = (x) => { const n = regNum(x); if (n < 0) throw new Error(`Unknown register "${x}"`); return n; };
-    const need = (k) => { if (o.length !== k) throw new Error(`${op} needs ${k} operand${k === 1 ? '' : 's'}`); };
+    const reg = (x) => { const n = regNum(x); if (n < 0) throw coded('unknownRegister', { name: x }, `Unknown register "${x}"`); return n; };
+    const need = (k) => { if (o.length !== k) throw coded('operandCount', { op, n: k }, `${op} needs ${k} operand${k === 1 ? '' : 's'}`); };
     const ins = { op, rd: 0, rs: 0, rt: 0, imm: 0, shamt: 0, label: null, text: t };
     if (op in R3) { need(3); ins.rd = reg(o[0]); ins.rs = reg(o[1]); ins.rt = reg(o[2]); ins.fmt = 'R'; }
-    else if (op in SHIFT) { need(3); ins.rd = reg(o[0]); ins.rt = reg(o[1]); ins.shamt = parseImm(o[2]); if (!(ins.shamt >= 0 && ins.shamt < 32)) throw new Error('shift amount must be 0 to 31'); ins.fmt = 'R'; }
+    else if (op in SHIFT) { need(3); ins.rd = reg(o[0]); ins.rt = reg(o[1]); ins.shamt = parseImm(o[2]); if (!(ins.shamt >= 0 && ins.shamt < 32)) throw coded('shiftRange', {}, 'shift amount must be 0 to 31'); ins.fmt = 'R'; }
     else if (op === 'jr') { need(1); ins.rs = reg(o[0]); ins.fmt = 'R'; }
-    else if (op in IARITH) { need(3); ins.rt = reg(o[0]); ins.rs = reg(o[1]); ins.imm = parseImm(o[2]); if (isNaN(ins.imm)) throw new Error(`Bad immediate "${o[2]}"`); ins.fmt = 'I'; }
-    else if (op === 'lui') { need(2); ins.rt = reg(o[0]); ins.imm = parseImm(o[1]); if (isNaN(ins.imm)) throw new Error(`Bad immediate "${o[1]}"`); ins.fmt = 'I'; }
+    else if (op in IARITH) { need(3); ins.rt = reg(o[0]); ins.rs = reg(o[1]); ins.imm = parseImm(o[2]); if (isNaN(ins.imm)) throw coded('badImmediate', { value: o[2] }, `Bad immediate "${o[2]}"`); ins.fmt = 'I'; }
+    else if (op === 'lui') { need(2); ins.rt = reg(o[0]); ins.imm = parseImm(o[1]); if (isNaN(ins.imm)) throw coded('badImmediate', { value: o[1] }, `Bad immediate "${o[1]}"`); ins.fmt = 'I'; }
     else if (op in MEMOP) {
       need(2); ins.rt = reg(o[0]); const m = /^(-?(?:0x[0-9a-f]+|\d+))?\s*\(\s*(\$\w+)\s*\)$/i.exec(o[1]);
-      if (!m) throw new Error(`${op} needs an address like 8($s1)`); ins.imm = m[1] ? parseImm(m[1]) : 0; ins.rs = reg(m[2]); ins.fmt = 'I';
+      if (!m) throw coded('memAddress', { op }, `${op} needs an address like 8($s1)`); ins.imm = m[1] ? parseImm(m[1]) : 0; ins.rs = reg(m[2]); ins.fmt = 'I';
     }
     else if (op in BR) { need(3); ins.rs = reg(o[0]); ins.rt = reg(o[1]); const v = parseImm(o[2]); if (isNaN(v)) ins.label = o[2]; else ins.imm = v; ins.fmt = 'I'; }
     else if (op in JMP) { need(1); const v = parseImm(o[0]); if (isNaN(v)) ins.label = o[0]; else ins.target = v; ins.fmt = 'J'; }
-    else if (op === 'li') { need(2); ins.rt = reg(o[0]); ins.imm = parseImm(o[1]); if (isNaN(ins.imm)) throw new Error(`Bad immediate "${o[1]}"`); ins.pseudo = true; }
+    else if (op === 'li') { need(2); ins.rt = reg(o[0]); ins.imm = parseImm(o[1]); if (isNaN(ins.imm)) throw coded('badImmediate', { value: o[1] }, `Bad immediate "${o[1]}"`); ins.pseudo = true; }
     else if (op === 'move') { need(2); ins.rd = reg(o[0]); ins.rs = reg(o[1]); ins.pseudo = true; }
     else if (op === 'nop') { ins.pseudo = true; }
     else if (op === '') { return null; }
-    else throw new Error(`Unknown instruction "${op}"`);
+    else throw coded('unknownInstruction', { op }, `Unknown instruction "${op}"`);
     return ins;
   }
   function expandPseudo(ins) {
@@ -84,12 +86,12 @@
       let m; while ((m = /^([A-Za-z_][\w]*):\s*/.exec(t))) { labels[m[1]] = base + instrs.length * 4; t = t.slice(m[0].length); }
       if (!t) return;
       try { const p = parseInstr(t); if (!p) return; expandPseudo(p).forEach((x) => { x.line = li + 1; x.src = t; instrs.push(x); }); }
-      catch (e) { errors.push({ line: li + 1, message: e.message }); }
+      catch (e) { errors.push({ line: li + 1, message: e.message, code: e.code, args: e.args }); }
     });
     instrs.forEach((x, i) => { x.addr = base + i * 4; });
     instrs.forEach((x) => {
       if (x.label != null) {
-        if (!(x.label in labels)) { errors.push({ line: x.line, message: `Unknown label "${x.label}"` }); return; }
+        if (!(x.label in labels)) { errors.push({ line: x.line, message: `Unknown label "${x.label}"`, code: 'unknownLabel', args: { label: x.label } }); return; }
         if (x.fmt === 'J') x.target = labels[x.label]; else x.imm = (labels[x.label] - (x.addr + 4)) / 4;
       }
     });
@@ -105,7 +107,7 @@
     let opc = IARITH[op] != null ? IARITH[op] : MEMOP[op] != null ? MEMOP[op] : BR[op] != null ? BR[op] : op === 'lui' ? 15 : null;
     if (opc != null) return ((opc << 26) | (ins.rs << 21) | (ins.rt << 16) | u(ins.imm, 16)) >>> 0;
     if (op in JMP) return ((JMP[op] << 26) | ((ins.target >>> 2) & 0x3ffffff)) >>> 0;
-    throw new Error(`Cannot encode ${op}`);
+    throw coded('cannotEncode', { op }, `Cannot encode ${op}`);
   }
   const OPNAME = {}; Object.keys(IARITH).forEach((k) => { OPNAME[IARITH[k]] = k; }); Object.keys(MEMOP).forEach((k) => { OPNAME[MEMOP[k]] = k; });
   Object.keys(BR).forEach((k) => { OPNAME[BR[k]] = k; }); OPNAME[15] = 'lui'; OPNAME[2] = 'j'; OPNAME[3] = 'jal';
@@ -115,12 +117,12 @@
     const imm16 = word & 0xffff, simm = (imm16 << 16) >> 16, target = word & 0x3ffffff;
     const f = { op, rs, rt, rd, shamt, funct, imm: imm16, target };
     if (op === 0) {
-      const name = FNAME[funct]; if (!name) return { format: 'R', name: '?', fields: f, asm: 'unknown (R-type, funct ' + funct + ')', word };
+      const name = FNAME[funct]; if (!name) return { format: 'R', name: '?', fields: f, asm: 'unknown (R-type, funct ' + funct + ')', code: 'unknownR', args: { funct: String(funct) }, word };
       let asm; if (name in SHIFT) asm = `${name} ${REGS[rd]}, ${REGS[rt]}, ${shamt}`; else if (name === 'jr') asm = `jr ${REGS[rs]}`; else asm = `${name} ${REGS[rd]}, ${REGS[rs]}, ${REGS[rt]}`;
       return { format: 'R', name, fields: f, asm, word };
     }
     if (op === 2 || op === 3) return { format: 'J', name: OPNAME[op], fields: f, asm: `${OPNAME[op]} ${hex(target << 2, 8)}`, word };
-    const name = OPNAME[op]; if (!name) return { format: 'I', name: '?', fields: f, asm: 'unknown (opcode ' + op + ')', word };
+    const name = OPNAME[op]; if (!name) return { format: 'I', name: '?', fields: f, asm: 'unknown (opcode ' + op + ')', code: 'unknownOp', args: { op: String(op) }, word };
     let asm; if (name in MEMOP) asm = `${name} ${REGS[rt]}, ${simm}(${REGS[rs]})`; else if (name in BR) asm = `${name} ${REGS[rs]}, ${REGS[rt]}, ${simm}`; else if (name === 'lui') asm = `lui ${REGS[rt]}, ${imm16}`;
     else asm = `${name} ${REGS[rt]}, ${REGS[rs]}, ${['andi', 'ori', 'xori'].includes(name) ? imm16 : simm}`;
     return { format: 'I', name, fields: f, asm, word };
@@ -148,16 +150,17 @@
   function step(st) {
     if (st.halted) return null;
     const idx = (st.pc - st.prog.base) / 4;
-    if (!Number.isInteger(idx) || idx < 0 || idx >= st.prog.instrs.length) { st.halted = true; return { desc: 'Program finished', changed: {} }; }
+    if (!Number.isInteger(idx) || idx < 0 || idx >= st.prog.instrs.length) { st.halted = true; return { desc: 'Program finished', descCode: 'finished', descArgs: {}, changed: {} }; }
     const ins = st.prog.instrs[idx]; const r = st.regs; const changed = {}; let desc = ''; let next = st.pc + 4;
     const setR = (n, v) => { if (n === 0) return; if ((r[n] | 0) !== (v | 0)) changed['r' + n] = [r[n], v | 0]; r[n] = v | 0; };
-    const fail = (m) => { st.error = m; st.halted = true; desc = 'Error: ' + m; };
+    let dc = null, da = null; const say = (code, args, text) => { desc = text; dc = code; da = args; };
+    const fail = (m, code, args) => { st.error = m; st.errorCode = code; st.errorArgs = args; st.halted = true; desc = 'Error: ' + m; };
     const op = ins.op, A = r[ins.rs], B = r[ins.rt], sx = ins.imm << 16 >> 16;
     const show = (n) => REGS[n];
     switch (op) {
       case 'add': case 'sub': {
         const v = op === 'add' ? A + B : A - B;
-        if (v > 2147483647 || v < -2147483648) { fail('arithmetic overflow'); break; }
+        if (v > 2147483647 || v < -2147483648) { fail('arithmetic overflow', 'overflow', {}); break; }
         setR(ins.rd, v); desc = `${show(ins.rd)} = ${A} ${op === 'add' ? '+' : '-'} ${B} = ${v}`; break;
       }
       case 'addu': setR(ins.rd, A + B); desc = `${show(ins.rd)} = ${A} + ${B} = ${r[ins.rd]}`; break;
@@ -167,46 +170,46 @@
       case 'xor': setR(ins.rd, A ^ B); desc = `${show(ins.rd)} = ${A} XOR ${B} = ${A ^ B}`; break;
       case 'nor': setR(ins.rd, ~(A | B)); desc = `${show(ins.rd)} = NOT(${A} OR ${B}) = ${~(A | B)}`; break;
       case 'slt': setR(ins.rd, A < B ? 1 : 0); desc = `${show(ins.rd)} = (${A} < ${B}) ? 1 : 0 = ${A < B ? 1 : 0}`; break;
-      case 'sltu': setR(ins.rd, (A >>> 0) < (B >>> 0) ? 1 : 0); desc = `${show(ins.rd)} = (${A >>> 0} < ${B >>> 0} unsigned) ? 1 : 0`; break;
+      case 'sltu': setR(ins.rd, (A >>> 0) < (B >>> 0) ? 1 : 0); say('sltu', { rd: show(ins.rd), a: String(A >>> 0), b: String(B >>> 0) }, `${show(ins.rd)} = (${A >>> 0} < ${B >>> 0} unsigned) ? 1 : 0`); break;
       case 'sll': setR(ins.rd, B << ins.shamt); desc = `${show(ins.rd)} = ${B} << ${ins.shamt} = ${B << ins.shamt}`; break;
       case 'srl': setR(ins.rd, B >>> ins.shamt); desc = `${show(ins.rd)} = ${B} >>> ${ins.shamt} = ${B >>> ins.shamt | 0}`; break;
       case 'sra': setR(ins.rd, B >> ins.shamt); desc = `${show(ins.rd)} = ${B} >> ${ins.shamt} = ${B >> ins.shamt}`; break;
-      case 'addi': { const v = A + sx; if (v > 2147483647 || v < -2147483648) { fail('arithmetic overflow'); break; } setR(ins.rt, v); desc = `${show(ins.rt)} = ${A} + ${sx} = ${v}`; break; }
+      case 'addi': { const v = A + sx; if (v > 2147483647 || v < -2147483648) { fail('arithmetic overflow', 'overflow', {}); break; } setR(ins.rt, v); desc = `${show(ins.rt)} = ${A} + ${sx} = ${v}`; break; }
       case 'addiu': setR(ins.rt, A + sx); desc = `${show(ins.rt)} = ${A} + ${sx} = ${r[ins.rt]}`; break;
       case 'slti': setR(ins.rt, A < sx ? 1 : 0); desc = `${show(ins.rt)} = (${A} < ${sx}) ? 1 : 0`; break;
-      case 'sltiu': setR(ins.rt, (A >>> 0) < (sx >>> 0) ? 1 : 0); desc = `${show(ins.rt)} = (${A >>> 0} < ${sx >>> 0} unsigned) ? 1 : 0`; break;
+      case 'sltiu': setR(ins.rt, (A >>> 0) < (sx >>> 0) ? 1 : 0); say('sltiu', { rt: show(ins.rt), a: String(A >>> 0), b: String(sx >>> 0) }, `${show(ins.rt)} = (${A >>> 0} < ${sx >>> 0} unsigned) ? 1 : 0`); break;
       case 'andi': setR(ins.rt, A & (ins.imm & 0xffff)); desc = `${show(ins.rt)} = ${A} AND ${ins.imm & 0xffff}`; break;
       case 'ori': setR(ins.rt, A | (ins.imm & 0xffff)); desc = `${show(ins.rt)} = ${A} OR ${ins.imm & 0xffff}`; break;
       case 'xori': setR(ins.rt, A ^ (ins.imm & 0xffff)); desc = `${show(ins.rt)} = ${A} XOR ${ins.imm & 0xffff}`; break;
       case 'lui': setR(ins.rt, (ins.imm & 0xffff) << 16); desc = `${show(ins.rt)} = ${ins.imm & 0xffff} << 16`; break;
       case 'lw': case 'sw': case 'lb': case 'lbu': case 'sb': case 'lh': case 'lhu': case 'sh': {
         const a = (A + sx) >>> 0; const size = (op === 'lw' || op === 'sw') ? 4 : (op === 'lh' || op === 'lhu' || op === 'sh') ? 2 : 1;
-        if (a % size !== 0) { fail(`unaligned ${op} at address ${hex(a, 8)}`); break; }
+        if (a % size !== 0) { fail(`unaligned ${op} at address ${hex(a, 8)}`, 'unaligned', { op, addr: hex(a, 8) }); break; }
         changed.addr = a;
         if (op === 'lw') { setR(ins.rt, loadWord(st, a)); desc = `${show(ins.rt)} = Memory[${hex(a, 8)}] = ${r[ins.rt]}`; }
         else if (op === 'sw') { storeWord(st, a, B); changed.mem = [a, B | 0]; desc = `Memory[${hex(a, 8)}] = ${B}`; }
-        else if (op === 'lb') { setR(ins.rt, (loadByte(st, a) << 24) >> 24); desc = `${show(ins.rt)} = byte at ${hex(a, 8)}`; }
-        else if (op === 'lbu') { setR(ins.rt, loadByte(st, a)); desc = `${show(ins.rt)} = byte at ${hex(a, 8)}`; }
-        else if (op === 'sb') { storeByte(st, a, B); changed.mem = [a, B & 255]; desc = `Memory[${hex(a, 8)}] = ${B & 255} (one byte)`; }
+        else if (op === 'lb') { setR(ins.rt, (loadByte(st, a) << 24) >> 24); say('byteAt', { rt: show(ins.rt), addr: hex(a, 8) }, `${show(ins.rt)} = byte at ${hex(a, 8)}`); }
+        else if (op === 'lbu') { setR(ins.rt, loadByte(st, a)); say('byteAt', { rt: show(ins.rt), addr: hex(a, 8) }, `${show(ins.rt)} = byte at ${hex(a, 8)}`); }
+        else if (op === 'sb') { storeByte(st, a, B); changed.mem = [a, B & 255]; say('storeByte', { addr: hex(a, 8), v: String(B & 255) }, `Memory[${hex(a, 8)}] = ${B & 255} (one byte)`); }
         else { const h2 = st.endian === 'big' ? (loadByte(st, a) << 8) | loadByte(st, a + 1) : (loadByte(st, a + 1) << 8) | loadByte(st, a);
-          if (op === 'lh') { setR(ins.rt, (h2 << 16) >> 16); desc = `${show(ins.rt)} = halfword at ${hex(a, 8)}`; } else if (op === 'lhu') { setR(ins.rt, h2); desc = `${show(ins.rt)} = halfword at ${hex(a, 8)}`; }
-          else { const v = B & 0xffff; if (st.endian === 'big') { storeByte(st, a, v >>> 8); storeByte(st, a + 1, v); } else { storeByte(st, a, v); storeByte(st, a + 1, v >>> 8); } changed.mem = [a, v]; desc = `Memory[${hex(a, 8)}] = ${v} (halfword)`; } }
+          if (op === 'lh') { setR(ins.rt, (h2 << 16) >> 16); say('halfAt', { rt: show(ins.rt), addr: hex(a, 8) }, `${show(ins.rt)} = halfword at ${hex(a, 8)}`); } else if (op === 'lhu') { setR(ins.rt, h2); say('halfAt', { rt: show(ins.rt), addr: hex(a, 8) }, `${show(ins.rt)} = halfword at ${hex(a, 8)}`); }
+          else { const v = B & 0xffff; if (st.endian === 'big') { storeByte(st, a, v >>> 8); storeByte(st, a + 1, v); } else { storeByte(st, a, v); storeByte(st, a + 1, v >>> 8); } changed.mem = [a, v]; say('storeHalf', { addr: hex(a, 8), v: String(v) }, `Memory[${hex(a, 8)}] = ${v} (halfword)`); } }
         break;
       }
       case 'beq': case 'bne': {
-        const taken = op === 'beq' ? A === B : A !== B; desc = `${A} ${op === 'beq' ? '==' : '!='} ${B}? ${taken ? 'yes, branch taken' : 'no, fall through'}`;
+        const taken = op === 'beq' ? A === B : A !== B; say(taken ? 'branchTaken' : 'branchNot', { a: String(A), cmp: op === 'beq' ? '==' : '!=', b: String(B) }, `${A} ${op === 'beq' ? '==' : '!='} ${B}? ${taken ? 'yes, branch taken' : 'no, fall through'}`);
         if (taken) { next = st.pc + 4 + ins.imm * 4; changed.taken = true; } break;
       }
-      case 'j': next = ins.target; desc = `jump to ${hex(next, 8)}`; break;
-      case 'jal': setR(31, st.pc + 4); next = ins.target; desc = `$ra = ${hex(st.pc + 4, 8)}; jump to ${hex(next, 8)}`; break;
-      case 'jr': next = A >>> 0; desc = `jump to ${hex(next, 8)}`; break;
-      default: fail('cannot execute ' + op);
+      case 'j': next = ins.target; say('jump', { addr: hex(next, 8) }, `jump to ${hex(next, 8)}`); break;
+      case 'jal': setR(31, st.pc + 4); next = ins.target; say('jal', { ra: hex(st.pc + 4, 8), addr: hex(next, 8) }, `$ra = ${hex(st.pc + 4, 8)}; jump to ${hex(next, 8)}`); break;
+      case 'jr': next = A >>> 0; say('jump', { addr: hex(next, 8) }, `jump to ${hex(next, 8)}`); break;
+      default: fail('cannot execute ' + op, 'cannotExecute', { op });
     }
-    st.steps++; st.last = { pcBefore: st.pc, index: idx, desc, changed, ins };
+    st.steps++; st.last = { pcBefore: st.pc, index: idx, desc, descCode: dc, descArgs: da, changed, ins };
     if (!st.error) st.pc = next >>> 0;
     return st.last;
   }
-  function run(st, limit) { limit = limit || 10000; let n = 0; while (!st.halted && n < limit) { step(st); n++; } if (!st.halted) { st.error = 'stopped after ' + limit + ' steps (possible infinite loop)'; st.halted = true; } return st; }
+  function run(st, limit) { limit = limit || 10000; let n = 0; while (!st.halted && n < limit) { step(st); n++; } if (!st.halted) { st.error = 'stopped after ' + limit + ' steps (possible infinite loop)'; st.errorCode = 'stopped'; st.errorArgs = { count: String(limit) }; st.halted = true; } return st; }
 
   /* ======================= pipeline ======================= */
   function depsOf(text) {
@@ -384,20 +387,21 @@
     return st;
   }
   function vmTranslate(st, va) {
-    const c = st.cfg; st.clock++; const vpn = Math.floor(va / c.pageBytes), off = va % c.pageBytes; const r = { va, vpn, offset: off, tlbHit: false, ptValid: false, fault: false, ppn: null, pa: null, evictedPage: null, steps: [] };
+    const c = st.cfg; st.clock++; const vpn = Math.floor(va / c.pageBytes), off = va % c.pageBytes; const r = { va, vpn, offset: off, tlbHit: false, ptValid: false, fault: false, ppn: null, pa: null, evictedPage: null, steps: [], stepInfo: [] };
+    const add = (code, args, text) => { r.steps.push(text); r.stepInfo.push({ code, args }); };
     let t = st.tlb.find((e) => e.vpn === vpn);
-    if (t) { r.tlbHit = true; t.used = st.clock; r.ppn = t.ppn; r.steps.push('TLB hit'); }
+    if (t) { r.tlbHit = true; t.used = st.clock; r.ppn = t.ppn; add('tlbHit', {}, 'TLB hit'); }
     else {
-      r.steps.push('TLB miss: look in the page table'); const e = st.pt[vpn];
-      if (e && e.valid) { r.ptValid = true; r.ppn = e.ppn; r.steps.push('Page table: valid, the page is in memory'); const f = st.frames.find((x) => x.vpn === vpn); if (f) f.used = st.clock; }
+      add('tlbMiss', {}, 'TLB miss: look in the page table'); const e = st.pt[vpn];
+      if (e && e.valid) { r.ptValid = true; r.ppn = e.ppn; add('ptValid', {}, 'Page table: valid, the page is in memory'); const f = st.frames.find((x) => x.vpn === vpn); if (f) f.used = st.clock; }
       else {
-        r.fault = true; r.steps.push('Page table: invalid. PAGE FAULT: the page is not in memory');
+        r.fault = true; add('pageFault', {}, 'Page table: invalid. PAGE FAULT: the page is not in memory');
         let ppn; const used = new Set(st.frames.map((f) => f.ppn)); for (let p = 0; p < c.frames; p++) if (!used.has(p)) { ppn = p; break; }
-        if (ppn == null) { st.frames.sort((a, b) => a.used - b.used); const v = st.frames.shift(); ppn = v.ppn; r.evictedPage = v.vpn; st.pt[v.vpn] = { valid: false, ppn: null }; st.tlb = st.tlb.filter((x) => x.vpn !== v.vpn); r.steps.push(`Memory full: evict virtual page ${v.vpn} (least recently used)`); }
-        st.frames.push({ ppn, vpn, used: st.clock }); st.pt[vpn] = { valid: true, ppn }; r.ppn = ppn; r.steps.push(`OS loads the page from disk into frame ${ppn}`);
+        if (ppn == null) { st.frames.sort((a, b) => a.used - b.used); const v = st.frames.shift(); ppn = v.ppn; r.evictedPage = v.vpn; st.pt[v.vpn] = { valid: false, ppn: null }; st.tlb = st.tlb.filter((x) => x.vpn !== v.vpn); add('evict', { vpn: String(v.vpn) }, `Memory full: evict virtual page ${v.vpn} (least recently used)`); }
+        st.frames.push({ ppn, vpn, used: st.clock }); st.pt[vpn] = { valid: true, ppn }; r.ppn = ppn; add('load', { ppn: String(ppn) }, `OS loads the page from disk into frame ${ppn}`);
       }
       if (st.tlb.length >= c.tlbEntries) { st.tlb.sort((a, b) => a.used - b.used); st.tlb.shift(); }
-      st.tlb.push({ vpn, ppn: r.ppn, used: st.clock }); r.steps.push('TLB updated');
+      st.tlb.push({ vpn, ppn: r.ppn, used: st.clock }); add('tlbUpdated', {}, 'TLB updated');
     }
     r.pa = r.ppn * c.pageBytes + off; return r;
   }
@@ -430,38 +434,39 @@
   /* ======================= cache coherence (MSI) and races ======================= */
   function msiNew(cores, mem) { const c = []; for (let i = 0; i < cores; i++) c.push({ state: 'I', value: null }); return { cores: c, mem: mem == null ? 0 : mem, log: [] }; }
   function msiOp(st, core, op, value) {
-    const me = st.cores[core]; const msgs = []; let note = '';
+    const me = st.cores[core]; const msgs = []; const msgsInfo = []; let note = '', noteInfo = null;
+    const msg = (code, args, text) => { msgs.push(text); msgsInfo.push({ code, args }); };
     if (op === 'R') {
-      if (me.state !== 'I') note = `Core ${core}: read hit (state ${me.state})`;
+      if (me.state !== 'I') { note = `Core ${core}: read hit (state ${me.state})`; noteInfo = { code: 'readHit', args: { core: String(core), state: me.state } }; }
       else {
         const m = st.cores.findIndex((x, i) => i !== core && x.state === 'M');
-        if (m >= 0) { st.mem = st.cores[m].value; st.cores[m].state = 'S'; msgs.push(`Bus read: core ${m} writes back its modified value (${st.mem}) and becomes S`); }
+        if (m >= 0) { st.mem = st.cores[m].value; st.cores[m].state = 'S'; msg('busRead', { core: String(m), value: String(st.mem) }, `Bus read: core ${m} writes back its modified value (${st.mem}) and becomes S`); }
         st.cores.forEach((x, i) => { if (i !== core && x.state === 'E') x.state = 'S'; });
-        me.value = st.mem; me.state = 'S'; msgs.push(`Core ${core} gets the value ${me.value} and enters state S`); note = `Core ${core}: read miss`;
+        me.value = st.mem; me.state = 'S'; msg('getsValue', { core: String(core), value: String(me.value) }, `Core ${core} gets the value ${me.value} and enters state S`); note = `Core ${core}: read miss`; noteInfo = { code: 'readMiss', args: { core: String(core) } };
       }
     } else {
-      if (me.state === 'M') note = `Core ${core}: write hit in state M (no bus traffic)`;
+      if (me.state === 'M') { note = `Core ${core}: write hit in state M (no bus traffic)`; noteInfo = { code: 'writeHitM', args: { core: String(core) } }; }
       else {
-        const m = st.cores.findIndex((x, i) => i !== core && x.state === 'M'); if (m >= 0) { st.mem = st.cores[m].value; msgs.push(`Core ${m} writes back ${st.mem}`); }
-        st.cores.forEach((x, i) => { if (i !== core && x.state !== 'I') { x.state = 'I'; x.value = null; msgs.push(`Core ${i} invalidates its copy`); } });
-        note = me.state === 'S' ? `Core ${core}: write to a Shared line: upgrade, others invalidated` : `Core ${core}: write miss: bus read-exclusive`;
+        const m = st.cores.findIndex((x, i) => i !== core && x.state === 'M'); if (m >= 0) { st.mem = st.cores[m].value; msg('writesBack', { core: String(m), value: String(st.mem) }, `Core ${m} writes back ${st.mem}`); }
+        st.cores.forEach((x, i) => { if (i !== core && x.state !== 'I') { x.state = 'I'; x.value = null; msg('invalidates', { core: String(i) }, `Core ${i} invalidates its copy`); } });
+        note = me.state === 'S' ? `Core ${core}: write to a Shared line: upgrade, others invalidated` : `Core ${core}: write miss: bus read-exclusive`; noteInfo = { code: me.state === 'S' ? 'writeShared' : 'writeMiss', args: { core: String(core) } };
       }
-      me.state = 'M'; me.value = value; msgs.push(`Core ${core} now holds ${value} in state M`);
+      me.state = 'M'; me.value = value; msg('nowHolds', { core: String(core), value: String(value) }, `Core ${core} now holds ${value} in state M`);
     }
-    st.log.push({ core, op, note, msgs }); return { note, msgs };
+    st.log.push({ core, op, note, msgs }); return { note, msgs, noteInfo, msgsInfo };
   }
   // Two threads sharing one counter. ops: 'load','add','store','lock','unlock'. schedule: array of thread ids to advance.
   function raceRun(programs, schedule) {
     const th = programs.map(() => ({ pc: 0, reg: 0 })); let shared = 0, lock = null; const log = [];
     schedule.forEach((t) => {
-      const p = programs[t]; const T = th[t]; if (T.pc >= p.length) { log.push({ t, op: '(done)', shared, note: 'thread finished' }); return; }
-      const op = p[T.pc]; let note = '', ran = true;
-      if (op === 'lock') { if (lock !== null && lock !== t) { note = `blocked: lock held by thread ${lock}`; ran = false; } else { lock = t; note = 'acquired the lock'; } }
-      else if (op === 'unlock') { lock = null; note = 'released the lock'; }
-      else if (op === 'load') { T.reg = shared; note = `register = ${shared}`; }
-      else if (op === 'add') { T.reg += 1; note = `register = ${T.reg}`; }
-      else if (op === 'store') { shared = T.reg; note = `counter = ${shared}`; }
-      if (ran) T.pc++; log.push({ t, op, shared, note, ran });
+      const p = programs[t]; const T = th[t]; if (T.pc >= p.length) { log.push({ t, op: '(done)', shared, note: 'thread finished', noteInfo: { code: 'finished', args: {} } }); return; }
+      const op = p[T.pc]; let note = '', ran = true, noteInfo = null;
+      if (op === 'lock') { if (lock !== null && lock !== t) { note = `blocked: lock held by thread ${lock}`; noteInfo = { code: 'blocked', args: { t: String(lock) } }; ran = false; } else { lock = t; note = 'acquired the lock'; noteInfo = { code: 'acquired', args: {} }; } }
+      else if (op === 'unlock') { lock = null; note = 'released the lock'; noteInfo = { code: 'released', args: {} }; }
+      else if (op === 'load') { T.reg = shared; note = `register = ${shared}`; noteInfo = { code: 'register', args: { v: String(shared) } }; }
+      else if (op === 'add') { T.reg += 1; note = `register = ${T.reg}`; noteInfo = { code: 'register', args: { v: String(T.reg) } }; }
+      else if (op === 'store') { shared = T.reg; note = `counter = ${shared}`; noteInfo = { code: 'counter', args: { v: String(shared) } }; }
+      if (ran) T.pc++; log.push({ t, op, shared, note, noteInfo, ran });
     });
     return { shared, log, done: th.every((T, i) => T.pc >= programs[i].length) };
   }

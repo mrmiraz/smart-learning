@@ -159,6 +159,33 @@ function validateLesson(L, name = 'lesson', opts = {}) {
   return { errors, warnings };
 }
 
+// A translated lesson (x.lesson.<lang>.json) must have exactly the same structure as the original, so progress, answers and the
+// interactive demos behave identically in every language. Only the wording may differ: strings are free except for the
+// structural keys below (ids, types, section/concept references, code and formulas), which must stay identical.
+const SAME_STRING_KEYS = new Set(['type', 'id', 'concept', 'section', 'lang', 'level', 'format', 'formula', 'program', 'seq', 'layout', 'style', 'tone', 'book', 'chapter', 'sections', 'from', 'to', 'show', 'highlight', 'better', 'icon', 'skill', 'mode', 'modes']);
+function lessonParity(base, tr, name = 'lesson', limit = 15) {
+  const out = [];
+  const walk = (a, b, where, key) => {
+    if (out.length >= limit) return;
+    const ta = Array.isArray(a) ? 'array' : a === null ? 'null' : typeof a, tb = Array.isArray(b) ? 'array' : b === null ? 'null' : typeof b;
+    if (ta !== tb) return out.push(`${name} ${where}: should be ${ta} like the original, found ${tb}`);
+    if (ta === 'array') {
+      if (a.length !== b.length) return out.push(`${name} ${where}: has ${b.length} item(s), the original has ${a.length}`);
+      a.forEach((x, i) => walk(x, b[i], `${where}[${i}]`, key));
+    } else if (ta === 'object') {
+      const ka = Object.keys(a), kb = Object.keys(b);
+      ka.filter((k) => !(k in b)).forEach((k) => out.push(`${name} ${where}: missing "${k}" (present in the original)`));
+      kb.filter((k) => !(k in a)).forEach((k) => out.push(`${name} ${where}: unexpected "${k}" (not in the original)`));
+      ka.filter((k) => k in b).forEach((k) => walk(a[k], b[k], `${where}.${k}`, k));
+    } else if (ta === 'string') {
+      if (key === 'code' && a.split('\n').length !== b.split('\n').length) out.push(`${name} ${where}: code must keep the same number of lines as the original (comments may be translated)`);
+      if (SAME_STRING_KEYS.has(key) && a !== b) out.push(`${name} ${where}: must be identical to the original ("${a.slice(0, 40)}")`);
+    } else if (a !== b) out.push(`${name} ${where}: must equal the original (${JSON.stringify(a)}), found ${JSON.stringify(b)}`);
+  };
+  walk(base, tr, '', '');
+  return out;
+}
+
 function lessonFiles(root) {
   const courses = JSON.parse(fs.readFileSync(path.join(root, 'content', 'courses.json'), 'utf8'));
   const out = [];
@@ -166,10 +193,12 @@ function lessonFiles(root) {
   return out;
 }
 
-module.exports = { validateLesson, lessonFiles };
+module.exports = { validateLesson, lessonParity, lessonFiles };
 
 if (require.main === module) {
   let bad = 0;
+  const { loadLocales, overlayFile } = require('./locales-lib');
+  const LOCALES = loadLocales(__dirname), DEF = Object.keys(LOCALES).find((c) => LOCALES[c]._meta.default);
   for (const { course, topic, file } of lessonFiles(__dirname)) {
     const name = `${course.id}/${topic.id}`;
     let data;
@@ -177,6 +206,15 @@ if (require.main === module) {
     const { errors, warnings } = validateLesson(data, name, { course: course.title });
     warnings.forEach((w) => console.warn('warning ' + w)); errors.forEach((e) => console.error('ERROR   ' + e));
     console.log(`${name}: ${errors.length} error(s), ${warnings.length} warning(s)`); bad += errors.length;
+    // translations: same validation, plus an exact structure match with the original
+    for (const code of Object.keys(LOCALES)) {
+      const tf = overlayFile(file, code);
+      if (code === DEF || !fs.existsSync(tf)) continue;
+      const label = `${name} [${code}]`; let tr;
+      try { tr = JSON.parse(fs.readFileSync(tf, 'utf8')); } catch (e) { console.error(`${label}: cannot read ${path.relative(__dirname, tf)} (${e.message})`); bad++; continue; }
+      const v = validateLesson(tr, label, { course: course.title }); const pe = lessonParity(data, tr, label);
+      v.errors.concat(pe).forEach((e) => console.error('ERROR   ' + e)); console.log(`${label}: ${v.errors.length + pe.length} error(s)`); bad += v.errors.length + pe.length;
+    }
   }
   const exDir = path.join(__dirname, 'docs', 'examples');
   if (fs.existsSync(exDir)) for (const fn of fs.readdirSync(exDir).filter((x) => x.endsWith('.lesson.json'))) {

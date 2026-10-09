@@ -1,0 +1,1806 @@
+{
+  "id": "ca-20-main-memory-virtual-memory",
+  "title": "Main memory, virtual memory ও TLB",
+  "subtitle": "DRAM chip থেকে শুরু করে প্রতিটি অ্যাক্সেস যে address translation-এর মধ্য দিয়ে যায়, সেই পর্যন্ত।",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "5",
+      "title": "Large and Fast: Exploiting Memory Hierarchy",
+      "topics": "মেমরি টেকনোলজি (SRAM, DRAM); virtual memory: page, page table, page fault, TLB, সুরক্ষা"
+    }
+  ],
+  "objectives": [
+    "SRAM ও DRAM তুলনা করুন এবং কোনটি কোথায় ব্যবহার হয় তা ব্যাখ্যা করুন",
+    "মেমরি latency ও bandwidth-এর পার্থক্য করুন এবং দুটিই হিসাব করুন",
+    "Page table ব্যবহার করে একটি virtual address-কে physical address-এ রূপান্তর করুন",
+    "virtual address, TLB, page table, physical address, RAM পথটি অনুসরণ করুন",
+    "Page fault, demand paging ও সুরক্ষা ব্যাখ্যা করুন"
+  ],
+  "concepts": [
+    {
+      "id": "memory",
+      "label": "Main memory",
+      "section": "memory"
+    },
+    {
+      "id": "virtual",
+      "label": "Virtual memory",
+      "section": "virtual"
+    },
+    {
+      "id": "tlb",
+      "label": "TLB ও page fault",
+      "section": "tlb"
+    },
+    {
+      "id": "protect",
+      "label": "সুরক্ষা ও খরচ",
+      "section": "protect"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "সূচনা",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "প্রতিটি প্রোগ্রাম মনে করে পুরো মেমরি তার, শুরু address 0 থেকে। দশটি প্রোগ্রাম একই সময়ে কীভাবে সবাই এটা ভাবতে পারে?",
+          "clues": [
+            "প্রোগ্রাম **virtual address** ব্যবহার করে, যা হার্ডওয়্যার translate করে।",
+            "প্রতিটি প্রোগ্রামের নিজস্ব **page table** আছে।",
+            "**TLB** নামের একটি ছোট cache translation দ্রুত করে।"
+          ],
+          "notes": {
+            "explain": "ক্লু দেখানোর আগে শিক্ষার্থীদের অনুমান করতে দিন।"
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "উদ্দেশ্যগুলো জোরে পড়ুন; এগুলো লার্নিং রিপোর্টে আবার আসবে।"
+          }
+        }
+      ]
+    },
+    {
+      "id": "memory",
+      "label": "Main memory",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "memory",
+          "title": "SRAM ও DRAM",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "",
+                "SRAM",
+                "DRAM"
+              ],
+              "rows": [
+                [
+                  "স্টোরেজ সেল",
+                  "প্রায় ছয়টি transistor",
+                  "একটি transistor ও একটি capacitor"
+                ],
+                [
+                  "Refresh",
+                  "দরকার নেই",
+                  "দরকার: চার্জ ক্ষয় হয়ে যায় এবং নির্দিষ্ট সময় পরপর আবার লিখতে হয়"
+                ],
+                [
+                  "গতি",
+                  "দ্রুততর (প্রায় 1 ns বা কম)",
+                  "ধীরতর (দশ ns-এর কোঠায়)"
+                ],
+                [
+                  "ঘনত্ব ও খরচ",
+                  "কম ঘনত্ব, দামি",
+                  "বেশি ঘনত্ব, সস্তা"
+                ],
+                [
+                  "ব্যবহার",
+                  "Cache, register",
+                  "Main memory"
+                ]
+              ]
+            }
+          ],
+          "why": "এই পার্থক্যের কারণেই hierarchy-তে আছে দ্রুত ছোট cache (SRAM) আর ধীর বড় main memory (DRAM)।",
+          "real": "Main memory হলো module-এর ওপর বসানো DRAM chip-এর একটি দল; cache হলো প্রসেসরের die-এর ওপর থাকা SRAM।",
+          "mistake": {
+            "wrong": "DRAM নতুন বলে এটি বেশি দ্রুত।",
+            "right": "DRAM, SRAM-এর চেয়ে ধীর; এর সুবিধা হলো ঘনত্ব এবং প্রতি bit-এর কম খরচ।"
+          },
+          "explainAgain": {
+            "beginner": "SRAM একটি নোটপ্যাড, যা আপনি যা লেখেন তা ধরে রাখে; DRAM একটি চকবোর্ড, যা বারবার না লিখলে ফিকে হয়ে যায়, কিন্তু একটি বোর্ডে অনেক বেশি ধরে।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "memory",
+          "title": "Latency ও bandwidth",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "টার্ম",
+                "অর্থ",
+                "সাধারণ মান"
+              ],
+              "rows": [
+                [
+                  "Latency",
+                  "অনুরোধ করা থেকে প্রথম ডেটা পৌঁছানো পর্যন্ত সময়",
+                  "DRAM-এর জন্য দশ ns-এর কোঠায়"
+                ],
+                [
+                  "Bandwidth",
+                  "ডেটা প্রবাহ শুরু হলে প্রতি সেকেন্ডে যত ডেটা স্থানান্তর হয়",
+                  "প্রতি memory channel-এ দশ GB/s-এর কোঠায়"
+                ]
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "bandwidth = প্রতি সেকেন্ডে transfer × প্রতি transfer-এ byte",
+                  "note": "একটি DDR4-3200 module প্রতি সেকেন্ডে 3.2 billion বার 8-byte transfer করে = 25.6 GB/s"
+                },
+                {
+                  "t": "একটি block-এর সময় = latency + block size ÷ bandwidth",
+                  "note": "ছোট block-এর ক্ষেত্রে সাধারণত latency-ই প্রধান"
+                }
+              ]
+            }
+          ],
+          "why": "Cache miss-এ latency একবার দিতে হয়, তারপর block মেমরির bandwidth-এ প্রবাহিত হয়।",
+          "real": "চওড়া memory bus ও একাধিক channel bandwidth বাড়ায়, কিন্তু latency খুব সামান্যই উন্নত হয়েছে।",
+          "deeper": {
+            "text": "DRAM সাজানো থাকে row ও column-এ; আগে থেকে খোলা একটি row পড়া (row hit) নতুন row খোলার চেয়ে দ্রুত।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "memory",
+          "title": "হিসাব করুন: latency ও bandwidth",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "DRAM থেকে একটি cache block আনা (উদাহরণ)",
+              "equation": "সময় = latency + block size ÷ bandwidth",
+              "inputs": [
+                {
+                  "id": "lat",
+                  "label": "DRAM latency",
+                  "value": 50,
+                  "min": 20,
+                  "max": 200,
+                  "step": 5,
+                  "unit": "ns"
+                },
+                {
+                  "id": "rate",
+                  "label": "প্রতি সেকেন্ডে transfer",
+                  "value": 3200,
+                  "min": 800,
+                  "max": 6400,
+                  "step": 100,
+                  "unit": "MT/s"
+                },
+                {
+                  "id": "bus",
+                  "label": "প্রতি transfer-এ byte",
+                  "value": 8,
+                  "min": 4,
+                  "max": 16,
+                  "step": 4,
+                  "unit": "bytes"
+                },
+                {
+                  "id": "blk",
+                  "label": "Cache block",
+                  "value": 64,
+                  "min": 16,
+                  "max": 256,
+                  "step": 16,
+                  "unit": "bytes"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Bandwidth",
+                  "formula": "rate * bus / 1000",
+                  "format": "num",
+                  "digits": 1,
+                  "unit": "GB/s"
+                },
+                {
+                  "label": "Block transfer করার সময়",
+                  "formula": "blk / (rate * bus / 1000)",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "ns"
+                },
+                {
+                  "label": "Block-এর মোট সময়",
+                  "formula": "lat + blk / (rate * bus / 1000)",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "ns"
+                }
+              ]
+            }
+          ],
+          "why": "ডিফল্ট মানে: 25.6 GB/s, 2.5 ns transfer, মোট 52.5 ns। Latency-ই 95% সময়: শুধু দ্রুততর bus-এ প্রায় কিছুই বদলায় না।"
+        },
+        {
+          "type": "predict",
+          "concept": "memory",
+          "skill": "Apply",
+          "question": "DRAM latency 50 ns, bandwidth 25.6 GB/s। একটি 64-byte block আনতে কত সময় লাগে?",
+          "options": [
+            "52.5 ns",
+            "2.5 ns",
+            "50 ns",
+            "128 ns"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "50 ns latency-র পর transfer-এ লাগে 64 ÷ 25.6 = 2.5 ns: মোট **52.5 ns**।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "একটি ছোট block-এর জন্য latency-ই প্রধান।"
+        },
+        {
+          "type": "match",
+          "concept": "memory",
+          "skill": "Understand",
+          "title": "ছোট চ্যালেঞ্জ",
+          "prompt": "প্রতিটি টার্মকে তার অর্থের সাথে মেলান।",
+          "pairs": [
+            {
+              "a": "SRAM",
+              "b": "দ্রুত, দামি মেমরি, cache-এ ব্যবহৃত"
+            },
+            {
+              "a": "DRAM",
+              "b": "ঘন, সস্তা মেমরি, যার refresh লাগে"
+            },
+            {
+              "a": "Latency",
+              "b": "প্রথম ডেটা পৌঁছানো পর্যন্ত সময়"
+            },
+            {
+              "a": "Bandwidth",
+              "b": "প্রতি সেকেন্ডে স্থানান্তরিত byte"
+            }
+          ],
+          "why": "এই চারটি টার্মই main memory-র শব্দভান্ডার।"
+        },
+        {
+          "type": "mcq",
+          "concept": "memory",
+          "question": "DRAM-কে কেন refresh করতে হয়?",
+          "options": [
+            "এর capacitor-গুলো চার্জ হারিয়ে ফেলে",
+            "এর transistor অতিরিক্ত গরম হয়",
+            "এটি শুধু CPU-র দ্বারা destructive ভাবে পড়া হয়",
+            "এর কোনো clock নেই"
+          ],
+          "answer": 0,
+          "why": "DRAM capacitor-এর চার্জ ক্ষয় হয়ে যায়, তাই সেলগুলো নির্দিষ্ট সময় পরপর আবার লিখতে হয়।",
+          "feedback": [
+            "",
+            "গরম হওয়া কারণ নয়।",
+            "অলস থাকলেও refresh দরকার।",
+            "Clock-এর সাথে এর সম্পর্ক নেই।"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "virtual",
+      "label": "Virtual memory",
+      "minutes": 11,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "virtual",
+          "title": "Virtual address কেন?",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "প্রতিটি প্রোগ্রাম 0 থেকে শুরু হওয়া নিজের **virtual address space** দেখে",
+                "হার্ডওয়্যার ও OS **virtual page**-গুলোকে main memory-র **physical frame**-এ map করে",
+                "অনেক প্রোগ্রাম একসাথে চলতে পারে, একে অপরকে overwrite না করে",
+                "প্রোগ্রাম physical memory-র চেয়ে বড় হতে পারে: যে page ব্যবহার হচ্ছে না সেটি disk-এ থাকে",
+                "Operating system যেকোনো জায়গায় page রাখতে পারে, তাই মেমরি পাশাপাশি থাকতে হয় না"
+              ]
+            }
+          ],
+          "why": "Virtual memory দেয় সুরক্ষা, সুবিধা এবং একটি বড়, ব্যক্তিগত মেমরির ধারণা।",
+          "real": "প্রতিটি আধুনিক operating system এটি ব্যবহার করে; একটি process অন্য process-এর মেমরি পড়তে পারে না।",
+          "mistake": {
+            "wrong": "Virtual address হলো RAM-এর একটি অবস্থান।",
+            "right": "এটি একটি নাম, যাকে আগে physical address-এ translate করতে হয়।"
+          },
+          "explainAgain": {
+            "beginner": "একটি হোটেল: আপনার রুম নম্বর \"101\" বিভিন্ন হোটেলের প্রতিটি তলায় আলাদা আলাদা বাস্তব রুম বোঝায়। রিসেপশন ডেস্ক (page table) জানে কোনটি আপনার।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "virtual",
+          "title": "Page, frame ও page table",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "টার্ম",
+                "অর্থ"
+              ],
+              "rows": [
+                [
+                  "Page",
+                  "Virtual memory-র নির্দিষ্ট আকারের একটি block (সাধারণত 4 KiB)"
+                ],
+                [
+                  "Frame (physical page)",
+                  "Physical memory-তে একটি page-আকারের slot"
+                ],
+                [
+                  "Virtual address",
+                  "Virtual page number (VPN) + page offset"
+                ],
+                [
+                  "Page table",
+                  "প্রতি process-এর টেবিল, যা VPN-কে frame number-এ map করে, সাথে একটি valid bit"
+                ]
+              ]
+            },
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "page offset bit = log2(page size)",
+                  "note": "4 KiB: 12 bit; offset translate হয় না"
+                },
+                {
+                  "t": "physical address = frame number × page size + offset",
+                  "note": "VPN-এর জায়গায় বসে frame number"
+                }
+              ]
+            }
+          ],
+          "why": "শুধু page number translate হয়; page-এর ভেতরের offset অপরিবর্তিত অবস্থায় কপি হয়।",
+          "real": "4 KiB page সহ 32-bit address-এ থাকে 20-bit page number ও 12-bit offset।"
+        },
+        {
+          "type": "concept",
+          "concept": "virtual",
+          "title": "করে দেখুন: একটি address translate করুন",
+          "blocks": [
+            {
+              "type": "walkthrough",
+              "title": "Virtual থেকে physical",
+              "inputs": [
+                {
+                  "id": "va",
+                  "label": "Virtual address",
+                  "value": 5000,
+                  "min": 0,
+                  "max": 65535,
+                  "step": 1
+                },
+                {
+                  "id": "pb",
+                  "label": "Page size = 2^n byte, n =",
+                  "value": 12,
+                  "min": 10,
+                  "max": 13,
+                  "step": 1
+                },
+                {
+                  "id": "ppn",
+                  "label": "Page table থেকে frame number",
+                  "value": 7,
+                  "min": 0,
+                  "max": 15,
+                  "step": 1
+                }
+              ],
+              "stages": [
+                {
+                  "label": "Virtual address",
+                  "text": "{va} = `{va|hex4}`"
+                },
+                {
+                  "label": "ভাগ করা",
+                  "text": "VPN = **{floor(va / pow(2, pb))}**, offset = **{mod(va, pow(2, pb))}**"
+                },
+                {
+                  "label": "Page table",
+                  "text": "Page {floor(va / pow(2, pb))} আছে frame **{ppn}**-এ (valid)"
+                },
+                {
+                  "label": "Physical address",
+                  "text": "{ppn} × {pow(2, pb)} + {mod(va, pow(2, pb))} = **{ppn * pow(2, pb) + mod(va, pow(2, pb))}** (`{ppn * pow(2, pb) + mod(va, pow(2, pb))|hex4}`)"
+                }
+              ],
+              "result": "VA {va} → PA {ppn * pow(2, pb) + mod(va, pow(2, pb))}",
+              "note": "4 KiB page হলে address 5000 হলো page 1, offset 904; page 1 যদি frame 7-এ থাকে তবে physical address = 7 × 4096 + 904 = 29,576।"
+            }
+          ],
+          "why": "Page size বদলে দেখুন VPN ও offset কীভাবে বদলায়; physical address-এ offset সবসময় একই থাকে।"
+        },
+        {
+          "type": "predict",
+          "concept": "virtual",
+          "skill": "Apply",
+          "question": "4 KiB page। Virtual address 5000 আছে page 1-এ এবং page 1 জমা আছে frame 7-এ। Physical address কত?",
+          "options": [
+            "29,576",
+            "5,000",
+            "7,000",
+            "28,672"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Offset = 5000 mod 4096 = 904। Physical address = 7 × 4096 + 904 = **29,576**।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Offset অপরিবর্তিত থেকে যায়।"
+        },
+        {
+          "type": "concept",
+          "concept": "virtual",
+          "title": "হিসাব করুন: page table কত বড়?",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Single-level page table-এর আকার",
+              "equation": "entries = 2^(virtual address bit − offset bit)",
+              "inputs": [
+                {
+                  "id": "va",
+                  "label": "Virtual address bit",
+                  "value": 32,
+                  "min": 16,
+                  "max": 48,
+                  "step": 1
+                },
+                {
+                  "id": "pg",
+                  "label": "Page size = 2^n byte, n =",
+                  "value": 12,
+                  "min": 10,
+                  "max": 16,
+                  "step": 1
+                },
+                {
+                  "id": "pte",
+                  "label": "প্রতি page table entry-তে byte",
+                  "value": 4,
+                  "min": 1,
+                  "max": 8,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "Page table entry",
+                  "formula": "pow(2, va - pg)",
+                  "format": "num",
+                  "digits": 0
+                },
+                {
+                  "label": "Page table-এর আকার",
+                  "formula": "pow(2, va - pg) * pte / 1048576",
+                  "format": "num",
+                  "digits": 2,
+                  "unit": "MiB"
+                }
+              ]
+            }
+          ],
+          "why": "32-bit address, 4 KiB page, 4-byte entry: 2^20 entry = প্রতি process-এ 4 MiB। 16 KiB page হলে এটি 1 MiB। এ কারণেই বাস্তব সিস্টেম multi-level page table ব্যবহার করে।"
+        },
+        {
+          "type": "find",
+          "concept": "virtual",
+          "skill": "Analyze",
+          "title": "ভুলটি খুঁজুন",
+          "prompt": "Paging নিয়ে একটি বক্তব্য ভুল। সেটিতে ক্লিক করুন।",
+          "lines": [
+            "1. Page offset virtual ও physical address-এ একই থাকে।",
+            "2. Page table virtual page number-কে physical frame-এ map করে।",
+            "3. প্রতিটি process-এর সাধারণত নিজস্ব page table থাকে।",
+            "4. পুরো virtual address-টি frame number দিয়ে বদলে যায়।"
+          ],
+          "wrong": 3,
+          "explain": "শুধু virtual page number বদলায়; offset থেকে যায়।",
+          "fix": "Offset translate হয় না।"
+        }
+      ]
+    },
+    {
+      "id": "tlb",
+      "label": "TLB ও page fault",
+      "minutes": 11,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "Translation-এর সমস্যা",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Page table থাকে **main memory**-তে, তাই translation-এর জন্য **প্রতিটি** load ও store-এ একটি বাড়তি মেমরি অ্যাক্সেস লাগত",
+                "**Translation lookaside buffer (TLB)** হলো সাম্প্রতিক translation-এর (VPN থেকে frame) একটি ছোট cache",
+                "TLB hit: প্রায় এক cycle-এ translation। TLB miss: page table পড়ুন, তারপর TLB আপডেট করুন",
+                "TLB কাজ করে **locality**-র কারণে: পরপর অ্যাক্সেসগুলো হাতেগোনা কয়েকটি page-এই পড়ে"
+              ]
+            }
+          ],
+          "why": "TLB না থাকলে প্রতিটি মেমরি অ্যাক্সেসে প্রায় দ্বিগুণ সময় লাগত।",
+          "real": "একটি সাধারণ TLB-তে 32 থেকে 1024টি entry থাকে এবং 99%-এর বেশি সময় hit হয়।"
+        },
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "একটি address-এর পথ",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "হার্ডওয়্যারের ভেতর দিয়ে একটি address-এর পুরো যাত্রা অনুসরণ করুন।"
+            }
+          ],
+          "why": "এই পথটি মনে রাখুন: Virtual address → TLB → page table → physical address → RAM।"
+        },
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "পথটি গড়ুন",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Address translation (ধাপে ধাপে)",
+              "width": 960,
+              "height": 290,
+              "nodes": [
+                {
+                  "id": "cpu",
+                  "label": "CPU\n(virtual address)",
+                  "kind": "unit",
+                  "x": 20,
+                  "y": 40,
+                  "w": 130,
+                  "h": 80
+                },
+                {
+                  "id": "tlb",
+                  "label": "TLB",
+                  "kind": "mem",
+                  "x": 250,
+                  "y": 40,
+                  "w": 120,
+                  "h": 80
+                },
+                {
+                  "id": "pa",
+                  "label": "Physical\naddress",
+                  "kind": "unit",
+                  "x": 540,
+                  "y": 40,
+                  "w": 130,
+                  "h": 80
+                },
+                {
+                  "id": "ram",
+                  "label": "Main memory\n(RAM)",
+                  "kind": "mem",
+                  "x": 790,
+                  "y": 40,
+                  "w": 150,
+                  "h": 80
+                },
+                {
+                  "id": "pt",
+                  "label": "Page table\n(মেমরিতে)",
+                  "kind": "mem",
+                  "x": 250,
+                  "y": 190,
+                  "w": 120,
+                  "h": 70
+                },
+                {
+                  "id": "disk",
+                  "label": "Disk",
+                  "kind": "mem",
+                  "x": 20,
+                  "y": 190,
+                  "w": 130,
+                  "h": 70
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_cpu_tlb",
+                  "points": [
+                    [
+                      150,
+                      80
+                    ],
+                    [
+                      250,
+                      80
+                    ]
+                  ],
+                  "label": "virtual address",
+                  "labelAt": [
+                    200,
+                    74
+                  ]
+                },
+                {
+                  "id": "e_tlb_pa",
+                  "points": [
+                    [
+                      370,
+                      80
+                    ],
+                    [
+                      540,
+                      80
+                    ]
+                  ],
+                  "label": "TLB hit: frame number",
+                  "labelAt": [
+                    455,
+                    74
+                  ]
+                },
+                {
+                  "id": "e_tlb_pt",
+                  "points": [
+                    [
+                      310,
+                      120
+                    ],
+                    [
+                      310,
+                      190
+                    ]
+                  ],
+                  "label": "TLB miss",
+                  "labelAt": [
+                    345,
+                    160
+                  ]
+                },
+                {
+                  "id": "e_pt_pa",
+                  "points": [
+                    [
+                      370,
+                      225
+                    ],
+                    [
+                      605,
+                      225
+                    ],
+                    [
+                      605,
+                      120
+                    ]
+                  ],
+                  "label": "valid: frame number",
+                  "labelAt": [
+                    490,
+                    219
+                  ]
+                },
+                {
+                  "id": "e_pt_disk",
+                  "points": [
+                    [
+                      250,
+                      225
+                    ],
+                    [
+                      150,
+                      225
+                    ]
+                  ],
+                  "label": "page fault",
+                  "labelAt": [
+                    200,
+                    219
+                  ]
+                },
+                {
+                  "id": "e_pa_ram",
+                  "points": [
+                    [
+                      670,
+                      80
+                    ],
+                    [
+                      790,
+                      80
+                    ]
+                  ],
+                  "label": "physical address",
+                  "labelAt": [
+                    730,
+                    74
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "cpu",
+                    "tlb",
+                    "e_cpu_tlb"
+                  ],
+                  "text": "প্রোগ্রাম একটি **virtual address** ব্যবহার করে। প্রথম ধাপ **TLB**, সাম্প্রতিক translation-এর একটি ছোট cache।"
+                },
+                {
+                  "show": [
+                    "pa",
+                    "ram",
+                    "e_tlb_pa",
+                    "e_pa_ram"
+                  ],
+                  "text": "**TLB hit** হলে frame number সাথে সাথে পাওয়া যায়: এটি offset-এর সাথে মিলে **physical address** হয় এবং main memory-তে যায়।"
+                },
+                {
+                  "show": [
+                    "pt",
+                    "e_tlb_pt",
+                    "e_pt_pa"
+                  ],
+                  "text": "**TLB miss** হলে মেমরির **page table** দেখা হয়। Page মেমরিতে থাকলে তার entry frame number দেয়, এবং TLB আপডেট হয়।"
+                },
+                {
+                  "show": [
+                    "disk",
+                    "e_pt_disk"
+                  ],
+                  "text": "Entry invalid হলে page মেমরিতে নেই: **page fault**। Operating system disk থেকে page লোড করে।"
+                }
+              ]
+            }
+          ],
+          "why": "প্রতিটি ক্লিকে একটি করে উপাদান যোগ হয়। Page table দেখা হয় শুধু TLB miss হলে।"
+        },
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "তিনটি অ্যাক্সেস অনুসরণ করুন",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Address translation (পরিস্থিতি)",
+              "width": 960,
+              "height": 290,
+              "nodes": [
+                {
+                  "id": "cpu",
+                  "label": "CPU\n(virtual address)",
+                  "kind": "unit",
+                  "x": 20,
+                  "y": 40,
+                  "w": 130,
+                  "h": 80
+                },
+                {
+                  "id": "tlb",
+                  "label": "TLB",
+                  "kind": "mem",
+                  "x": 250,
+                  "y": 40,
+                  "w": 120,
+                  "h": 80
+                },
+                {
+                  "id": "pa",
+                  "label": "Physical\naddress",
+                  "kind": "unit",
+                  "x": 540,
+                  "y": 40,
+                  "w": 130,
+                  "h": 80
+                },
+                {
+                  "id": "ram",
+                  "label": "Main memory\n(RAM)",
+                  "kind": "mem",
+                  "x": 790,
+                  "y": 40,
+                  "w": 150,
+                  "h": 80
+                },
+                {
+                  "id": "pt",
+                  "label": "Page table\n(মেমরিতে)",
+                  "kind": "mem",
+                  "x": 250,
+                  "y": 190,
+                  "w": 120,
+                  "h": 70
+                },
+                {
+                  "id": "disk",
+                  "label": "Disk",
+                  "kind": "mem",
+                  "x": 20,
+                  "y": 190,
+                  "w": 130,
+                  "h": 70
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_cpu_tlb",
+                  "points": [
+                    [
+                      150,
+                      80
+                    ],
+                    [
+                      250,
+                      80
+                    ]
+                  ],
+                  "label": "virtual address",
+                  "labelAt": [
+                    200,
+                    74
+                  ]
+                },
+                {
+                  "id": "e_tlb_pa",
+                  "points": [
+                    [
+                      370,
+                      80
+                    ],
+                    [
+                      540,
+                      80
+                    ]
+                  ],
+                  "label": "TLB hit: frame number",
+                  "labelAt": [
+                    455,
+                    74
+                  ]
+                },
+                {
+                  "id": "e_tlb_pt",
+                  "points": [
+                    [
+                      310,
+                      120
+                    ],
+                    [
+                      310,
+                      190
+                    ]
+                  ],
+                  "label": "TLB miss",
+                  "labelAt": [
+                    345,
+                    160
+                  ]
+                },
+                {
+                  "id": "e_pt_pa",
+                  "points": [
+                    [
+                      370,
+                      225
+                    ],
+                    [
+                      605,
+                      225
+                    ],
+                    [
+                      605,
+                      120
+                    ]
+                  ],
+                  "label": "valid: frame number",
+                  "labelAt": [
+                    490,
+                    219
+                  ]
+                },
+                {
+                  "id": "e_pt_disk",
+                  "points": [
+                    [
+                      250,
+                      225
+                    ],
+                    [
+                      150,
+                      225
+                    ]
+                  ],
+                  "label": "page fault",
+                  "labelAt": [
+                    200,
+                    219
+                  ]
+                },
+                {
+                  "id": "e_pa_ram",
+                  "points": [
+                    [
+                      670,
+                      80
+                    ],
+                    [
+                      790,
+                      80
+                    ]
+                  ],
+                  "label": "physical address",
+                  "labelAt": [
+                    730,
+                    74
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "pt",
+                    "pa",
+                    "e_cpu_tlb",
+                    "e_pt_pa",
+                    "e_tlb_pt",
+                    "e_tlb_pa",
+                    "tlb",
+                    "ram",
+                    "e_pt_disk",
+                    "e_pa_ram",
+                    "cpu",
+                    "disk"
+                  ],
+                  "text": "সম্পূর্ণ পথ। একটি পরিস্থিতি বেছে Play বা Step চাপুন।"
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "TLB hit",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "cpu",
+                        "e_cpu_tlb",
+                        "tlb"
+                      ],
+                      "text": "CPU virtual address 4200 পাঠায় (page 1, offset 104)। TLB-তে page 1 আগে থেকেই আছে।",
+                      "values": {
+                        "tlb": "page 1 → frame 0"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "tlb",
+                        "e_tlb_pa",
+                        "pa"
+                      ],
+                      "text": "Frame number offset-এর সাথে মেলানো হয়: 0 × 4096 + 104।",
+                      "values": {
+                        "pa": "104"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "pa",
+                        "e_pa_ram",
+                        "ram"
+                      ],
+                      "text": "Physical address 104-এ main memory অ্যাক্সেস হয়। কোনো page table অ্যাক্সেস লাগেনি।"
+                    }
+                  ]
+                },
+                {
+                  "name": "TLB miss, page মেমরিতে আছে",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "cpu",
+                        "e_cpu_tlb",
+                        "tlb"
+                      ],
+                      "text": "Virtual address 100 (page 0)। TLB-তে এটি নেই।",
+                      "values": {
+                        "tlb": "miss"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "tlb",
+                        "e_tlb_pt",
+                        "pt"
+                      ],
+                      "text": "মেমরি থেকে page table পড়া হয়: page 0 valid এবং frame 2-এ আছে।",
+                      "values": {
+                        "pt": "page 0 → frame 2, valid"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "pt",
+                        "e_pt_pa",
+                        "pa"
+                      ],
+                      "text": "Physical address = 2 × 4096 + 100 = 8292। এই translation দিয়ে TLB আপডেট হয়।",
+                      "values": {
+                        "pa": "8292"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "pa",
+                        "e_pa_ram",
+                        "ram"
+                      ],
+                      "text": "8292-তে main memory অ্যাক্সেস হয়।"
+                    }
+                  ]
+                },
+                {
+                  "name": "Page fault",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "cpu",
+                        "e_cpu_tlb",
+                        "tlb"
+                      ],
+                      "text": "Virtual address 5000 (page 1, offset 904)। TLB miss।",
+                      "values": {
+                        "tlb": "miss"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "tlb",
+                        "e_tlb_pt",
+                        "pt"
+                      ],
+                      "text": "Page 1-এর page table entry **invalid**: page মেমরিতে নেই।",
+                      "values": {
+                        "pt": "page 1: invalid"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "pt",
+                        "e_pt_disk",
+                        "disk"
+                      ],
+                      "text": "**Page fault।** Operating system disk থেকে page পড়ে (লক্ষ লক্ষ cycle), একটি খালি frame বেছে নেয় (বা একটি evict করে), page table ও TLB আপডেট করে এবং instruction আবার শুরু করে।",
+                      "values": {
+                        "disk": "page 1 লোড"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "pt",
+                        "e_pt_pa",
+                        "pa",
+                        "e_pa_ram",
+                        "ram"
+                      ],
+                      "text": "আবার চেষ্টা করা অ্যাক্সেস এবার সফল: page 1 আছে frame 0-তে, তাই physical address 904।",
+                      "values": {
+                        "pa": "904"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "TLB hit, page মেমরিতে থাকা অবস্থায় TLB miss, এবং page fault: তিনটিই চালান।"
+        },
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "Page fault ও demand paging",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Physical memory-তে page না থাকলে page table entry **invalid** হয়",
+                "অ্যাক্সেসটি একটি **page fault** ঘটায়: operating system-এর সামলানো একটি exception",
+                "**Demand paging**: page প্রথম ব্যবহারের সময়ই শুধু আনা হয়",
+                "OS একটি খালি frame বেছে নেয় (বা একটি evict করে, সাধারণত least recently used), **disk** থেকে page পড়ে, page table ও TLB আপডেট করে এবং instruction আবার শুরু করে",
+                "একটি disk অ্যাক্সেসে লাখ লাখ cycle লাগে, তাই page fault বিরল হতে হবে"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "ঘটনা",
+                "খরচ (আনুমানিক)"
+              ],
+              "rows": [
+                [
+                  "TLB hit",
+                  "1 cycle"
+                ],
+                [
+                  "TLB miss, page মেমরিতে আছে",
+                  "দশ থেকে কয়েকশো cycle (page table পড়া)"
+                ],
+                [
+                  "Page fault",
+                  "লক্ষ লক্ষ cycle (disk)"
+                ]
+              ]
+            }
+          ],
+          "why": "একটি page fault মেমরি অ্যাক্সেসের চেয়ে হাজার গুণ বেশি ব্যয়বহুল, তাই fault-এর সামান্য হারও গুরুত্বপূর্ণ।",
+          "real": "মেমরির অভাবে কম্পিউটার যখন ঘন ঘন disk ব্যবহার করতে শুরু করে, তখন তাকে \"thrashing\" বলে।",
+          "mistake": {
+            "wrong": "Page fault মানে প্রোগ্রামে bug আছে।",
+            "right": "এটি একটি স্বাভাবিক ঘটনা: page তখনো মেমরিতে আসেনি, এই যা।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "করে দেখুন: একটি অ্যাক্সেস ক্রম",
+          "blocks": [
+            {
+              "type": "vm",
+              "title": "Address translation",
+              "config": {
+                "pageBytes": 4096,
+                "tlbEntries": 2,
+                "frames": 3,
+                "vaBits": 16,
+                "pageTable": {
+                  "0": {
+                    "valid": true,
+                    "ppn": 2
+                  }
+                }
+              },
+              "sequence": [
+                100,
+                5000,
+                4200,
+                9000,
+                13000,
+                100
+              ],
+              "hint": "ছয়টি address ধাপে ধাপে দেখুন। Page size 4 KiB, 2-entry TLB, 3টি frame। Page 0 শুরুতে frame 2-তে আছে।"
+            }
+          ],
+          "why": "ফলাফল: 100 = TLB miss কিন্তু page valid (frame 2), 5000 = page fault (frame 0), 4200 = TLB hit, 9000 = page fault, 13000 = page fault যা page 0-কে evict করে, এবং আবার 100 = fault, কারণ page 0 evict হয়ে গেছে।"
+        },
+        {
+          "type": "predict",
+          "concept": "tlb",
+          "skill": "Apply",
+          "question": "উপরের ক্রমে 4200, 5000-এর পরে আসে। এটি কেন TLB hit?",
+          "options": [
+            "দুটিই virtual page 1-এ, যার translation এইমাত্র TLB-তে জমা হয়েছে",
+            "Address 4200 ও 5000 সমান",
+            "TLB প্রতিটি page ধরে রাখে",
+            "4200 কখনো translate হয় না"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "5000 ও 4200 দুটিই page 1-এ (4096 থেকে 8191)। 5000-এর page fault page 1 লোড করে তার translation TLB-তে রেখেছে, তাই 4200 hit করে: **আবার locality**।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "ভিন্ন page-এ পরের অ্যাক্সেসে নতুন translation লাগবে।"
+        },
+        {
+          "type": "concept",
+          "concept": "tlb",
+          "title": "হিসাব করুন: effective access time",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "TLB সহ effective access time (উদাহরণ)",
+              "equation": "EAT = hit rate × (TLB + memory) + miss rate × (TLB + 2 × memory)",
+              "inputs": [
+                {
+                  "id": "t",
+                  "label": "TLB lookup",
+                  "value": 1,
+                  "min": 1,
+                  "max": 5,
+                  "step": 1,
+                  "unit": "ns"
+                },
+                {
+                  "id": "m",
+                  "label": "Memory access",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ns"
+                },
+                {
+                  "id": "h",
+                  "label": "TLB hit rate",
+                  "value": 98,
+                  "min": 50,
+                  "max": 100,
+                  "step": 1,
+                  "unit": "%"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Effective access time",
+                  "formula": "(h/100) * (t + m) + (1 - h/100) * (t + 2*m)",
+                  "format": "num",
+                  "digits": 1,
+                  "unit": "ns"
+                },
+                {
+                  "label": "TLB ছাড়ার তুলনায় (2টি memory access)",
+                  "formula": "(2*m) / ((h/100) * (t + m) + (1 - h/100) * (t + 2*m))",
+                  "format": "x",
+                  "digits": 2
+                }
+              ]
+            }
+          ],
+          "why": "98% TLB hit rate-এ পাওয়া যায় 103 ns, যা একটি memory access-এর সময়ের কাছাকাছি; TLB না থাকলে প্রতিটি অ্যাক্সেসে প্রায় 200 ns লাগত।"
+        },
+        {
+          "type": "tps",
+          "title": "ভাবুন, জোড়ায় আলোচনা করুন, শেয়ার করুন",
+          "prompt": "Page table-এ দশ লাখ entry থাকলেও মাত্র 64 entry-র একটি TLB কেন এত কার্যকর?",
+          "think": 20,
+          "pair": 40,
+          "answer": "প্রোগ্রাম একসময়ে অল্প কয়েকটি page ব্যবহার করে (locality): একটি loop ছোঁয় কয়েকটি code page ও কয়েকটি data page। 64টি entry page-এর working set ঢেকে ফেলে, তাই প্রায় প্রতিটি translation TLB-তে hit করে।"
+        },
+        {
+          "type": "checkpoint",
+          "title": "চেকপয়েন্ট",
+          "questions": [
+            {
+              "q": "TLB কী জমা রাখে?",
+              "a": "Virtual page number থেকে frame number-এ সাম্প্রতিক translation।",
+              "concept": "tlb"
+            },
+            {
+              "q": "Page fault হলে কী ঘটে?",
+              "a": "OS disk থেকে page লোড করে, page table ও TLB আপডেট করে এবং instruction আবার শুরু করে।",
+              "concept": "tlb"
+            },
+            {
+              "q": "একটি address-এর পথ বলুন।",
+              "a": "Virtual address, TLB, page table (miss হলে), physical address, RAM।",
+              "concept": "tlb"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "protect",
+      "label": "সুরক্ষা ও খরচ",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "protect",
+          "title": "সুরক্ষা ও শেয়ারিং",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "প্রতিটি process-এর **নিজস্ব page table** আছে, তাই OS যে frame-গুলো তার জন্য map করে শুধু সেগুলোতেই সে পৌঁছাতে পারে",
+                "Page table entry-তে থাকে **permission bit** (read, write, execute) এবং **dirty** ও **reference** bit-ও",
+                "নিষিদ্ধ অ্যাক্সেস একটি exception ঘটায় এবং OS প্রোগ্রামটি থামিয়ে দেয় (segmentation fault)",
+                "দুটি process দুটি address space-এ **একই frame** map করে একটি library ভাগ করতে পারে",
+                "শুধু OS-ই page table বদলাতে পারে: হার্ডওয়্যার user / kernel mode বাধ্যতামূলক করে"
+              ]
+            }
+          ],
+          "why": "যে ব্যবস্থা মেমরিকে বড় ও ব্যক্তিগত দেখায়, সেটিই প্রোগ্রামগুলোকে আলাদা রাখে।",
+          "real": "এভাবেই একটি ক্র্যাশ করা প্রোগ্রাম অন্য প্রোগ্রাম বা operating system নষ্ট করতে পারে না।"
+        },
+        {
+          "type": "concept",
+          "concept": "protect",
+          "title": "Page fault-এর খরচ",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Page fault সহ effective access time (উদাহরণ)",
+              "equation": "EAT = memory time + fault rate × disk time",
+              "inputs": [
+                {
+                  "id": "mem",
+                  "label": "Memory access",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ns"
+                },
+                {
+                  "id": "pf",
+                  "label": "প্রতি দশ লাখ অ্যাক্সেসে page fault",
+                  "value": 1,
+                  "min": 0,
+                  "max": 2000,
+                  "step": 1
+                },
+                {
+                  "id": "disk",
+                  "label": "Disk access (page fault সামলানো)",
+                  "value": 8000000,
+                  "min": 1000000,
+                  "max": 20000000,
+                  "step": 1000000,
+                  "unit": "ns"
+                }
+              ],
+              "results": [
+                {
+                  "label": "Effective access time",
+                  "formula": "mem + (pf / 1000000) * disk",
+                  "format": "num",
+                  "digits": 1,
+                  "unit": "ns"
+                },
+                {
+                  "label": "Fault ছাড়ার তুলনায় ধীর",
+                  "formula": "(mem + (pf / 1000000) * disk) / mem",
+                  "format": "x",
+                  "digits": 2
+                }
+              ]
+            }
+          ],
+          "why": "প্রতি দশ লাখ অ্যাক্সেসে একটি fault-ই 100 ns-কে 108 ns করে। প্রতি হাজার অ্যাক্সেসে একটি fault (প্রতি দশ লাখে 1,000) হলে হয় 8,100 ns: 81 গুণ ধীর।"
+        },
+        {
+          "type": "predict",
+          "concept": "protect",
+          "skill": "Apply",
+          "question": "প্রতি দশ লাখ memory access-এ একটি page fault, memory 100 ns, fault সামলাতে 8 ms (8,000,000 ns)। Effective access time কত?",
+          "options": [
+            "108 ns",
+            "100 ns",
+            "8,100 ns",
+            "1,000 ns"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "EAT = 100 + (1 ÷ 1,000,000) × 8,000,000 = 100 + 8 = **108 ns**।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "প্রতি 1000 অ্যাক্সেসে 1 fault হলে এটি হতো 8,100 ns।"
+        },
+        {
+          "type": "discussion",
+          "title": "আলোচনা",
+          "concept": "protect",
+          "question": "প্রচুর RAM-এর মেশিনেও operating system কেন virtual memory ব্যবহার করে?",
+          "seconds": 60,
+          "ideas": [
+            "সুরক্ষা: process একে অপরের মেমরি পড়তে পারে না।",
+            "সুবিধা: প্রতিটি প্রোগ্রামের একটি সহজ, ব্যক্তিগত address space থাকে।",
+            "শেয়ারিং: একটি কপি দিয়েই library অনেক process-এ map করা যায়।",
+            "নমনীয়তা: OS ইচ্ছামতো page সরাতে বা swap করতে পারে।"
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "protect",
+          "statement": "দুটি process তাদের address space-এ একই physical frame map করতে পারে।",
+          "answer": true,
+          "why": "এভাবেই shared library ও shared memory বাস্তবায়ন করা হয়।"
+        },
+        {
+          "type": "mcq",
+          "concept": "protect",
+          "question": "OS প্রতিটি process-এর virtual page থেকে frame-এর mapping কোথায় রাখে?",
+          "options": [
+            "ওই process-এর page table-এ",
+            "শুধু TLB-তে",
+            "Cache tag-এ",
+            "শুধু disk-এ"
+          ],
+          "answer": 0,
+          "why": "প্রতিটি process-এর নিজস্ব page table আছে; TLB সাম্প্রতিক entry cache করে।",
+          "feedback": [
+            "",
+            "TLB শুধু page table-এর একটি cache।",
+            "Cache tag-এর সাথে এর সম্পর্ক নেই।",
+            "Page table থাকে main memory-তে।"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "অনুশীলন",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "virtual",
+          "question": "Virtual address ও physical address-এর সংজ্ঞা দিন।",
+          "answer": "Virtual address হলো প্রোগ্রামের ব্যবহৃত address; physical address হলো translation-এর পর main memory-তে অবস্থান।",
+          "solution": "Page table (এবং TLB) translation করে।",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "virtual",
+          "question": "4 KiB page। Virtual address 0x3A7C-কে page number ও offset-এ ভাগ করুন।",
+          "answer": "VPN 3, offset 0xA7C = 2,684।",
+          "solution": "0x3A7C = 14,972। 14,972 ÷ 4096 = ভাগফল 3, ভাগশেষ 2,684। নিচের 12 bit (0xA7C) হলো offset।",
+          "hint": "Offset হলো নিচের 12 bit।",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "virtual",
+          "question": "4 KiB page, page 1 আছে frame 7-এ। Virtual address 5000-এর physical address কত?",
+          "answer": "29,576 (0x7388)।",
+          "solution": "Offset 904; 7 × 4096 = 28,672; 28,672 + 904 = 29,576।",
+          "hint": "Offset রেখে page number-এর জায়গায় frame number বসান।",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "virtual",
+          "question": "32-bit virtual address, 4 KiB page, 4-byte page table entry। VPN ও offset bit, entry-র সংখ্যা এবং page table-এর আকার বলুন। 16 KiB page-এর জন্য আবার করুন।",
+          "answer": "4 KiB: 20 + 12 bit, 2^20 entry, 4 MiB। 16 KiB: 18 + 14 bit, 2^18 entry, 1 MiB।",
+          "solution": "Offset = log2(page size)। VPN = 32 − offset। আকার = entry × 4 byte: 2^20 × 4 = 4 MiB; 2^18 × 4 = 1 MiB।",
+          "mistake": "Page table index-এ offset bit গোনা।",
+          "title": "পরীক্ষার অনুশীলন: আকার",
+          "think": 105,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "tlb",
+          "question": "4 KiB page, 2-entry TLB, 3টি frame। Page 0 শুরুতে frame 2-তে valid। 100, 5000, 4200, 9000, 13000, 100 translate করুন। প্রতিটির জন্য hit / miss / fault বলুন এবং প্রথম তিনটির physical address দিন।",
+          "answer": "100: TLB miss, page valid, PA 8,292। 5000: page fault, frame 0, PA 904। 4200: TLB hit, PA 104। 9000: page fault (frame 1)। 13000: page fault, page 0 evict করে। 100: page fault (page 0 evict হয়ে গিয়েছিল)।",
+          "solution": "Page number: 0, 1, 1, 2, 3, 0। মাত্র তিনটি frame, তাই page 3 লোড করতে least recently used page, অর্থাৎ page 0, evict করতে হয়।",
+          "mistake": "প্রথম 100-কে TLB hit ধরা: TLB শুরুতে খালি থাকে।",
+          "title": "পরীক্ষার অনুশীলন: ট্রেস করা",
+          "think": 120,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "tlb",
+          "question": "TLB lookup 1 ns, memory 100 ns, TLB hit rate 98%। TLB miss হলে একটি বাড়তি memory access লাগে। Effective access time বের করুন।",
+          "answer": "103 ns।",
+          "solution": "Hit: 1 + 100 = 101 ns। Miss: 1 + 100 + 100 = 201 ns। EAT = 0.98 × 101 + 0.02 × 201 = 98.98 + 4.02 = 103.0 ns।",
+          "mistake": "Miss হলে শেষের data access ভুলে যাওয়া।",
+          "title": "পরীক্ষার অনুশীলন: effective access time",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "protect",
+          "question": "Memory-তে 100 ns এবং page fault-এ 8 ms লাগে। কত page-fault rate effective access time 10% বাড়ায়?",
+          "answer": "প্রতি দশ লাখ অ্যাক্সেসে 1.25টি fault।",
+          "solution": "100 ns-এর 10% হলো 10 ns। 10 = rate × 8,000,000 ns, তাই rate = 1.25 × 10⁻⁶।",
+          "mistake": "Fault rate-এর জায়গায় hit rate ব্যবহার করা।",
+          "title": "পরীক্ষার অনুশীলন: page fault",
+          "think": 105,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "memory",
+          "question": "TLB কেন দরকার এবং কেন কাজ করে, ব্যাখ্যা করুন।",
+          "answer": "Page table থাকে main memory-তে, তাই TLB না থাকলে প্রতিটি load ও store-এ translation-এর জন্য একটি বাড়তি memory access লাগত। TLB সাম্প্রতিক translation cache করে; প্রোগ্রামে locality থাকে এবং তা একই কয়েকটি page বারবার ব্যবহার করে, তাই প্রায় প্রতিটি translation TLB-তে hit করে এবং প্রায় এক cycle লাগে।",
+          "solution": "ভালো উত্তরে বাড়তি memory access এবং locality-র যুক্তি দুটিই থাকে।",
+          "mistake": "বলা যে TLB ডেটা জমা রাখে।",
+          "title": "পরীক্ষার অনুশীলন: ধারণাগত",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "পুনর্বিবেচনা",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "সবকিছু কীভাবে জুড়ে আছে",
+          "root": "Main memory ও virtual memory",
+          "branches": [
+            {
+              "label": "Main memory",
+              "example": "SRAM, DRAM, latency, bandwidth",
+              "section": "memory"
+            },
+            {
+              "label": "Virtual memory",
+              "example": "page, page table",
+              "section": "virtual"
+            },
+            {
+              "label": "TLB ও fault",
+              "example": "address-এর পথ",
+              "section": "tlb"
+            },
+            {
+              "label": "সুরক্ষা",
+              "example": "permission, খরচ",
+              "section": "protect"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "যা মনে রাখবেন",
+          "remember": [
+            "SRAM দ্রুত ও দামি (cache); DRAM ঘন ও সস্তা, কিন্তু refresh লাগে (main memory)।",
+            "Latency হলো প্রথম ডেটা পর্যন্ত সময়; bandwidth হলো প্রতি সেকেন্ডে byte। Block-এর সময় = latency + size ÷ bandwidth।",
+            "Virtual address = page number + offset; page table page-কে frame-এ map করে; offset অপরিবর্তিত থাকে।",
+            "TLB translation cache করে: virtual address, TLB, page table (miss হলে), physical address, RAM।",
+            "Page fault হলো invalid page table entry: OS disk থেকে page লোড করে (demand paging)।",
+            "সুরক্ষা আসে প্রতি-process page table ও permission bit থেকে।"
+          ]
+        },
+        {
+          "type": "review",
+          "title": "সাধারণ ভুল",
+          "mistakes": [
+            {
+              "wrong": "Virtual address হলো RAM-এর একটি অবস্থান।",
+              "right": "আগে এটি translate করতে হয়।"
+            },
+            {
+              "wrong": "Offset-ও translate হয়।",
+              "right": "শুধু page number হয়।"
+            },
+            {
+              "wrong": "TLB ডেটা জমা রাখে।",
+              "right": "এটি translation জমা রাখে।"
+            },
+            {
+              "wrong": "Page fault বিরল bug।",
+              "right": "এগুলো স্বাভাবিক, কিন্তু disk ধীর বলে কম ঘটতে হবে।"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "এক মিনিটের সারসংক্ষেপ",
+          "summary": "DRAM বড়, সস্তা main memory দেয়, আর SRAM দেয় দ্রুত cache। প্রোগ্রাম virtual address ব্যবহার করে, যা page number ও offset-এ ভাগ হয়; page table page-কে physical frame-এ map করে এবং TLB সাম্প্রতিক translation cache করে। Page fault চাহিদামতো disk থেকে page আনে, আর প্রতি-process page table ও permission bit সুরক্ষা দেয়।"
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "কুইজ",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "চূড়ান্ত কুইজ",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "memory",
+              "question": "কোন মেমরির refresh লাগে?",
+              "options": [
+                "DRAM",
+                "SRAM",
+                "Register",
+                "L1 cache"
+              ],
+              "answer": 0,
+              "why": "DRAM capacitor-এর চার্জ ক্ষয় হয়।",
+              "misconception": "SRAM পাওয়ার থাকলে ডেটা ধরে রাখে।"
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "virtual",
+              "statement": "শুধু page number translate হয়; offset অপরিবর্তিত থাকে।",
+              "answer": true,
+              "why": "Offset page-এর ভেতরের byte বেছে নেয়।",
+              "misconception": "Offset bit-গুলো physical address-এ কপি হয়।"
+            },
+            {
+              "level": "easy",
+              "concept": "tlb",
+              "question": "TLB কী cache করে?",
+              "options": [
+                "Address translation",
+                "Instruction",
+                "Disk block",
+                "Register-এর মান"
+              ],
+              "answer": 0,
+              "why": "সাম্প্রতিক virtual-থেকে-physical translation।",
+              "misconception": "এটি page table-এর একটি cache।"
+            },
+            {
+              "level": "medium",
+              "concept": "virtual",
+              "question": "4 KiB page, page 1 আছে frame 7-এ: virtual address 5000-এর physical address কত?",
+              "options": [
+                "29,576",
+                "5,000",
+                "28,672",
+                "7,904"
+              ],
+              "answer": 0,
+              "why": "7 × 4096 + 904 = 29,576.",
+              "misconception": "Offset হলো 904।"
+            },
+            {
+              "level": "medium",
+              "concept": "virtual",
+              "question": "32-bit address, 4 KiB page, 4-byte entry: page table-এর আকার কত?",
+              "options": [
+                "4 MiB",
+                "1 MiB",
+                "16 MiB",
+                "4 KiB"
+              ],
+              "answer": 0,
+              "why": "2^20 entry × 4 byte = 4 MiB।",
+              "misconception": "VPN হলো 20 bit।"
+            },
+            {
+              "level": "medium",
+              "concept": "tlb",
+              "question": "Page মেমরিতে থাকা অবস্থায় TLB miss হলে address-এর পথ কী?",
+              "options": [
+                "Virtual address, TLB, page table, physical address, RAM",
+                "Virtual address, disk, RAM",
+                "TLB, disk, page table",
+                "RAM, TLB, CPU"
+              ],
+              "answer": 0,
+              "why": "TLB miss করার পরে page table দেখা হয়।",
+              "misconception": "Disk-এ যাওয়া হয় শুধু page fault হলে।"
+            },
+            {
+              "level": "hard",
+              "concept": "tlb",
+              "question": "TLB 1 ns, memory 100 ns, hit rate 98%, miss হলে একটি বাড়তি memory access: EAT কত?",
+              "options": [
+                "103 ns",
+                "101 ns",
+                "100 ns",
+                "201 ns"
+              ],
+              "answer": 0,
+              "why": "0.98 × 101 + 0.02 × 201 = 103 ns।",
+              "misconception": "একটি miss-এ খরচ 201 ns।"
+            },
+            {
+              "level": "hard",
+              "concept": "protect",
+              "question": "Memory 100 ns, fault সামলাতে 8 ms, প্রতি দশ লাখ অ্যাক্সেসে 1টি fault: EAT কত?",
+              "options": [
+                "108 ns",
+                "100 ns",
+                "8,100 ns",
+                "800 ns"
+              ],
+              "answer": 0,
+              "why": "100 + 10⁻⁶ × 8,000,000 = 108 ns।",
+              "misconception": "প্রতি হাজারে 1টি হলে হতো 8,100 ns।"
+            },
+            {
+              "level": "challenge",
+              "concept": "memory",
+              "question": "DRAM latency 50 ns, bandwidth 25.6 GB/s: একটি 64-byte block আনার সময় কত?",
+              "options": [
+                "52.5 ns",
+                "2.5 ns",
+                "50 ns",
+                "75 ns"
+              ],
+              "answer": 0,
+              "why": "50 + 64 ÷ 25.6 = 52.5 ns।",
+              "misconception": "ছোট block-এ latency-ই প্রধান।"
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "মনে আছে কি?",
+          "items": [
+            {
+              "q": "Main memory-র জন্য DRAM কেন?",
+              "a": "এটি ঘন এবং প্রতি bit-এ সস্তা।",
+              "concept": "memory"
+            },
+            {
+              "q": "Page table কী?",
+              "a": "প্রতি-process টেবিল, যা virtual page-কে physical frame-এ map করে।",
+              "concept": "virtual"
+            },
+            {
+              "q": "Page fault কী?",
+              "a": "মেমরিতে নেই এমন page-এ অ্যাক্সেস; OS সেটি disk থেকে লোড করে।",
+              "concept": "tlb"
+            },
+            {
+              "q": "TLB কেন দরকার?",
+              "a": "প্রতিটি translation-এ বাড়তি memory access এড়াতে।",
+              "concept": "tlb"
+            },
+            {
+              "q": "সুরক্ষা কীভাবে আসে?",
+              "a": "প্রতি-process page table এবং হার্ডওয়্যারের জোরদার করা permission bit থেকে।",
+              "concept": "protect"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "আপনার লার্নিং রিপোর্ট"
+        }
+      ]
+    }
+  ]
+}

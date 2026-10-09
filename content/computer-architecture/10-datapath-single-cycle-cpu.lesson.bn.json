@@ -1,0 +1,3013 @@
+{
+  "id": "ca-10-datapath-single-cycle",
+  "title": "CPU Datapath এবং Single-Cycle প্রসেসর",
+  "subtitle": "একটি instruction এক্সিকিউট হওয়ার সময় CPU-র ভেতরে আসলে কী ঘটে।",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "COD",
+      "chapter": "4",
+      "title": "The Processor",
+      "topics": "ভূমিকা; লজিক ডিজাইনের নিয়ম; datapath তৈরি; একটি সহজ বাস্তবায়ন পদ্ধতি (ALU control, প্রধান control unit, datapath-এর কাজ)"
+    }
+  ],
+  "objectives": [
+    "Datapath-এর উপাদানগুলোর নাম বলুন এবং প্রতিটি কী কাজ করে তা বলুন",
+    "Single-cycle datapath ধাপে ধাপে তৈরি করুন",
+    "add, lw, sw ও beq datapath-এর ভেতর দিয়ে কীভাবে যায় তা অনুসরণ করুন",
+    "প্রতিটি instruction ধরনের control signal পড়ুন",
+    "Single-cycle প্রসেসরের ক্লক সাইকেল টাইম হিসাব করুন"
+  ],
+  "concepts": [
+    {
+      "id": "comp",
+      "label": "Datapath-এর উপাদান",
+      "section": "comp"
+    },
+    {
+      "id": "instr",
+      "label": "Instruction এক্সিকিউশন",
+      "section": "instr"
+    },
+    {
+      "id": "control",
+      "label": "Control signal",
+      "section": "control"
+    },
+    {
+      "id": "timing",
+      "label": "ক্লক সাইকেল টাইম",
+      "section": "timing"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "সূচনা",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "আপনি লিখলেন `lw $t0, 8($s1)`। কোন তার কোন bit বয়ে নেয়, আর প্রতিটি তারকে কী করতে হবে তা বলে কে?",
+          "clues": [
+            "Instruction মেমোরি, রেজিস্টার ও ALU দিয়ে তৈরি একটি **datapath**-এর ভেতর দিয়ে যায়।",
+            "একটি **control unit** ঠিক করে কোন পথ ব্যবহার হবে।",
+            "সবচেয়ে সহজ ডিজাইনে **একটি পূর্ণ instruction একটি ক্লক সাইকেলেই শেষ হয়**।"
+          ],
+          "notes": {
+            "explain": "ইঙ্গিত দেখানোর আগে শিক্ষার্থীদের অনুমান করতে দিন।"
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "উদ্দেশ্যগুলো জোরে পড়ে শোনান; এগুলো লার্নিং রিপোর্টে আবার আসবে।"
+          }
+        }
+      ]
+    },
+    {
+      "id": "comp",
+      "label": "Datapath-এর উপাদান",
+      "minutes": 12,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "comp",
+          "title": "Datapath ও control",
+          "blocks": [
+            {
+              "type": "compare",
+              "left": {
+                "title": "Datapath",
+                "items": [
+                  "যে হার্ডওয়্যার **ডেটা ধরে রাখে ও এক জায়গা থেকে আরেক জায়গায় নেয়**",
+                  "রেজিস্টার, ALU, মেমোরি, multiplexer, adder"
+                ]
+              },
+              "right": {
+                "title": "Control",
+                "items": [
+                  "যে লজিক datapath-কে **বলে দেয়** কী করতে হবে",
+                  "একটি control unit, যে instruction পড়ে signal সেট করে"
+                ]
+              }
+            }
+          ],
+          "why": "প্রতিটি প্রসেসর দুই ভাগে বিভক্ত: যে অংশ কাজ করে, আর যে অংশ কাজ পরিচালনা করে।",
+          "real": "গাড়ির ক্ষেত্রেও একই ধারণা: ইঞ্জিন ও চাকা হলো datapath; চালক ও প্যাডেল হলো control।",
+          "explainAgain": {
+            "beginner": "একটি অর্কেস্ট্রার কথা ভাবুন: বাদ্যযন্ত্রগুলো datapath, আর কন্ডাক্টর হলো control।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "comp",
+          "title": "উপাদানগুলো একটি একটি করে",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "উপাদান",
+                "এটি কী করে",
+                "কেন দরকার",
+                "ইনপুট",
+                "আউটপুট"
+              ],
+              "rows": [
+                [
+                  "PC",
+                  "বর্তমান instruction-এর অ্যাড্রেস ধরে রাখে",
+                  "প্রসেসরকে জানতে হয় পরের কোন instruction চলবে",
+                  "পরের অ্যাড্রেস",
+                  "Instruction মেমোরির জন্য অ্যাড্রেস"
+                ],
+                [
+                  "Instruction মেমোরি",
+                  "প্রোগ্রাম জমা রাখে",
+                  "Instruction-কে কোথাও থেকে আসতেই হবে",
+                  "অ্যাড্রেস",
+                  "32-bit instruction"
+                ],
+                [
+                  "Register file",
+                  "32টি রেজিস্টার; দুটি read port, একটি write port",
+                  "অপারেন্ড ও ফলাফল রেজিস্টারে থাকে",
+                  "রেজিস্টার নম্বর, write data, RegWrite",
+                  "দুটি রেজিস্টারের মান"
+                ],
+                [
+                  "Sign extend",
+                  "16-bit immediate-কে 32 bit-এ রূপান্তর করে",
+                  "ALU 32 bit নিয়ে কাজ করে",
+                  "16-bit immediate",
+                  "32-bit মান"
+                ],
+                [
+                  "ALU",
+                  "যোগ, বিয়োগ, AND, OR ও তুলনা করে (Zero আউটপুট)",
+                  "সব গাণিতিক কাজ",
+                  "দুটি অপারেন্ড, ALU control",
+                  "ফলাফল, Zero ফ্ল্যাগ"
+                ],
+                [
+                  "Data memory",
+                  "একটি word পড়ে (lw) বা লেখে (sw)",
+                  "Load ও store",
+                  "অ্যাড্রেস, write data, MemRead / MemWrite",
+                  "Read data"
+                ],
+                [
+                  "Multiplexer",
+                  "দুটি ইনপুটের একটি বেছে নেয়",
+                  "ভিন্ন instruction-এর উৎস ভিন্ন হয়",
+                  "দুটি ইনপুট ও একটি select",
+                  "একটি আউটপুট"
+                ],
+                [
+                  "Adder",
+                  "PC + 4 এবং branch target",
+                  "ALU ব্যবহার না করেই পরের অ্যাড্রেস হিসাব করে",
+                  "দুটি সংখ্যা",
+                  "যোগফল"
+                ],
+                [
+                  "Control unit",
+                  "opcode ডিকোড করে এবং প্রতিটি control signal সেট করে",
+                  "প্রতিটি instruction-এর জন্য সঠিক পথ বেছে দেয়",
+                  "6-bit opcode",
+                  "Control signal"
+                ]
+              ]
+            }
+          ],
+          "why": "একটি মৌলিক MIPS প্রসেসরের যা যা দরকার, এই নয়টি অংশই তার সবকিছু।",
+          "real": "CPU ডাইয়ের ছবিতে এগুলোর প্রতিটিই একটি আলাদা ব্লক হিসেবে দেখা যায়।",
+          "mistake": {
+            "wrong": "Control unit গাণিতিক কাজ করে।",
+            "right": "ALU হিসাব করে; control unit শুধু signal সেট করে।"
+          },
+          "notes": {
+            "explain": "একবারে একটি করে সারি দেখান। শ্রেণিকে জিজ্ঞেস করুন কেন দুটি adder ও একটি ALU দরকার।",
+            "terms": [
+              "**datapath**",
+              "**control unit**",
+              "**multiplexer**"
+            ]
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "comp",
+          "title": "ধাপে ধাপে গড়ুন",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Single-cycle datapath তৈরি করুন",
+              "width": 960,
+              "height": 560,
+              "nodes": [
+                {
+                  "id": "pc",
+                  "label": "PC",
+                  "kind": "reg",
+                  "x": 25,
+                  "y": 250,
+                  "w": 50,
+                  "h": 70
+                },
+                {
+                  "id": "add4",
+                  "label": "+4",
+                  "kind": "adder",
+                  "x": 95,
+                  "y": 75,
+                  "w": 56,
+                  "h": 44
+                },
+                {
+                  "id": "im",
+                  "label": "Instruction\nmemory",
+                  "kind": "mem",
+                  "x": 120,
+                  "y": 250,
+                  "w": 100,
+                  "h": 100
+                },
+                {
+                  "id": "regdst",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 250,
+                  "y": 335,
+                  "w": 26,
+                  "h": 60
+                },
+                {
+                  "id": "rf",
+                  "label": "Register\nfile",
+                  "kind": "reg",
+                  "x": 310,
+                  "y": 235,
+                  "w": 110,
+                  "h": 140
+                },
+                {
+                  "id": "signext",
+                  "label": "Sign\nextend",
+                  "kind": "unit",
+                  "x": 290,
+                  "y": 430,
+                  "w": 90,
+                  "h": 44
+                },
+                {
+                  "id": "shift",
+                  "label": "Shift\nleft 2",
+                  "kind": "unit",
+                  "x": 420,
+                  "y": 130,
+                  "w": 70,
+                  "h": 40
+                },
+                {
+                  "id": "badd",
+                  "label": "Add",
+                  "kind": "adder",
+                  "x": 540,
+                  "y": 75,
+                  "w": 56,
+                  "h": 44
+                },
+                {
+                  "id": "pcsrc",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 700,
+                  "y": 85,
+                  "w": 26,
+                  "h": 80
+                },
+                {
+                  "id": "alusrc",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 470,
+                  "y": 300,
+                  "w": 26,
+                  "h": 70
+                },
+                {
+                  "id": "alu",
+                  "label": "ALU",
+                  "kind": "alu",
+                  "x": 550,
+                  "y": 250,
+                  "w": 90,
+                  "h": 120
+                },
+                {
+                  "id": "dm",
+                  "label": "Data\nmemory",
+                  "kind": "mem",
+                  "x": 700,
+                  "y": 250,
+                  "w": 110,
+                  "h": 130
+                },
+                {
+                  "id": "memtoreg",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 850,
+                  "y": 290,
+                  "w": 26,
+                  "h": 70
+                },
+                {
+                  "id": "ctrl",
+                  "label": "Control",
+                  "kind": "ctrl",
+                  "x": 330,
+                  "y": 12,
+                  "w": 150,
+                  "h": 40
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_pc_im",
+                  "points": [
+                    [
+                      75,
+                      285
+                    ],
+                    [
+                      120,
+                      285
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_pc_add4",
+                  "points": [
+                    [
+                      50,
+                      250
+                    ],
+                    [
+                      50,
+                      97
+                    ],
+                    [
+                      95,
+                      97
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_add4_pcsrc",
+                  "points": [
+                    [
+                      151,
+                      97
+                    ],
+                    [
+                      175,
+                      97
+                    ],
+                    [
+                      175,
+                      60
+                    ],
+                    [
+                      670,
+                      60
+                    ],
+                    [
+                      670,
+                      100
+                    ],
+                    [
+                      700,
+                      100
+                    ]
+                  ],
+                  "label": "PC + 4",
+                  "labelAt": [
+                    420,
+                    54
+                  ]
+                },
+                {
+                  "id": "e_add4_badd",
+                  "points": [
+                    [
+                      500,
+                      60
+                    ],
+                    [
+                      500,
+                      88
+                    ],
+                    [
+                      540,
+                      88
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_shift_badd",
+                  "points": [
+                    [
+                      490,
+                      150
+                    ],
+                    [
+                      515,
+                      150
+                    ],
+                    [
+                      515,
+                      106
+                    ],
+                    [
+                      540,
+                      106
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_badd_pcsrc",
+                  "points": [
+                    [
+                      596,
+                      97
+                    ],
+                    [
+                      640,
+                      97
+                    ],
+                    [
+                      640,
+                      150
+                    ],
+                    [
+                      700,
+                      150
+                    ]
+                  ],
+                  "label": "branch target",
+                  "labelAt": [
+                    650,
+                    92
+                  ]
+                },
+                {
+                  "id": "e_pcsrc_pc",
+                  "points": [
+                    [
+                      726,
+                      125
+                    ],
+                    [
+                      930,
+                      125
+                    ],
+                    [
+                      930,
+                      530
+                    ],
+                    [
+                      10,
+                      530
+                    ],
+                    [
+                      10,
+                      310
+                    ],
+                    [
+                      25,
+                      310
+                    ]
+                  ],
+                  "label": "next PC",
+                  "labelAt": [
+                    470,
+                    524
+                  ]
+                },
+                {
+                  "id": "e_im_rs",
+                  "points": [
+                    [
+                      220,
+                      270
+                    ],
+                    [
+                      310,
+                      270
+                    ]
+                  ],
+                  "label": "rs",
+                  "labelAt": [
+                    265,
+                    264
+                  ]
+                },
+                {
+                  "id": "e_im_rt",
+                  "points": [
+                    [
+                      220,
+                      300
+                    ],
+                    [
+                      310,
+                      300
+                    ]
+                  ],
+                  "label": "rt",
+                  "labelAt": [
+                    265,
+                    294
+                  ]
+                },
+                {
+                  "id": "e_im_regdst",
+                  "points": [
+                    [
+                      220,
+                      330
+                    ],
+                    [
+                      235,
+                      330
+                    ],
+                    [
+                      235,
+                      350
+                    ],
+                    [
+                      250,
+                      350
+                    ]
+                  ],
+                  "label": "rt / rd",
+                  "labelAt": [
+                    216,
+                    326
+                  ]
+                },
+                {
+                  "id": "e_regdst_rf",
+                  "points": [
+                    [
+                      276,
+                      365
+                    ],
+                    [
+                      293,
+                      365
+                    ],
+                    [
+                      293,
+                      355
+                    ],
+                    [
+                      310,
+                      355
+                    ]
+                  ],
+                  "label": "write reg",
+                  "labelAt": [
+                    296,
+                    380
+                  ]
+                },
+                {
+                  "id": "e_im_signext",
+                  "points": [
+                    [
+                      190,
+                      350
+                    ],
+                    [
+                      190,
+                      452
+                    ],
+                    [
+                      290,
+                      452
+                    ]
+                  ],
+                  "label": "immediate",
+                  "labelAt": [
+                    240,
+                    446
+                  ]
+                },
+                {
+                  "id": "e_signext_alusrc",
+                  "points": [
+                    [
+                      380,
+                      452
+                    ],
+                    [
+                      452,
+                      452
+                    ],
+                    [
+                      452,
+                      355
+                    ],
+                    [
+                      470,
+                      355
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_signext_shift",
+                  "points": [
+                    [
+                      452,
+                      355
+                    ],
+                    [
+                      452,
+                      150
+                    ],
+                    [
+                      420,
+                      150
+                    ]
+                  ],
+                  "arrow": false
+                },
+                {
+                  "id": "e_rf_alu",
+                  "points": [
+                    [
+                      420,
+                      275
+                    ],
+                    [
+                      550,
+                      275
+                    ]
+                  ],
+                  "label": "read data 1",
+                  "labelAt": [
+                    485,
+                    269
+                  ]
+                },
+                {
+                  "id": "e_rf_alusrc",
+                  "points": [
+                    [
+                      420,
+                      335
+                    ],
+                    [
+                      435,
+                      335
+                    ],
+                    [
+                      435,
+                      315
+                    ],
+                    [
+                      470,
+                      315
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_rf_dm",
+                  "points": [
+                    [
+                      435,
+                      335
+                    ],
+                    [
+                      435,
+                      400
+                    ],
+                    [
+                      680,
+                      400
+                    ],
+                    [
+                      680,
+                      355
+                    ],
+                    [
+                      700,
+                      355
+                    ]
+                  ],
+                  "label": "read data 2",
+                  "labelAt": [
+                    560,
+                    394
+                  ]
+                },
+                {
+                  "id": "e_alusrc_alu",
+                  "points": [
+                    [
+                      496,
+                      335
+                    ],
+                    [
+                      550,
+                      335
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_alu_dm",
+                  "points": [
+                    [
+                      640,
+                      310
+                    ],
+                    [
+                      700,
+                      310
+                    ]
+                  ],
+                  "label": "address",
+                  "labelAt": [
+                    670,
+                    304
+                  ]
+                },
+                {
+                  "id": "e_alu_memtoreg",
+                  "points": [
+                    [
+                      665,
+                      310
+                    ],
+                    [
+                      665,
+                      425
+                    ],
+                    [
+                      830,
+                      425
+                    ],
+                    [
+                      830,
+                      305
+                    ],
+                    [
+                      850,
+                      305
+                    ]
+                  ],
+                  "arrow": true
+                },
+                {
+                  "id": "e_dm_memtoreg",
+                  "points": [
+                    [
+                      810,
+                      330
+                    ],
+                    [
+                      830,
+                      330
+                    ],
+                    [
+                      830,
+                      345
+                    ],
+                    [
+                      850,
+                      345
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_memtoreg_rf",
+                  "points": [
+                    [
+                      876,
+                      325
+                    ],
+                    [
+                      900,
+                      325
+                    ],
+                    [
+                      900,
+                      548
+                    ],
+                    [
+                      290,
+                      548
+                    ],
+                    [
+                      290,
+                      370
+                    ],
+                    [
+                      310,
+                      370
+                    ]
+                  ],
+                  "label": "write data",
+                  "labelAt": [
+                    600,
+                    542
+                  ]
+                },
+                {
+                  "id": "e_im_ctrl",
+                  "points": [
+                    [
+                      170,
+                      250
+                    ],
+                    [
+                      170,
+                      32
+                    ],
+                    [
+                      330,
+                      32
+                    ]
+                  ],
+                  "kind": "control",
+                  "label": "opcode",
+                  "labelAt": [
+                    250,
+                    26
+                  ]
+                },
+                {
+                  "id": "e_zero",
+                  "points": [
+                    [
+                      600,
+                      250
+                    ],
+                    [
+                      600,
+                      215
+                    ],
+                    [
+                      713,
+                      215
+                    ],
+                    [
+                      713,
+                      165
+                    ]
+                  ],
+                  "kind": "control",
+                  "label": "Zero",
+                  "labelAt": [
+                    640,
+                    209
+                  ]
+                }
+              ],
+              "labels": [
+                {
+                  "x": 260,
+                  "y": 322,
+                  "text": "RegDst",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 483,
+                  "y": 293,
+                  "text": "ALUSrc",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 863,
+                  "y": 283,
+                  "text": "MemtoReg",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 713,
+                  "y": 78,
+                  "text": "PCSrc",
+                  "anchor": "middle"
+                }
+              ],
+              "steps": [
+                {
+                  "show": [
+                    "pc",
+                    "im",
+                    "e_pc_im"
+                  ],
+                  "text": "**প্রোগ্রাম কাউন্টার** instruction-এর অ্যাড্রেস ধরে রাখে। এটি **instruction মেমোরি**-কে অ্যাড্রেস দেয়।"
+                },
+                {
+                  "show": [
+                    "rf",
+                    "e_im_rs",
+                    "e_im_rt",
+                    "regdst",
+                    "e_im_regdst",
+                    "e_regdst_rf"
+                  ],
+                  "text": "Instruction-এর ফিল্ডগুলো বলে দেয় **register file** থেকে কোন রেজিস্টার পড়তে হবে; একটি multiplexer গন্তব্য রেজিস্টার বেছে নেয়।"
+                },
+                {
+                  "show": [
+                    "alu",
+                    "alusrc",
+                    "e_rf_alu",
+                    "e_rf_alusrc",
+                    "e_alusrc_alu"
+                  ],
+                  "text": "**ALU** রেজিস্টারের ডেটা নিয়ে কাজ করে, অথবা রেজিস্টারের ডেটা ও একটি multiplexer-বাছাই করা immediate নিয়ে কাজ করে।"
+                },
+                {
+                  "show": [
+                    "signext",
+                    "e_im_signext",
+                    "e_signext_alusrc"
+                  ],
+                  "text": "16-bit immediate-কে 32 bit-এ **sign-extend** করা হয়, যাতে এটি ALU-র ইনপুট হতে পারে।"
+                },
+                {
+                  "show": [
+                    "dm",
+                    "e_alu_dm",
+                    "e_rf_dm",
+                    "memtoreg",
+                    "e_alu_memtoreg",
+                    "e_dm_memtoreg",
+                    "e_memtoreg_rf"
+                  ],
+                  "text": "Load ও store-এর জন্য **data memory** পড়া বা লেখা হয়; একটি multiplexer ঠিক করে register file-এ কী ফেরত লেখা হবে।"
+                },
+                {
+                  "show": [
+                    "add4",
+                    "e_pc_add4",
+                    "e_add4_pcsrc",
+                    "pcsrc",
+                    "e_pcsrc_pc"
+                  ],
+                  "text": "PC সাধারণত 4 বেড়ে পরের instruction-এ যায়।"
+                },
+                {
+                  "show": [
+                    "shift",
+                    "badd",
+                    "e_add4_badd",
+                    "e_shift_badd",
+                    "e_badd_pcsrc",
+                    "e_signext_shift",
+                    "e_zero"
+                  ],
+                  "text": "Branch-এর ক্ষেত্রে দ্বিতীয় একটি adder **branch target** হিসাব করে, আর ALU-র Zero আউটপুট পরের PC বাছাই করতে সাহায্য করে।"
+                },
+                {
+                  "show": [
+                    "ctrl",
+                    "e_im_ctrl"
+                  ],
+                  "text": "**Control unit** opcode পড়ে এবং প্রতিটি multiplexer ও মেমোরি control signal সেট করে।"
+                }
+              ]
+            }
+          ],
+          "why": "প্রতিটি ক্লিকে একগুচ্ছ উপাদান যোগ হয়। সম্পূর্ণ datapath কখনোই একসঙ্গে দেওয়া হয় না।"
+        },
+        {
+          "type": "mcq",
+          "concept": "comp",
+          "question": "যে instruction এক্সিকিউট হচ্ছে তার অ্যাড্রেস কোন উপাদান ধরে রাখে?",
+          "options": [
+            "PC",
+            "Register file",
+            "ALU",
+            "Data memory"
+          ],
+          "answer": 0,
+          "why": "প্রোগ্রাম কাউন্টার (PC) সেই অ্যাড্রেস ধরে রাখে।",
+          "feedback": [
+            "",
+            "Register file ডেটা ধরে রাখে, instruction-এর অ্যাড্রেস নয়।",
+            "ALU মান হিসাব করে।",
+            "Data memory load ও store-এর জন্য।"
+          ]
+        },
+        {
+          "type": "match",
+          "concept": "comp",
+          "skill": "Understand",
+          "title": "ছোট চ্যালেঞ্জ",
+          "prompt": "প্রতিটি উপাদানকে তার কাজের সঙ্গে মেলান।",
+          "pairs": [
+            {
+              "a": "PC",
+              "b": "বর্তমান instruction-এর অ্যাড্রেস ধরে রাখে"
+            },
+            {
+              "a": "ALU",
+              "b": "গাণিতিক কাজ ও তুলনা করে"
+            },
+            {
+              "a": "Sign extend",
+              "b": "16-bit immediate-কে 32 bit-এ বড় করে"
+            },
+            {
+              "a": "Multiplexer",
+              "b": "দুটি ইনপুটের মধ্যে একটি বেছে নেয়"
+            }
+          ],
+          "why": "প্রতিটি উপাদানের একটি স্পষ্ট ভূমিকা আছে।"
+        },
+        {
+          "type": "mcq",
+          "concept": "comp",
+          "question": "Single-cycle ডিজাইনে instruction মেমোরি ও data memory আলাদা কেন দরকার?",
+          "options": [
+            "একটি instruction-কে নিজেকে ফেচ করতে হয় এবং একই সাইকেলে ডেটা পড়তে বা লিখতে হয়",
+            "Instruction 16 bit আর ডেটা 32 bit",
+            "মেমোরি instruction ও ডেটা একসঙ্গে রাখতে পারে না",
+            "প্রসেসরকে সস্তা করার জন্য"
+          ],
+          "answer": 0,
+          "why": "এক সাইকেলে instruction ফেচ এবং load বা store দুটোই ঘটে, তাই দুটি মেমোরি লাগে।",
+          "feedback": [
+            "",
+            "MIPS-এ দুটোই 32 bit চওড়া।",
+            "একটি বাস্তব মেমোরি দুটোই রাখতে পারে; সমস্যা হলো একই সাইকেলে সেটি দুবার ব্যবহার করা।",
+            "দুটি মেমোরিতে খরচ কমে না, বাড়ে।"
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "চেকপয়েন্ট",
+          "questions": [
+            {
+              "q": "Datapath ও control-এর পার্থক্য কী?",
+              "a": "Datapath ডেটা ধরে রাখে ও এক জায়গা থেকে আরেক জায়গায় নেয়; control ঠিক করে datapath কী করবে।",
+              "concept": "comp"
+            },
+            {
+              "q": "Sign-extend ইউনিট কী করে?",
+              "a": "16-bit immediate-কে 32 bit-এ বাড়ায় এবং তার চিহ্ন (sign) ঠিক রাখে।",
+              "concept": "comp"
+            },
+            {
+              "q": "ALU-র সামনে multiplexer কেন আছে?",
+              "a": "রেজিস্টারের মান ও immediate-এর মধ্যে একটি বেছে নিতে।",
+              "concept": "comp"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "instr",
+      "label": "Instruction এক্সিকিউশন",
+      "minutes": 10,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "instr",
+          "title": "প্রতিটি instruction-এর জন্য চারটি ধাপ",
+          "blocks": [
+            {
+              "type": "flow",
+              "nodes": [
+                {
+                  "label": "ফেচ",
+                  "sub": "PC → instruction মেমোরি",
+                  "note": "Instruction পড়া হয় এবং PC + 4 হিসাব হয়।"
+                },
+                {
+                  "label": "ডিকোড",
+                  "sub": "রেজিস্টার ও control",
+                  "note": "রেজিস্টার ফিল্ড রেজিস্টার বাছাই করে; control unit signal সেট করে।"
+                },
+                {
+                  "label": "এক্সিকিউট",
+                  "sub": "ALU",
+                  "note": "একটি ফলাফল, অ্যাড্রেস বা তুলনা হিসাব করা হয়।"
+                },
+                {
+                  "label": "মেমোরি ও রাইট ব্যাক",
+                  "sub": "data memory, register file",
+                  "note": "Load মেমোরি পড়ে, store মেমোরিতে লেখে; ফলাফল একটি রেজিস্টারে যায়।"
+                }
+              ],
+              "zoom": true
+            }
+          ],
+          "why": "সব instruction-এ ফেচ ও ডিকোড একই; পরে কী ঘটে তাতেই তারা আলাদা হয়।",
+          "real": "কোডের ভেতর দিয়ে \"step\" করা ডিবাগারগুলো এই একই ধাপগুলোই দেখায়।"
+        },
+        {
+          "type": "concept",
+          "concept": "instr",
+          "title": "Instruction, ডেটা, ALU, ফলাফল",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**Instruction** instruction মেমোরি থেকে register file, sign extender ও control unit-এ যায়",
+                "**ডেটা** রেজিস্টার (ও মেমোরি) থেকে ALU-র দিকে যায়",
+                "**ALU** একটি ফলাফল, অ্যাড্রেস বা Zero ফ্ল্যাগ তৈরি করে",
+                "**ফলাফল** ফিরে যায় একটি রেজিস্টারে, মেমোরিতে বা PC-তে"
+              ]
+            }
+          ],
+          "why": "এই চারটি প্রবাহ অনুসরণ করলেই বোঝা যায় যেকোনো instruction কী করে।"
+        },
+        {
+          "type": "predict",
+          "concept": "instr",
+          "skill": "Apply",
+          "question": "`lw $t0, 8($s1)`-এর ক্ষেত্রে কোন উপাদান মেমোরি অ্যাড্রেস হিসাব করে?",
+          "options": [
+            "ALU: $s1 + 8",
+            "Sign extender",
+            "Data memory নিজেই",
+            "PC adder"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "ALU বেস রেজিস্টার $s1 এবং sign-extend করা অফসেট 8 যোগ করে। ফলাফলটিই data memory-তে যাওয়া অ্যাড্রেস।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "ALU শুধু গাণিতিক কাজে নয়, অ্যাড্রেস হিসাবেও ব্যবহার হয়।"
+        },
+        {
+          "type": "concept",
+          "concept": "instr",
+          "title": "একটি instruction অনুসরণ করুন",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Datapath-এর ভেতর দিয়ে একটি instruction অনুসরণ করুন",
+              "width": 960,
+              "height": 560,
+              "nodes": [
+                {
+                  "id": "pc",
+                  "label": "PC",
+                  "kind": "reg",
+                  "x": 25,
+                  "y": 250,
+                  "w": 50,
+                  "h": 70
+                },
+                {
+                  "id": "add4",
+                  "label": "+4",
+                  "kind": "adder",
+                  "x": 95,
+                  "y": 75,
+                  "w": 56,
+                  "h": 44
+                },
+                {
+                  "id": "im",
+                  "label": "Instruction\nmemory",
+                  "kind": "mem",
+                  "x": 120,
+                  "y": 250,
+                  "w": 100,
+                  "h": 100
+                },
+                {
+                  "id": "regdst",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 250,
+                  "y": 335,
+                  "w": 26,
+                  "h": 60
+                },
+                {
+                  "id": "rf",
+                  "label": "Register\nfile",
+                  "kind": "reg",
+                  "x": 310,
+                  "y": 235,
+                  "w": 110,
+                  "h": 140
+                },
+                {
+                  "id": "signext",
+                  "label": "Sign\nextend",
+                  "kind": "unit",
+                  "x": 290,
+                  "y": 430,
+                  "w": 90,
+                  "h": 44
+                },
+                {
+                  "id": "shift",
+                  "label": "Shift\nleft 2",
+                  "kind": "unit",
+                  "x": 420,
+                  "y": 130,
+                  "w": 70,
+                  "h": 40
+                },
+                {
+                  "id": "badd",
+                  "label": "Add",
+                  "kind": "adder",
+                  "x": 540,
+                  "y": 75,
+                  "w": 56,
+                  "h": 44
+                },
+                {
+                  "id": "pcsrc",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 700,
+                  "y": 85,
+                  "w": 26,
+                  "h": 80
+                },
+                {
+                  "id": "alusrc",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 470,
+                  "y": 300,
+                  "w": 26,
+                  "h": 70
+                },
+                {
+                  "id": "alu",
+                  "label": "ALU",
+                  "kind": "alu",
+                  "x": 550,
+                  "y": 250,
+                  "w": 90,
+                  "h": 120
+                },
+                {
+                  "id": "dm",
+                  "label": "Data\nmemory",
+                  "kind": "mem",
+                  "x": 700,
+                  "y": 250,
+                  "w": 110,
+                  "h": 130
+                },
+                {
+                  "id": "memtoreg",
+                  "label": "",
+                  "kind": "mux",
+                  "x": 850,
+                  "y": 290,
+                  "w": 26,
+                  "h": 70
+                },
+                {
+                  "id": "ctrl",
+                  "label": "Control",
+                  "kind": "ctrl",
+                  "x": 330,
+                  "y": 12,
+                  "w": 150,
+                  "h": 40
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_pc_im",
+                  "points": [
+                    [
+                      75,
+                      285
+                    ],
+                    [
+                      120,
+                      285
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_pc_add4",
+                  "points": [
+                    [
+                      50,
+                      250
+                    ],
+                    [
+                      50,
+                      97
+                    ],
+                    [
+                      95,
+                      97
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_add4_pcsrc",
+                  "points": [
+                    [
+                      151,
+                      97
+                    ],
+                    [
+                      175,
+                      97
+                    ],
+                    [
+                      175,
+                      60
+                    ],
+                    [
+                      670,
+                      60
+                    ],
+                    [
+                      670,
+                      100
+                    ],
+                    [
+                      700,
+                      100
+                    ]
+                  ],
+                  "label": "PC + 4",
+                  "labelAt": [
+                    420,
+                    54
+                  ]
+                },
+                {
+                  "id": "e_add4_badd",
+                  "points": [
+                    [
+                      500,
+                      60
+                    ],
+                    [
+                      500,
+                      88
+                    ],
+                    [
+                      540,
+                      88
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_shift_badd",
+                  "points": [
+                    [
+                      490,
+                      150
+                    ],
+                    [
+                      515,
+                      150
+                    ],
+                    [
+                      515,
+                      106
+                    ],
+                    [
+                      540,
+                      106
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_badd_pcsrc",
+                  "points": [
+                    [
+                      596,
+                      97
+                    ],
+                    [
+                      640,
+                      97
+                    ],
+                    [
+                      640,
+                      150
+                    ],
+                    [
+                      700,
+                      150
+                    ]
+                  ],
+                  "label": "branch target",
+                  "labelAt": [
+                    650,
+                    92
+                  ]
+                },
+                {
+                  "id": "e_pcsrc_pc",
+                  "points": [
+                    [
+                      726,
+                      125
+                    ],
+                    [
+                      930,
+                      125
+                    ],
+                    [
+                      930,
+                      530
+                    ],
+                    [
+                      10,
+                      530
+                    ],
+                    [
+                      10,
+                      310
+                    ],
+                    [
+                      25,
+                      310
+                    ]
+                  ],
+                  "label": "next PC",
+                  "labelAt": [
+                    470,
+                    524
+                  ]
+                },
+                {
+                  "id": "e_im_rs",
+                  "points": [
+                    [
+                      220,
+                      270
+                    ],
+                    [
+                      310,
+                      270
+                    ]
+                  ],
+                  "label": "rs",
+                  "labelAt": [
+                    265,
+                    264
+                  ]
+                },
+                {
+                  "id": "e_im_rt",
+                  "points": [
+                    [
+                      220,
+                      300
+                    ],
+                    [
+                      310,
+                      300
+                    ]
+                  ],
+                  "label": "rt",
+                  "labelAt": [
+                    265,
+                    294
+                  ]
+                },
+                {
+                  "id": "e_im_regdst",
+                  "points": [
+                    [
+                      220,
+                      330
+                    ],
+                    [
+                      235,
+                      330
+                    ],
+                    [
+                      235,
+                      350
+                    ],
+                    [
+                      250,
+                      350
+                    ]
+                  ],
+                  "label": "rt / rd",
+                  "labelAt": [
+                    216,
+                    326
+                  ]
+                },
+                {
+                  "id": "e_regdst_rf",
+                  "points": [
+                    [
+                      276,
+                      365
+                    ],
+                    [
+                      293,
+                      365
+                    ],
+                    [
+                      293,
+                      355
+                    ],
+                    [
+                      310,
+                      355
+                    ]
+                  ],
+                  "label": "write reg",
+                  "labelAt": [
+                    296,
+                    380
+                  ]
+                },
+                {
+                  "id": "e_im_signext",
+                  "points": [
+                    [
+                      190,
+                      350
+                    ],
+                    [
+                      190,
+                      452
+                    ],
+                    [
+                      290,
+                      452
+                    ]
+                  ],
+                  "label": "immediate",
+                  "labelAt": [
+                    240,
+                    446
+                  ]
+                },
+                {
+                  "id": "e_signext_alusrc",
+                  "points": [
+                    [
+                      380,
+                      452
+                    ],
+                    [
+                      452,
+                      452
+                    ],
+                    [
+                      452,
+                      355
+                    ],
+                    [
+                      470,
+                      355
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_signext_shift",
+                  "points": [
+                    [
+                      452,
+                      355
+                    ],
+                    [
+                      452,
+                      150
+                    ],
+                    [
+                      420,
+                      150
+                    ]
+                  ],
+                  "arrow": false
+                },
+                {
+                  "id": "e_rf_alu",
+                  "points": [
+                    [
+                      420,
+                      275
+                    ],
+                    [
+                      550,
+                      275
+                    ]
+                  ],
+                  "label": "read data 1",
+                  "labelAt": [
+                    485,
+                    269
+                  ]
+                },
+                {
+                  "id": "e_rf_alusrc",
+                  "points": [
+                    [
+                      420,
+                      335
+                    ],
+                    [
+                      435,
+                      335
+                    ],
+                    [
+                      435,
+                      315
+                    ],
+                    [
+                      470,
+                      315
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_rf_dm",
+                  "points": [
+                    [
+                      435,
+                      335
+                    ],
+                    [
+                      435,
+                      400
+                    ],
+                    [
+                      680,
+                      400
+                    ],
+                    [
+                      680,
+                      355
+                    ],
+                    [
+                      700,
+                      355
+                    ]
+                  ],
+                  "label": "read data 2",
+                  "labelAt": [
+                    560,
+                    394
+                  ]
+                },
+                {
+                  "id": "e_alusrc_alu",
+                  "points": [
+                    [
+                      496,
+                      335
+                    ],
+                    [
+                      550,
+                      335
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_alu_dm",
+                  "points": [
+                    [
+                      640,
+                      310
+                    ],
+                    [
+                      700,
+                      310
+                    ]
+                  ],
+                  "label": "address",
+                  "labelAt": [
+                    670,
+                    304
+                  ]
+                },
+                {
+                  "id": "e_alu_memtoreg",
+                  "points": [
+                    [
+                      665,
+                      310
+                    ],
+                    [
+                      665,
+                      425
+                    ],
+                    [
+                      830,
+                      425
+                    ],
+                    [
+                      830,
+                      305
+                    ],
+                    [
+                      850,
+                      305
+                    ]
+                  ],
+                  "arrow": true
+                },
+                {
+                  "id": "e_dm_memtoreg",
+                  "points": [
+                    [
+                      810,
+                      330
+                    ],
+                    [
+                      830,
+                      330
+                    ],
+                    [
+                      830,
+                      345
+                    ],
+                    [
+                      850,
+                      345
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_memtoreg_rf",
+                  "points": [
+                    [
+                      876,
+                      325
+                    ],
+                    [
+                      900,
+                      325
+                    ],
+                    [
+                      900,
+                      548
+                    ],
+                    [
+                      290,
+                      548
+                    ],
+                    [
+                      290,
+                      370
+                    ],
+                    [
+                      310,
+                      370
+                    ]
+                  ],
+                  "label": "write data",
+                  "labelAt": [
+                    600,
+                    542
+                  ]
+                },
+                {
+                  "id": "e_im_ctrl",
+                  "points": [
+                    [
+                      170,
+                      250
+                    ],
+                    [
+                      170,
+                      32
+                    ],
+                    [
+                      330,
+                      32
+                    ]
+                  ],
+                  "kind": "control",
+                  "label": "opcode",
+                  "labelAt": [
+                    250,
+                    26
+                  ]
+                },
+                {
+                  "id": "e_zero",
+                  "points": [
+                    [
+                      600,
+                      250
+                    ],
+                    [
+                      600,
+                      215
+                    ],
+                    [
+                      713,
+                      215
+                    ],
+                    [
+                      713,
+                      165
+                    ]
+                  ],
+                  "kind": "control",
+                  "label": "Zero",
+                  "labelAt": [
+                    640,
+                    209
+                  ]
+                }
+              ],
+              "labels": [
+                {
+                  "x": 260,
+                  "y": 322,
+                  "text": "RegDst",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 483,
+                  "y": 293,
+                  "text": "ALUSrc",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 863,
+                  "y": 283,
+                  "text": "MemtoReg",
+                  "anchor": "middle"
+                },
+                {
+                  "x": 713,
+                  "y": 78,
+                  "text": "PCSrc",
+                  "anchor": "middle"
+                }
+              ],
+              "steps": [
+                {
+                  "show": [
+                    "pc",
+                    "add4",
+                    "im",
+                    "regdst",
+                    "rf",
+                    "signext",
+                    "shift",
+                    "badd",
+                    "pcsrc",
+                    "alusrc",
+                    "alu",
+                    "dm",
+                    "memtoreg",
+                    "ctrl",
+                    "e_pc_im",
+                    "e_pc_add4",
+                    "e_add4_pcsrc",
+                    "e_add4_badd",
+                    "e_shift_badd",
+                    "e_badd_pcsrc",
+                    "e_pcsrc_pc",
+                    "e_im_rs",
+                    "e_im_rt",
+                    "e_im_regdst",
+                    "e_regdst_rf",
+                    "e_im_signext",
+                    "e_signext_alusrc",
+                    "e_signext_shift",
+                    "e_rf_alu",
+                    "e_rf_alusrc",
+                    "e_rf_dm",
+                    "e_alusrc_alu",
+                    "e_alu_dm",
+                    "e_alu_memtoreg",
+                    "e_dm_memtoreg",
+                    "e_memtoreg_rf",
+                    "e_im_ctrl",
+                    "e_zero"
+                  ],
+                  "text": "সম্পূর্ণ single-cycle datapath। একটি instruction দৃশ্য বেছে নিয়ে Play বা Step চাপুন।"
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "add $t0, $s1, $s2",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "pc",
+                        "e_pc_im",
+                        "im"
+                      ],
+                      "text": "**ফেচ**: PC instruction মেমোরিকে অ্যাড্রেস দেয় এবং instruction পড়া হয়।",
+                      "values": {
+                        "pc": "0x00400000",
+                        "im": "add $t0,$s1,$s2"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "im",
+                        "e_im_rs",
+                        "e_im_rt",
+                        "rf",
+                        "e_im_ctrl",
+                        "ctrl"
+                      ],
+                      "text": "**ডিকোড**: control unit R-type instruction-এর signal সেট করে; রেজিস্টার $s1 ও $s2 পড়া হয়।",
+                      "values": {
+                        "rf": "$s1=5  $s2=7",
+                        "ctrl": "RegDst=1 ALUSrc=0 RegWrite=1"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "rf",
+                        "e_rf_alu",
+                        "e_rf_alusrc",
+                        "alusrc",
+                        "e_alusrc_alu",
+                        "alu"
+                      ],
+                      "text": "**এক্সিকিউট**: ALU দুটি রেজিস্টারের মান যোগ করে।",
+                      "values": {
+                        "alu": "5 + 7 = 12",
+                        "alusrc": "ALUSrc=0"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "alu",
+                        "e_alu_memtoreg",
+                        "memtoreg",
+                        "e_memtoreg_rf",
+                        "rf",
+                        "regdst",
+                        "e_regdst_rf"
+                      ],
+                      "text": "**রাইট ব্যাক**: ALU-র ফলাফল (মেমোরির ডেটা নয়) গন্তব্য রেজিস্টার $t0-তে যায়।",
+                      "values": {
+                        "memtoreg": "MemtoReg=0",
+                        "rf": "$t0 = 12"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "pc",
+                        "add4",
+                        "e_pc_add4",
+                        "e_add4_pcsrc",
+                        "pcsrc",
+                        "e_pcsrc_pc"
+                      ],
+                      "text": "**পরের instruction**: PC + 4 নতুন PC হয়।",
+                      "values": {
+                        "pc": "0x00400004"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "lw $t0, 8($s1)",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "pc",
+                        "e_pc_im",
+                        "im"
+                      ],
+                      "text": "load instruction **ফেচ** করা হয়।",
+                      "values": {
+                        "im": "lw $t0,8($s1)"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "im",
+                        "e_im_rs",
+                        "rf",
+                        "e_im_signext",
+                        "signext",
+                        "e_im_ctrl",
+                        "ctrl"
+                      ],
+                      "text": "**ডিকোড**: বেস রেজিস্টার $s1 পড়া হয়; অফসেট 8 sign-extend করা হয়।",
+                      "values": {
+                        "rf": "$s1=0x1000",
+                        "signext": "8",
+                        "ctrl": "ALUSrc=1 MemRead=1 RegWrite=1"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "rf",
+                        "e_rf_alu",
+                        "signext",
+                        "e_signext_alusrc",
+                        "alusrc",
+                        "e_alusrc_alu",
+                        "alu"
+                      ],
+                      "text": "**এক্সিকিউট**: ALU বেস ও অফসেট যোগ করে **অ্যাড্রেস** তৈরি করে।",
+                      "values": {
+                        "alu": "0x1000 + 8 = 0x1008"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "alu",
+                        "e_alu_dm",
+                        "dm"
+                      ],
+                      "text": "**মেমোরি অ্যাক্সেস**: সেই অ্যাড্রেসে data memory পড়া হয়।",
+                      "values": {
+                        "dm": "Mem[0x1008] = 42"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "dm",
+                        "e_dm_memtoreg",
+                        "memtoreg",
+                        "e_memtoreg_rf",
+                        "rf",
+                        "e_im_regdst",
+                        "regdst",
+                        "e_regdst_rf"
+                      ],
+                      "text": "**রাইট ব্যাক**: লোড করা মান $t0-তে যায় (এখানে MemtoReg = 1, RegDst = 0)।",
+                      "values": {
+                        "memtoreg": "MemtoReg=1",
+                        "rf": "$t0 = 42"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "sw $t0, 8($s1)",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "pc",
+                        "e_pc_im",
+                        "im"
+                      ],
+                      "text": "store instruction **ফেচ** করা হয়।",
+                      "values": {
+                        "im": "sw $t0,8($s1)"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "im",
+                        "e_im_rs",
+                        "e_im_rt",
+                        "rf",
+                        "signext",
+                        "e_im_signext",
+                        "e_im_ctrl",
+                        "ctrl"
+                      ],
+                      "text": "**ডিকোড**: $s1 (বেস) ও $t0 (যে মান store হবে) পড়া হয়; অফসেট sign-extend করা হয়।",
+                      "values": {
+                        "ctrl": "ALUSrc=1 MemWrite=1 RegWrite=0"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "rf",
+                        "e_rf_alu",
+                        "signext",
+                        "e_signext_alusrc",
+                        "alusrc",
+                        "e_alusrc_alu",
+                        "alu"
+                      ],
+                      "text": "**এক্সিকিউট**: অ্যাড্রেস base + offset হিসাব করা হয়।",
+                      "values": {
+                        "alu": "0x1000 + 8 = 0x1008"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "alu",
+                        "e_alu_dm",
+                        "e_rf_dm",
+                        "dm"
+                      ],
+                      "text": "**মেমোরি অ্যাক্সেস**: রেজিস্টারের মান data memory-তে **লেখা** হয়। কোনো রেজিস্টারে কিছু ফেরত লেখা হয় না।",
+                      "values": {
+                        "dm": "Mem[0x1008] = $t0"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "name": "beq $s1, $s2, L",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "pc",
+                        "e_pc_im",
+                        "im"
+                      ],
+                      "text": "branch instruction **ফেচ** করা হয়।",
+                      "values": {
+                        "im": "beq $s1,$s2,L"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "im",
+                        "e_im_rs",
+                        "e_im_rt",
+                        "rf",
+                        "e_im_signext",
+                        "signext",
+                        "e_im_ctrl",
+                        "ctrl"
+                      ],
+                      "text": "**ডিকোড**: তুলনা করার জন্য দুটি রেজিস্টার পড়া হয়; অফসেট sign-extend করা হয়।",
+                      "values": {
+                        "ctrl": "Branch=1 ALUSrc=0 RegWrite=0"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "rf",
+                        "e_rf_alu",
+                        "e_rf_alusrc",
+                        "alusrc",
+                        "e_alusrc_alu",
+                        "alu",
+                        "e_zero"
+                      ],
+                      "text": "**এক্সিকিউট**: ALU রেজিস্টার দুটি বিয়োগ করে। দুটি সমান হলে ফলাফল শূন্য হয় এবং **Zero** আউটপুট 1 হয়।",
+                      "values": {
+                        "alu": "5 - 5 = 0, Zero = 1"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "signext",
+                        "e_signext_shift",
+                        "shift",
+                        "e_shift_badd",
+                        "add4",
+                        "e_add4_badd",
+                        "badd",
+                        "e_badd_pcsrc"
+                      ],
+                      "text": "একই সময়ে **branch adder** PC + 4 + (offset × 4) হিসাব করে।",
+                      "values": {
+                        "badd": "branch target"
+                      }
+                    },
+                    {
+                      "highlight": [
+                        "e_zero",
+                        "pcsrc",
+                        "e_badd_pcsrc",
+                        "e_pcsrc_pc",
+                        "pc"
+                      ],
+                      "text": "Branch AND Zero **পরের PC** হিসেবে branch target বাছাই করে (PCSrc = 1)।",
+                      "values": {
+                        "pcsrc": "PCSrc=1"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "add, lw, sw ও beq চালান। প্রতিটির জন্য দেখুন কোন উপাদানগুলো জ্বলে ওঠে আর কোনগুলো নিষ্ক্রিয় থাকে।"
+        },
+        {
+          "type": "concept",
+          "concept": "instr",
+          "title": "সিমুলেটরে একই instruction",
+          "blocks": [
+            {
+              "type": "mips",
+              "title": "lw, add, sw, beq",
+              "program": "lui $s1, 0x1001\nlw $t0, 8($s1)\nadd $t1, $t0, $t0\nsw $t1, 12($s1)\nbeq $t0, $t1, end\nend:",
+              "memory": {
+                "0x10010008": 21
+              },
+              "watch": [
+                "$s1",
+                "$t0",
+                "$t1"
+              ],
+              "hint": "lw অ্যাড্রেস 0x10010008 থেকে 21 পড়ে, add সেটিকে দ্বিগুণ করে, sw 0x1001000C-তে 42 store করে, আর beq branch করে না কারণ 21 ≠ 42।",
+              "editable": true
+            }
+          ],
+          "why": "এখানকার প্রতিটি লাইন আপনি এইমাত্র দেখা datapath-এর পথ অনুসরণ করে।"
+        },
+        {
+          "type": "predict",
+          "concept": "instr",
+          "skill": "Apply",
+          "question": "`add $t0, $s1, $s2` datapath-এর ভেতর দিয়ে চলে। এটি কি data memory ব্যবহার করে?",
+          "options": [
+            "না: এটি data memory এড়িয়ে যায়",
+            "হ্যাঁ: এটি মেমোরি থেকে পড়ে",
+            "হ্যাঁ: এটি মেমোরিতে লেখে",
+            "শুধু ফলাফল ঋণাত্মক হলে"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "R-type instruction কখনো data memory ছোঁয় না। এর ফলাফল সরাসরি ALU থেকে MemtoReg multiplexer হয়ে register file-এ ফিরে যায়।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "শুধু lw ও sw data memory ব্যবহার করে।"
+        },
+        {
+          "type": "arrange",
+          "concept": "instr",
+          "skill": "Understand",
+          "title": "ছোট চ্যালেঞ্জ",
+          "prompt": "`lw`-এর ধাপগুলো সঠিক ক্রমে সাজান।",
+          "items": [
+            "PC ব্যবহার করে instruction ফেচ করুন",
+            "বেস রেজিস্টার পড়ুন এবং অফসেট sign-extend করুন",
+            "ALU বেস ও অফসেট যোগ করে",
+            "Data memory সেই অ্যাড্রেসের word পড়ে",
+            "Word-টি গন্তব্য রেজিস্টারে লিখুন"
+          ],
+          "why": "প্রতিটি ধাপের জন্য আগের ধাপের আউটপুট দরকার।"
+        },
+        {
+          "type": "find",
+          "concept": "instr",
+          "skill": "Analyze",
+          "title": "ভুলটি খুঁজুন",
+          "prompt": "Instruction এক্সিকিউশন নিয়ে একটি বক্তব্য ভুল। সেটিতে ক্লিক করুন।",
+          "lines": [
+            "1. lw অ্যাড্রেস হিসাব করতে ALU ব্যবহার করে।",
+            "2. sw একটি রেজিস্টারের মান data memory-তে লেখে।",
+            "3. beq তার ফলাফল একটি রেজিস্টারে লেখে।",
+            "4. add data memory ব্যবহার করে না।"
+          ],
+          "wrong": 2,
+          "explain": "beq দুটি রেজিস্টার তুলনা করে এবং PC বদলাতে পারে; এটি কোনো রেজিস্টারে লেখে না।",
+          "fix": "beq কোনো রেজিস্টারে লেখে না।"
+        }
+      ]
+    },
+    {
+      "id": "control",
+      "label": "Control signal",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "control",
+          "title": "আটটি control signal",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Signal",
+                "1 হলে (বা অন্য মান হলে) অর্থ"
+              ],
+              "rows": [
+                [
+                  "RegDst",
+                  "গন্তব্য রেজিস্টার rd (R-type); 0 হলে rt (lw, addi)"
+                ],
+                [
+                  "ALUSrc",
+                  "ALU-র দ্বিতীয় ইনপুট immediate; 0 হলে একটি রেজিস্টার"
+                ],
+                [
+                  "MemtoReg",
+                  "মেমোরির ডেটা রেজিস্টারে লেখা হয়; 0 হলে ALU-র ফলাফল"
+                ],
+                [
+                  "RegWrite",
+                  "Register file-এ লেখা হয়"
+                ],
+                [
+                  "MemRead",
+                  "Data memory পড়া হয় (lw)"
+                ],
+                [
+                  "MemWrite",
+                  "Data memory-তে লেখা হয় (sw)"
+                ],
+                [
+                  "Branch",
+                  "Instruction-টি একটি branch (পরের PC বাছাই করতে Zero-র সঙ্গে ব্যবহৃত হয়)"
+                ],
+                [
+                  "ALUOp",
+                  "2 bit: ALU control-কে বলে কোন অপারেশন বেছে নিতে হবে"
+                ]
+              ]
+            }
+          ],
+          "why": "প্রতিটি signal হয় একটি multiplexer select, নয়তো একটি write-enable; তাই আটটি signal পুরো datapath পরিচালনা করে।",
+          "real": "অনেক ডিজাইনে ইন্সট্রাকশন সেট বদলাতে হলে datapath নয়, এই টেবিলটিই বদলাতে হয়।"
+        },
+        {
+          "type": "concept",
+          "concept": "control",
+          "title": "প্রতিটি instruction-এর signal মান",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "Instruction",
+                "RegDst",
+                "ALUSrc",
+                "MemtoReg",
+                "RegWrite",
+                "MemRead",
+                "MemWrite",
+                "Branch",
+                "ALUOp"
+              ],
+              "rows": [
+                [
+                  "R-type (add, sub, ...)",
+                  "1",
+                  "0",
+                  "0",
+                  "1",
+                  "0",
+                  "0",
+                  "0",
+                  "10"
+                ],
+                [
+                  "lw",
+                  "0",
+                  "1",
+                  "1",
+                  "1",
+                  "1",
+                  "0",
+                  "0",
+                  "00"
+                ],
+                [
+                  "sw",
+                  "X",
+                  "1",
+                  "X",
+                  "0",
+                  "0",
+                  "1",
+                  "0",
+                  "00"
+                ],
+                [
+                  "beq",
+                  "X",
+                  "0",
+                  "X",
+                  "0",
+                  "0",
+                  "0",
+                  "1",
+                  "01"
+                ]
+              ]
+            }
+          ],
+          "why": "X মানে \"don't care\": মানটি ফলাফলে প্রভাব ফেলে না, কারণ সেখানে কিছু লেখা হয় না।",
+          "real": "এই টেবিলটি control unit-এর লজিক হিসেবে থাকে, সাধারণত কয়েক ডজন গেট দিয়ে।",
+          "mistake": {
+            "wrong": "sw-এর RegWrite = 1, কারণ এটি রেজিস্টার ব্যবহার করে।",
+            "right": "sw শুধু রেজিস্টার পড়ে; এটি মেমোরিতে লেখে, তাই RegWrite = 0 এবং MemWrite = 1।"
+          },
+          "deeper": {
+            "text": "2-bit ALUOp (00 যোগ, 01 বিয়োগ, 10 funct দেখো) একটি ছোট ALU control-কে চূড়ান্ত 4-bit ALU অপারেশন বেছে নিতে দেয়।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "control",
+          "title": "Branch সিদ্ধান্ত",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "PCSrc = Branch AND Zero",
+                  "note": "শুধু সেই branch instruction-এর জন্য branch নিন যার তুলনার ফলাফল শূন্য হয়েছে"
+                },
+                {
+                  "t": "target = (PC + 4) + (offset × 4)",
+                  "note": "Offset বামে 2 shift করা হয়, কারণ instruction 4 byte-এর"
+                }
+              ]
+            }
+          ],
+          "why": "beq তার দুটি রেজিস্টার বিয়োগ করে; ফলাফল শূন্য হলে (Zero = 1) দুটি সমান, তাই branch নেওয়া হয়।",
+          "real": "হার্ডওয়্যার পর্যায়ে প্রতিটি if স্টেটমেন্টের সিদ্ধান্ত এই একই লজিক নেয়।",
+          "mistake": {
+            "wrong": "Branch target হলো PC যোগ offset।",
+            "right": "এটি হলো PC + 4 যোগ offset গুণ 4।"
+          }
+        },
+        {
+          "type": "predict",
+          "concept": "control",
+          "skill": "Apply",
+          "question": "`sw`-এর জন্য কোন control signal 1 থাকে?",
+          "options": [
+            "ALUSrc ও MemWrite",
+            "RegWrite ও MemRead",
+            "RegDst ও MemtoReg",
+            "Branch ও ALUSrc"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "sw একটি বেস ও একটি অফসেট যোগ করে (**ALUSrc = 1**) এবং data memory-তে লেখে (**MemWrite = 1**)। এটি কোনো রেজিস্টারে লেখে না (RegWrite = 0)।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "sw-এর জন্য RegDst ও MemtoReg don't care।"
+        },
+        {
+          "type": "mcq",
+          "concept": "control",
+          "question": "`beq` আছে 0x00400020-তে, offset 3 এবং রেজিস্টার দুটি সমান। পরের instruction কোথা থেকে আসবে?",
+          "options": [
+            "0x00400030",
+            "0x00400024",
+            "0x0040002C",
+            "0x00400020"
+          ],
+          "answer": 0,
+          "why": "PC + 4 = 0x00400024; offset 3 × 4 = 12 = 0xC; 0x00400024 + 0xC = 0x00400030।",
+          "feedback": [
+            "",
+            "এটি branch না নেওয়ার অ্যাড্রেস।",
+            "এখানে PC + 4 + 12-এর বদলে PC + 12 ধরা হয়েছে।",
+            "এতে চিরকাল লুপ চলত।"
+          ]
+        },
+        {
+          "type": "tf",
+          "concept": "control",
+          "statement": "বর্তমান instruction-এর opcode অনুযায়ী control unit তার signal বদলায়।",
+          "answer": true,
+          "why": "এটাই তার পুরো কাজ: opcode ঢোকে, control signal বেরোয়।"
+        }
+      ]
+    },
+    {
+      "id": "timing",
+      "label": "ক্লক সাইকেল টাইম",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "timing",
+          "title": "সবচেয়ে ধীর instruction ক্লক ঠিক করে",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "প্রতিটি instruction **একটি ক্লক সাইকেল** নেয়, তাই সাইকেল এতটা লম্বা হতে হবে যাতে সবচেয়ে ধীর instruction শেষ হতে পারে",
+                "সবচেয়ে ধীর সাধারণত **lw**: এটি সব উপাদান পরপর ব্যবহার করে",
+                "উপাদানগুলোর সবচেয়ে লম্বা ক্রমটিই **critical path**"
+              ]
+            },
+            {
+              "type": "text",
+              "text": "নিচের delay-গুলো **উদাহরণ হিসেবে** নেওয়া, যাতে হিসাব পরিষ্কার হয়। বাস্তব মান টেকনোলজির ওপর নির্ভর করে।",
+              "style": "muted"
+            }
+          ],
+          "why": "ক্লক যদি lw-এর জন্য খুব দ্রুত হয়, load শেষ হবে না এবং প্রসেসর ভুল ফলাফল দেবে।",
+          "real": "প্রসেসর ডিজাইনাররা ক্লকের গতি বাড়াতে critical path ছোট করেন।"
+        },
+        {
+          "type": "concept",
+          "concept": "timing",
+          "title": "ক্লক পিরিয়ড হিসাব করুন",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Single-cycle ক্লক পিরিয়ড",
+              "equation": "Period = সবচেয়ে লম্বা instruction পথ",
+              "inputs": [
+                {
+                  "id": "im",
+                  "label": "Instruction memory",
+                  "value": 200,
+                  "min": 50,
+                  "max": 500,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "rr",
+                  "label": "Register read",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "al",
+                  "label": "ALU",
+                  "value": 200,
+                  "min": 50,
+                  "max": 500,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "dm",
+                  "label": "Data memory",
+                  "value": 200,
+                  "min": 50,
+                  "max": 500,
+                  "step": 10,
+                  "unit": "ps"
+                },
+                {
+                  "id": "rw",
+                  "label": "Register write",
+                  "value": 100,
+                  "min": 20,
+                  "max": 300,
+                  "step": 10,
+                  "unit": "ps"
+                }
+              ],
+              "results": [
+                {
+                  "label": "lw (পাঁচটিই)",
+                  "formula": "im+rr+al+dm+rw",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                },
+                {
+                  "label": "R-type (data memory ছাড়া)",
+                  "formula": "im+rr+al+rw",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                },
+                {
+                  "label": "sw",
+                  "formula": "im+rr+al+dm",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                },
+                {
+                  "label": "beq",
+                  "formula": "im+rr+al",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                },
+                {
+                  "label": "ক্লক পিরিয়ড",
+                  "formula": "max(im+rr+al+dm+rw, im+rr+al+rw, im+rr+al+dm, im+rr+al)",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                },
+                {
+                  "label": "ক্লক ফ্রিকোয়েন্সি",
+                  "formula": "1e6 / max(im+rr+al+dm+rw, im+rr+al+rw, im+rr+al+dm, im+rr+al)",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "MHz"
+                },
+                {
+                  "label": "R-type instruction-এ নষ্ট হওয়া সময়",
+                  "formula": "max(im+rr+al+dm+rw, im+rr+al+rw, im+rr+al+dm, im+rr+al) - (im+rr+al+rw)",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "ps"
+                }
+              ]
+            }
+          ],
+          "why": "ডিফল্ট delay-এ lw নেয় 800 ps, তাই ক্লক পিরিয়ড 800 ps (1,250 MHz)। R-type instruction-এর লাগে মাত্র 600 ps, তাই 200 ps নষ্ট হয়। ALU ধীর করে দেখুন পিরিয়ড কীভাবে বদলায়।"
+        },
+        {
+          "type": "predict",
+          "concept": "timing",
+          "skill": "Apply",
+          "question": "এই delay-গুলো নিয়ে ক্লক পিরিয়ড 800 ps। Data memory দ্বিগুণ দ্রুত (100 ps) করা হলে নতুন পিরিয়ড কত হবে?",
+          "options": [
+            "700 ps",
+            "800 ps",
+            "600 ps",
+            "400 ps"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "lw হয় 200 + 100 + 200 + 100 + 100 = **700 ps**, আর এটিই এখনো সবচেয়ে ধীর।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "যাচাই করুন lw এখনো critical path কি না: R-type 600 ps এবং sw 600 ps।"
+        },
+        {
+          "type": "tps",
+          "title": "ভাবুন, জোড়ায় আলোচনা করুন, শেয়ার করুন",
+          "prompt": "যদি মাত্র 25% instruction lw হয়, তবু প্রতিটি instruction-কে কেন lw-এর সময় পর্যন্ত অপেক্ষা করতে হয়?",
+          "think": 20,
+          "pair": 40,
+          "answer": "ক্লক পিরিয়ড সব instruction-এর জন্য এক, আর হার্ডওয়্যার আগে থেকে জানতে পারে না পরে কোন instruction আসবে, তাই ক্লককে সবচেয়ে ধীরটির জন্য যথেষ্ট লম্বা হতে হয়। এতে দ্রুত instruction-গুলোর সময় নষ্ট হয়; multi-cycle ডিজাইন (Class 11) ও pipelining (Class 12) এই দুর্বলতাই দূর করে।"
+        },
+        {
+          "type": "discussion",
+          "title": "আলোচনা",
+          "concept": "timing",
+          "question": "Single-cycle-এর CPI = 1। তবু এটি সবচেয়ে দ্রুত ডিজাইন নয় কেন?",
+          "seconds": 60,
+          "ideas": [
+            "লম্বা ক্লক পিরিয়ড প্রতিটি instruction-কে ধীর করে।",
+            "হার্ডওয়্যার দ্বিগুণ হয়: দুটি মেমোরি ও তিনটি adder ভাগাভাগি করা যায় না।",
+            "দ্রুত instruction-গুলো সবচেয়ে ধীরটির জন্য অপেক্ষা করে সময় নষ্ট করে।",
+            "ছোট সাইকেল ও বেশি সংখ্যক সাইকেল গড় instruction-কে আগে শেষ করতে পারে।"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "অনুশীলন",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "comp",
+          "question": "Single-cycle datapath-এর প্রধান উপাদানগুলোর নাম বলুন।",
+          "answer": "PC, instruction memory, register file, sign extender, ALU, data memory, multiplexer, adder এবং control unit।",
+          "solution": "আপনার তৈরি করা ডায়াগ্রামে এই নয়টি অংশই আছে।",
+          "think": 20
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "instr",
+          "question": "`add $t0, $s1, $s2` কোন উপাদানগুলো ব্যবহার করে? কোনগুলো এড়িয়ে যায়?",
+          "answer": "ব্যবহার করে PC, instruction memory, register file (পড়া ও লেখা), ALU এবং control unit; এড়িয়ে যায় data memory।",
+          "solution": "R-type-এর ফলাফল সরাসরি ALU থেকে register file-এ ফিরে যায়।",
+          "hint": "add কি মেমোরি পড়ে বা লেখে?",
+          "think": 45
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "control",
+          "question": "`lw`-এর আটটি control signal লিখুন।",
+          "answer": "RegDst 0, ALUSrc 1, MemtoReg 1, RegWrite 1, MemRead 1, MemWrite 0, Branch 0, ALUOp 00।",
+          "solution": "lw rt-তে লেখে (RegDst 0), immediate ব্যবহার করে (ALUSrc 1), মেমোরি থেকে ডেটা নেয় (MemtoReg 1), একটি রেজিস্টারে লেখে (RegWrite 1), মেমোরি পড়ে (MemRead 1) এবং যোগ করে (ALUOp 00)।",
+          "hint": "lw কী পড়ে, আর ফলাফল কোথায় যায়?",
+          "mistake": "lw রেজিস্টারে লেখে বলে RegDst 1 সেট করা।",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "timing",
+          "question": "Delay হলো IM 200, register read 100, ALU 300, DM 200, register write 100 ps। ক্লক পিরিয়ড কত?",
+          "answer": "900 ps।",
+          "solution": "lw = 200 + 100 + 300 + 200 + 100 = 900 ps; R-type = 700 ps; সবচেয়ে লম্বা পথ lw।",
+          "hint": "lw পথের উপাদানগুলো যোগ করুন।",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "control",
+          "question": "প্রসেসরে `addi $t0, $s1, 5` যোগ করা হলো। এর control signal লিখুন।",
+          "answer": "RegDst 0, ALUSrc 1, MemtoReg 0, RegWrite 1, MemRead 0, MemWrite 0, Branch 0, ALUOp 00।",
+          "solution": "addi rt-তে লেখে (RegDst 0), immediate ব্যবহার করে (ALUSrc 1), ALU-র ফলাফল লেখে (MemtoReg 0), একটি রেজিস্টারে লেখে (RegWrite 1), মেমোরি ছোঁয় না এবং branch করে না। ALU শুধু যোগ করে (ALUOp 00)।",
+          "mistake": "MemtoReg 1 সেট করা (ওটা lw-এর জন্য)।",
+          "title": "পরীক্ষার অনুশীলন: signal টেবিল",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "timing",
+          "question": "Delay: IM 250, register read 150, ALU 200, DM 300, register write 150 ps। lw-এর সময়, R-type-এর সময়, ক্লক পিরিয়ড এবং R-type-এ নষ্ট সময় বের করুন।",
+          "answer": "lw 1050 ps; R-type 750 ps; ক্লক পিরিয়ড 1050 ps; R-type-এ নষ্ট হয় 300 ps।",
+          "solution": "lw = 250 + 150 + 200 + 300 + 150 = 1050। R-type = 250 + 150 + 200 + 150 = 750। ক্লক ঠিক করে lw: 1050। নষ্ট সময় = 1050 − 750 = 300 ps।",
+          "mistake": "R-type-এর সময়কে ক্লক পিরিয়ড ধরা।",
+          "title": "পরীক্ষার অনুশীলন: সংখ্যাগত হিসাব",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "control",
+          "question": "`beq` আছে 0x00400020-তে এবং তার offset 3। রেজিস্টার দুটি সমান। পরের PC কত, আর PCSrc কত?",
+          "answer": "0x00400030; PCSrc = 1।",
+          "solution": "Branch = 1 এবং Zero = 1 হলে PCSrc = 1। Target = 0x00400020 + 4 + 3 × 4 = 0x00400030।",
+          "mistake": "+ 4 বা × 4 বাদ দেওয়া।",
+          "title": "পরীক্ষার অনুশীলন: branch target",
+          "think": 75,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "timing",
+          "question": "ব্যাখ্যা করুন কেন single-cycle প্রসেসরে দুটি মেমোরি লাগে এবং কেন তার ক্লক lw দিয়ে ঠিক হয়।",
+          "answer": "এক সাইকেলে প্রসেসরকে instruction ফেচ করতে হয় এবং lw বা sw-এর জন্য ডেটাও অ্যাক্সেস করতে হয়, তাই একটি instruction memory ও একটি data memory লাগে (একটি মেমোরি সাইকেলে একবারই ব্যবহার করা যেত)। ক্লক পিরিয়ডকে সবচেয়ে ধীর instruction-কে ধারণ করতে হয়: lw পাঁচটি ধাপই পরপর ব্যবহার করে, তাই সেটিই critical path ঠিক করে, আর দ্রুত instruction-গুলো পার্থক্যটুকু নষ্ট করে।",
+          "solution": "ভালো উত্তর প্রতি instruction-এ এক সাইকেলকে দ্বিগুণ হার্ডওয়্যার ও লম্বা ক্লক, দুটির সঙ্গেই যুক্ত করে।",
+          "mistake": "বলা যে ক্লক ঠিক হয় গড় instruction দিয়ে।",
+          "title": "পরীক্ষার অনুশীলন: ধারণাগত",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "পর্যালোচনা",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "সবকিছু কীভাবে যুক্ত",
+          "root": "Single-cycle প্রসেসর",
+          "branches": [
+            {
+              "label": "উপাদান",
+              "example": "PC, ALU, মেমোরি, ...",
+              "section": "comp"
+            },
+            {
+              "label": "এক্সিকিউশন",
+              "example": "add, lw, sw, beq",
+              "section": "instr"
+            },
+            {
+              "label": "Control",
+              "example": "প্রতি instruction-এর signal",
+              "section": "control"
+            },
+            {
+              "label": "টাইমিং",
+              "example": "critical path",
+              "section": "timing"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "যা মনে রাখবেন",
+          "remember": [
+            "Datapath ডেটা বয়ে নেয়; control unit সেই signal সেট করে যা তাকে পরিচালনা করে।",
+            "উপাদান: PC, instruction memory, register file, sign extend, ALU, data memory, multiplexer, adder।",
+            "প্রতিটি instruction: ফেচ, ডিকোড, এক্সিকিউট, তারপর প্রয়োজনমতো মেমোরি ও রাইট ব্যাক।",
+            "lw সব উপাদান ব্যবহার করে; add data memory এড়িয়ে যায়; sw মেমোরিতে লেখে কিন্তু রেজিস্টারে নয়; beq কিছুই লেখে না।",
+            "Control signal: RegDst, ALUSrc, MemtoReg, RegWrite, MemRead, MemWrite, Branch, ALUOp।",
+            "PCSrc = Branch AND Zero; target = PC + 4 + offset × 4।",
+            "ক্লক পিরিয়ড = সবচেয়ে ধীর instruction (lw); অন্য instruction-গুলো সময় নষ্ট করে।"
+          ]
+        },
+        {
+          "type": "review",
+          "title": "সাধারণ ভুল",
+          "mistakes": [
+            {
+              "wrong": "Control unit গাণিতিক কাজ করে।",
+              "right": "ALU করে; control signal সেট করে।"
+            },
+            {
+              "wrong": "sw একটি রেজিস্টারে লেখে।",
+              "right": "sw মেমোরিতে লেখে (RegWrite = 0)।"
+            },
+            {
+              "wrong": "ক্লক ঠিক হয় গড় instruction দিয়ে।",
+              "right": "ঠিক হয় সবচেয়ে ধীরটি দিয়ে, সাধারণত lw।"
+            },
+            {
+              "wrong": "Branch target হলো PC যোগ offset।",
+              "right": "এটি PC + 4 + offset × 4।"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "এক মিনিটের সারসংক্ষেপ",
+          "summary": "Single-cycle প্রসেসর একটি datapath দিয়ে প্রতিটি instruction এক ক্লক সাইকেলে শেষ করে: PC, instruction memory, register file, ALU, data memory, multiplexer ও adder। Control unit opcode ডিকোড করে আটটি control signal বানায়। ক্লককে সবচেয়ে ধীর instruction (lw)-এর মাপে হতে হয় বলে সহজ instruction-গুলো সময় নষ্ট করে এবং হার্ডওয়্যার দ্বিগুণ হয়; এখান থেকেই multi-cycle ডিজাইনের দিকে যাওয়া।"
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "কুইজ",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "চূড়ান্ত কুইজ",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "comp",
+              "question": "কোন ইউনিট পরের instruction-এর অ্যাড্রেস ধরে রাখে?",
+              "options": [
+                "PC",
+                "ALU",
+                "Control unit",
+                "Sign extender"
+              ],
+              "answer": 0,
+              "why": "PC সেটি ধরে রাখে।",
+              "misconception": "এটি প্রতিটি সাইকেলে আপডেট হয়।"
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "comp",
+              "statement": "Control unit গাণিতিক কাজ করে।",
+              "answer": false,
+              "why": "গাণিতিক কাজ করে ALU।",
+              "misconception": "Control unit শুধু ডিকোড করে এবং signal সেট করে।"
+            },
+            {
+              "level": "easy",
+              "concept": "instr",
+              "question": "PC সাধারণত কত byte এগোয়?",
+              "options": [
+                "4",
+                "1",
+                "2",
+                "8"
+              ],
+              "answer": 0,
+              "why": "Instruction-এর দৈর্ঘ্য 4 byte।",
+              "misconception": "Branch PC + 4-এর সঙ্গে একটি offset যোগ করে।"
+            },
+            {
+              "level": "medium",
+              "concept": "control",
+              "question": "lw-এর জন্য কোন signal 1 থাকে?",
+              "options": [
+                "ALUSrc, MemtoReg, RegWrite, MemRead",
+                "RegDst, MemWrite",
+                "Branch, ALUSrc",
+                "RegDst, RegWrite"
+              ],
+              "answer": 0,
+              "why": "lw immediate ব্যবহার করে, মেমোরির ডেটা নেয়, একটি রেজিস্টারে লেখে এবং মেমোরি পড়ে।",
+              "misconception": "lw-এর জন্য RegDst 0 (এটি rt-তে লেখে)।"
+            },
+            {
+              "level": "medium",
+              "concept": "control",
+              "question": "PCSrc = 1 মানে কী?",
+              "options": [
+                "Branch নেওয়া হয়েছে",
+                "PC 4 বাড়ানো হয়েছে",
+                "ALU যোগ করে",
+                "একটি রেজিস্টারে লেখা হয়"
+              ],
+              "answer": 0,
+              "why": "PCSrc = Branch AND Zero, এটি branch target বাছাই করে।",
+              "misconception": "PCSrc = 0 হলে PC + 4 বাছাই হয়।"
+            },
+            {
+              "level": "medium",
+              "concept": "timing",
+              "question": "IM 200, RR 100, ALU 200, DM 200, RW 100 ps হলে একটি R-type instruction-এর কত সময় লাগে?",
+              "options": [
+                "600 ps",
+                "800 ps",
+                "500 ps",
+                "700 ps"
+              ],
+              "answer": 0,
+              "why": "200 + 100 + 200 + 100 = 600 ps (data memory ছাড়া)।",
+              "misconception": "R-type data memory ব্যবহার করে না।"
+            },
+            {
+              "level": "hard",
+              "concept": "timing",
+              "question": "একই delay হলে single-cycle প্রসেসরের কত ক্লক পিরিয়ড লাগে?",
+              "options": [
+                "800 ps",
+                "600 ps",
+                "700 ps",
+                "1,000 ps"
+              ],
+              "answer": 0,
+              "why": "সবচেয়ে ধীর পথ (lw) 800 ps।",
+              "misconception": "সব instruction একই পিরিয়ড পায়।"
+            },
+            {
+              "level": "hard",
+              "concept": "control",
+              "question": "0x00400020-তে থাকা `beq`, offset 3, branch নেওয়া হলে কোথায় যায়?",
+              "options": [
+                "0x00400030",
+                "0x0040002C",
+                "0x00400024",
+                "0x00400023"
+              ],
+              "answer": 0,
+              "why": "0x00400020 + 4 + 12 = 0x00400030।",
+              "misconception": "PC + 4 এবং × 4 মনে রাখুন।"
+            },
+            {
+              "level": "challenge",
+              "concept": "timing",
+              "question": "25% lw, 10% sw, 45% R-type, 20% beq; সময় যথাক্রমে 800, 700, 600, 500 ps। প্রতিটি instruction যদি শুধু নিজের সময় নিত, তাহলে গড় কত হতো?",
+              "options": [
+                "640 ps",
+                "700 ps",
+                "600 ps",
+                "800 ps"
+              ],
+              "answer": 0,
+              "why": "0.25 × 800 + 0.10 × 700 + 0.45 × 600 + 0.20 × 500 = 640 ps।",
+              "misconception": "প্রতিটি সময়কে তার ফ্রিকোয়েন্সি দিয়ে ওজন করুন।"
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "মনে আছে কি?",
+          "items": [
+            {
+              "q": "Datapath কী?",
+              "a": "যে হার্ডওয়্যার ডেটা ধরে রাখে ও এক জায়গা থেকে আরেক জায়গায় নেয়।",
+              "concept": "comp"
+            },
+            {
+              "q": "Control unit কী করে?",
+              "a": "opcode ডিকোড করে এবং control signal সেট করে।",
+              "concept": "control"
+            },
+            {
+              "q": "কোন ধরনের instruction data memory ব্যবহার করে?",
+              "a": "শুধু lw ও sw।",
+              "concept": "instr"
+            },
+            {
+              "q": "ক্লক পিরিয়ড কী ঠিক করে?",
+              "a": "সবচেয়ে ধীর instruction: critical path (lw)।",
+              "concept": "timing"
+            },
+            {
+              "q": "Branch target কীভাবে হিসাব হয়?",
+              "a": "PC + 4 + offset × 4।",
+              "concept": "control"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "আপনার লার্নিং রিপোর্ট"
+        }
+      ]
+    }
+  ]
+}

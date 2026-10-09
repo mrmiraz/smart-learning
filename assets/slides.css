@@ -1,5 +1,12 @@
 /* Overrides on top of reveal's black theme */
-:root { --accent: #818cf8; --accent2: #c084fc; }
+:root { --accent: #818cf8; --accent2: #c084fc; --bg: #0b1020; --card: #131a30; --text: #e8ecf8; --muted: #94a3b8; --line: #243052; --chip: #0e1428; }
+/* the top bar takes 56px; the slides get the rest */
+body { padding-top: 56px; }
+.reveal-viewport .reveal, .reveal { height: calc(100vh - 56px) !important; }
+.theme-toggle { display: grid; place-items: center; cursor: pointer; color: var(--text); background: var(--card); border: 1px solid var(--line); }
+.theme-toggle .moon { display: none; }
+:root[data-theme="dark"] .theme-toggle .sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .moon { display: block; }
 .reveal-viewport { background: radial-gradient(1100px 700px at 15% 0%, #1e1b4b, transparent 60%), radial-gradient(900px 600px at 100% 100%, #3b0764, transparent 60%), #0b1020 !important; }
 .reveal { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 36px; }
 .reveal h1, .reveal h2, .reveal h3 { font-family: inherit; text-transform: none; letter-spacing: -.02em; font-weight: 700; }
@@ -15,19 +22,8 @@
 .reveal .progress { height: 4px; color: var(--accent); }
 .reveal .slide-number { background: transparent; color: #94a3b8; font-size: 14px; }
 .reveal .controls { color: var(--accent); }
-.back-link { position: fixed; top: 14px; left: 16px; z-index: 50; padding: 7px 13px; border-radius: 999px; font: 600 14px/1 ui-sans-serif, system-ui, sans-serif;
-  color: #e0e7ff; text-decoration: none; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .12); backdrop-filter: blur(8px); }
-.back-link:hover { background: rgba(255, 255, 255, .16); }
-
-.theme-toggle { position: fixed; top: 14px; right: 16px; z-index: 50; width: 36px; height: 36px; border-radius: 999px; display: grid; place-items: center; cursor: pointer;
-  color: #e0e7ff; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .12); backdrop-filter: blur(8px); }
-.theme-toggle:hover { background: rgba(255, 255, 255, .16); }
-.theme-toggle .moon { display: none; }
-:root[data-theme="dark"] .theme-toggle .sun { display: none; }
-:root[data-theme="dark"] .theme-toggle .moon { display: block; }
-
 /* Light mode */
-:root[data-theme="light"] { --accent: #4f46e5; --r-background-color: #f6f7fb; --r-main-color: #1e293b; --r-heading-color: #1e1b4b; --r-link-color: #4f46e5; }
+:root[data-theme="light"] { --bg: #f6f7fb; --card: #fff; --text: #0f172a; --muted: #64748b; --line: #e2e8f0; --chip: #f1f5f9; --accent: #4f46e5; --r-background-color: #f6f7fb; --r-main-color: #1e293b; --r-heading-color: #1e1b4b; --r-link-color: #4f46e5; }
 :root[data-theme="light"] .reveal-viewport { background: radial-gradient(1100px 700px at 15% 0%, #e0e7ff, transparent 60%), radial-gradient(900px 600px at 100% 100%, #f3e8ff, transparent 60%), #f6f7fb !important; }
 :root[data-theme="light"] .reveal { color: #1e293b; }
 :root[data-theme="light"] .reveal h1 { background: linear-gradient(135deg, #4f46e5, #c026d3); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -35,11 +31,7 @@
 :root[data-theme="light"] .reveal :not(pre) > code { color: #4338ca; background: rgba(79, 70, 229, .1); }
 :root[data-theme="light"] .reveal pre { box-shadow: 0 20px 40px -22px rgba(15, 23, 42, .45); border-color: rgba(15, 23, 42, .1); }
 :root[data-theme="light"] .reveal .slide-number { color: #64748b; }
-:root[data-theme="light"] .back-link, :root[data-theme="light"] .theme-toggle { color: #1e1b4b; background: rgba(255, 255, 255, .8); border-color: rgba(15, 23, 42, .12); }
-:root[data-theme="light"] .back-link:hover, :root[data-theme="light"] .theme-toggle:hover { background: #fff; }
 
-.qr-fab { position: fixed; top: 14px; right: 60px; z-index: 50; height: 36px; padding: 0 12px; border-radius: 999px; cursor: pointer; font: 700 12px ui-sans-serif, system-ui, sans-serif; letter-spacing: .06em;
-  color: #e0e7ff; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .12); backdrop-filter: blur(8px); }
-.qr-fab:hover { background: rgba(255, 255, 255, .16); }
-:root[data-theme="light"] .qr-fab { color: #1e1b4b; background: rgba(255, 255, 255, .8); border-color: rgba(15, 23, 42, .12); }
-@media print { .qr-fab { display: none !important; } }
+/* language switcher and the "not available in your language" notice on slide pages */
+.lang-note { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 60; max-width: min(90vw, 560px); padding: 10px 16px; border-radius: 12px; font: 600 14px/1.4 ui-sans-serif, system-ui, sans-serif; color: #1e1b4b; background: #fef3c7; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
+@media print { .lang-note { display: none !important; } }

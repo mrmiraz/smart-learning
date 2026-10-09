@@ -1,0 +1,2264 @@
+{
+  "id": "ca-23-multiprocessors-shared-memory",
+  "title": "Multicore ও Shared-Memory Multiprocessor",
+  "subtitle": "অনেক core, একটি memory, আর তা থেকে তৈরি হওয়া সমস্যা।",
+  "level": "Beginner",
+  "duration": 60,
+  "practiceLevels": 4,
+  "references": [
+    {
+      "book": "CAQA",
+      "chapter": "8",
+      "title": "Multiprocessors",
+      "topics": "Centralized ও distributed shared memory; cache coherence; synchronization"
+    },
+    {
+      "book": "COD",
+      "chapter": "6",
+      "title": "Parallel Processors from Client to Cloud",
+      "topics": "Multicore ও shared-memory multiprocessor; synchronization; Amdahl's Law ও স্কেলিং"
+    }
+  ],
+  "objectives": [
+    "প্রসেসর কেন একাধিক core-এর দিকে গেল, তা ব্যাখ্যা করুন",
+    "Centralized (UMA) ও distributed (NUMA) shared memory-র তুলনা করুন",
+    "Cache coherence সমস্যা ব্যাখ্যা করুন এবং MSI প্রোটোকল ট্রেস করুন",
+    "Race condition ব্যাখ্যা করুন এবং lock দিয়ে তা ঠিক করুন",
+    "Atomic অপারেশন বর্ণনা করুন এবং parallel speed-up-এ Amdahl's Law প্রয়োগ করুন"
+  ],
+  "concepts": [
+    {
+      "id": "why",
+      "label": "কেন একাধিক প্রসেসর",
+      "section": "why"
+    },
+    {
+      "id": "arch",
+      "label": "Shared-memory আর্কিটেকচার",
+      "section": "arch"
+    },
+    {
+      "id": "coh",
+      "label": "Cache coherence",
+      "section": "coh"
+    },
+    {
+      "id": "sync",
+      "label": "Synchronization",
+      "section": "sync"
+    }
+  ],
+  "sections": [
+    {
+      "id": "hook",
+      "label": "সূচনা",
+      "minutes": 3,
+      "steps": [
+        {
+          "type": "hook",
+          "question": "আপনার ল্যাপটপে 8টি core আছে। একটি প্রোগ্রাম কি সেখানে 8 গুণ দ্রুত চলবে? আর দুটি core একই ভেরিয়েবল বদলালে কী ঘটে?",
+          "clues": [
+            "বেশি core মানে বেশি **peak** পারফরম্যান্স, কিন্তু শুধু যদি **প্রোগ্রামটি parallel** হয়।",
+            "Core গুলো memory ভাগ করে নেয়, তাই তাদের **cache গুলো একে অপরের সঙ্গে না-ও মিলতে পারে**।",
+            "সতর্ক না হলে একই ভেরিয়েবল আপডেট করা দুটি thread **আপডেট হারিয়ে ফেলে**।"
+          ],
+          "notes": {
+            "explain": "ক্লু দেখানোর আগে শিক্ষার্থীদের অনুমান করতে দিন।"
+          }
+        },
+        {
+          "type": "objectives",
+          "notes": {
+            "explain": "লক্ষ্যগুলো জোরে পড়ুন; এগুলো শেখার রিপোর্টে আবার আসবে।"
+          }
+        }
+      ]
+    },
+    {
+      "id": "why",
+      "label": "কেন একাধিক প্রসেসর",
+      "minutes": 7,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "why",
+          "title": "দ্রুততর core থেকে বেশি core-এ",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "**পাওয়ার ওয়াল**-এর কারণে প্রায় 2005 সালে ক্লক স্পিড বাড়া থেমে গেল (Class 2)",
+                "Dependence ও branch ILP-কে সীমিত করে (Class 14)",
+                "তাই ডিজাইনাররা একটি চিপে **কয়েকটি core** বসালেন: একটি **multicore** প্রসেসর",
+                "সুবিধা পেতে প্রোগ্রামকে **অনেক thread** ব্যবহার করার মতো করে লিখতে (বা compile করতে) হয়"
+              ]
+            },
+            {
+              "type": "table",
+              "head": [
+                "",
+                "Uniprocessor",
+                "Multicore"
+              ],
+              "rows": [
+                [
+                  "দ্রুত হয়",
+                  "বেশি ক্লক ও বেশি ILP দিয়ে",
+                  "বেশি core একসঙ্গে কাজ করে"
+                ],
+                [
+                  "সীমা",
+                  "পাওয়ার ও ILP",
+                  "প্রোগ্রামের parallelism, memory ও পাওয়ার"
+                ],
+                [
+                  "প্রোগ্রামার",
+                  "সাধারণত কিছু করতে হয় না",
+                  "Parallelism বের করতে হয় এবং synchronize করতে হয়"
+                ]
+              ]
+            }
+          ],
+          "why": "পারফরম্যান্স এখনো parallel হার্ডওয়্যারের মাধ্যমেই বাড়ছে, কিন্তু দায়িত্বের ভার গিয়ে পড়ছে সফটওয়্যারের ওপর।",
+          "real": "ফোনে 6 থেকে 8টি core থাকে; সার্ভারে থাকে কয়েক ডজন থেকে কয়েকশো।",
+          "explainAgain": {
+            "beginner": "একজন খুব দ্রুত বাবুর্চি আর বেশি দ্রুত হতে পারেন না, তাই আপনি আরও বাবুর্চি নেন; কিন্তু তাদের আলাদা আলাদা কাজ দিতে হবে, আর একই কড়াই নিয়ে যেন ঝগড়া না হয়।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "why",
+          "title": "Parallel প্রোগ্রামের জন্য Amdahl's Law",
+          "blocks": [
+            {
+              "type": "formula",
+              "terms": [
+                {
+                  "t": "speed-up = 1 ÷ ((1 − p) + p ÷ n)",
+                  "note": "p = যে অংশ parallel চলতে পারে; n = core সংখ্যা"
+                },
+                {
+                  "t": "সীমা = 1 ÷ (1 − p)",
+                  "note": "অসীম সংখ্যক core থাকলেও"
+                }
+              ]
+            }
+          ],
+          "why": "প্রোগ্রামের serial অংশ ঠিক করে দেয়, যত core-ই থাকুক, কতটা অর্জন করা সম্ভব।",
+          "real": "90% parallel একটি প্রোগ্রাম যত core-ই পাক, কখনো 10 গুণের বেশি দ্রুত হতে পারে না।",
+          "mistake": {
+            "wrong": "আটটি core মানে আট গুণ গতি।",
+            "right": "শুধু তখনই, যখন কাজের 100% parallel এবং কোনো ওভারহেড নেই।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "why",
+          "title": "হিসাব করুন: parallel speed-up",
+          "blocks": [
+            {
+              "type": "calculator",
+              "title": "Amdahl's Law",
+              "equation": "speedup = 1 ÷ ((1 − p) + p ÷ n)",
+              "inputs": [
+                {
+                  "id": "p",
+                  "label": "Parallel অংশ",
+                  "value": 90,
+                  "min": 0,
+                  "max": 100,
+                  "step": 1,
+                  "unit": "%"
+                },
+                {
+                  "id": "n",
+                  "label": "Core সংখ্যা",
+                  "value": 8,
+                  "min": 1,
+                  "max": 128,
+                  "step": 1
+                }
+              ],
+              "results": [
+                {
+                  "label": "Speed-up",
+                  "formula": "1 / ((1 - p/100) + (p/100) / n)",
+                  "format": "x",
+                  "digits": 2
+                },
+                {
+                  "label": "দক্ষতা (প্রতি core-এ speed-up)",
+                  "formula": "100 * (1 / ((1 - p/100) + (p/100) / n)) / n",
+                  "format": "num",
+                  "digits": 0,
+                  "unit": "%"
+                },
+                {
+                  "label": "অসীম core থাকলে সীমা",
+                  "formula": "1 / (1 - p/100)",
+                  "format": "x",
+                  "digits": 1
+                }
+              ]
+            }
+          ],
+          "why": "8টি core-এ 90% parallel: 4.71 গুণ, দক্ষতা 59%, সীমা 10। 95% ও 16টি core-এ: 9.14।"
+        },
+        {
+          "type": "predict",
+          "concept": "why",
+          "skill": "Apply",
+          "question": "একটি প্রোগ্রাম 90% parallel এবং 8টি core-এ চলে। Speed-up কত?",
+          "options": [
+            "4.71",
+            "8",
+            "7.2",
+            "9"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "1 ÷ (0.1 + 0.9 ÷ 8) = 1 ÷ 0.2125 = **4.71**: 8-এর অনেক নিচে।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "n বাড়লে 10% serial অংশই ফলাফলে প্রভাব ফেলে।"
+        },
+        {
+          "type": "tf",
+          "concept": "why",
+          "statement": "Core সংখ্যা দ্বিগুণ করলে প্রতিটি প্রোগ্রামের গতি সবসময় দ্বিগুণ হয়।",
+          "answer": false,
+          "why": "যেসব প্রোগ্রামে serial অংশ বা বেশি synchronization আছে, তারা অনেক কম লাভ পায়।"
+        }
+      ]
+    },
+    {
+      "id": "arch",
+      "label": "Shared-memory আর্কিটেকচার",
+      "minutes": 9,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "arch",
+          "title": "Shared memory",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "**Shared-memory multiprocessor**-এ প্রতিটি core একই **একক অ্যাড্রেস স্পেস** থেকে load ও store করতে পারে। Thread গুলো শুধু shared ভেরিয়েবল পড়ে ও লিখেই নিজেদের মধ্যে যোগাযোগ করে। প্রধান অর্গানাইজেশন দুটি।"
+            }
+          ],
+          "why": "প্রোগ্রাম একটিমাত্র memory দেখে, ফলে প্রোগ্রামিং সহজ হয়; কিন্তু প্রতিটি অ্যাক্সেস কত দ্রুত হবে তা ঠিক করে হার্ডওয়্যার অর্গানাইজেশন।",
+          "real": "প্রায় প্রতিটি ল্যাপটপ, ফোন ও সার্ভার প্রসেসর একটি shared-memory multiprocessor।"
+        },
+        {
+          "type": "concept",
+          "concept": "arch",
+          "title": "Centralized shared memory (UMA)",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Centralized shared memory (UMA)",
+              "width": 960,
+              "height": 390,
+              "nodes": [
+                {
+                  "id": "c0",
+                  "label": "Core 0",
+                  "kind": "unit",
+                  "x": 60,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k0",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 60,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "c1",
+                  "label": "Core 1",
+                  "kind": "unit",
+                  "x": 280,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k1",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 280,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "c2",
+                  "label": "Core 2",
+                  "kind": "unit",
+                  "x": 500,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k2",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 500,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "c3",
+                  "label": "Core 3",
+                  "kind": "unit",
+                  "x": 720,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k3",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 720,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "bus",
+                  "label": "Shared bus / interconnect",
+                  "kind": "ctrl",
+                  "x": 60,
+                  "y": 210,
+                  "w": 790,
+                  "h": 36
+                },
+                {
+                  "id": "mem",
+                  "label": "Main memory\n(একটি, shared)",
+                  "kind": "mem",
+                  "x": 270,
+                  "y": 300,
+                  "w": 170,
+                  "h": 60
+                },
+                {
+                  "id": "io",
+                  "label": "I/O",
+                  "kind": "unit",
+                  "x": 560,
+                  "y": 300,
+                  "w": 130,
+                  "h": 60
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_c0",
+                  "points": [
+                    [
+                      125,
+                      65
+                    ],
+                    [
+                      125,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k0",
+                  "points": [
+                    [
+                      125,
+                      140
+                    ],
+                    [
+                      125,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_c1",
+                  "points": [
+                    [
+                      345,
+                      65
+                    ],
+                    [
+                      345,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k1",
+                  "points": [
+                    [
+                      345,
+                      140
+                    ],
+                    [
+                      345,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_c2",
+                  "points": [
+                    [
+                      565,
+                      65
+                    ],
+                    [
+                      565,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k2",
+                  "points": [
+                    [
+                      565,
+                      140
+                    ],
+                    [
+                      565,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_c3",
+                  "points": [
+                    [
+                      785,
+                      65
+                    ],
+                    [
+                      785,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k3",
+                  "points": [
+                    [
+                      785,
+                      140
+                    ],
+                    [
+                      785,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_mem",
+                  "points": [
+                    [
+                      355,
+                      246
+                    ],
+                    [
+                      355,
+                      300
+                    ]
+                  ],
+                  "label": "সবার জন্য একই দূরত্ব",
+                  "labelAt": [
+                    440,
+                    276
+                  ]
+                },
+                {
+                  "id": "e_io",
+                  "points": [
+                    [
+                      625,
+                      246
+                    ],
+                    [
+                      625,
+                      300
+                    ]
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "c0",
+                    "k0",
+                    "c1",
+                    "k1",
+                    "c2",
+                    "k2",
+                    "c3",
+                    "k3",
+                    "e_c0",
+                    "e_c1",
+                    "e_c2",
+                    "e_c3"
+                  ],
+                  "text": "একটি চিপ বা বোর্ডে কয়েকটি **core**, প্রতিটির নিজস্ব **private cache**।"
+                },
+                {
+                  "show": [
+                    "bus",
+                    "e_k0",
+                    "e_k1",
+                    "e_k2",
+                    "e_k3"
+                  ],
+                  "text": "Cache গুলো একটি **shared bus** (বা অনুরূপ interconnect)-এর সঙ্গে যুক্ত।"
+                },
+                {
+                  "show": [
+                    "mem",
+                    "io",
+                    "e_mem",
+                    "e_io"
+                  ],
+                  "text": "একটিমাত্র **main memory** প্রতিটি core-কে সেবা দেয়, আর প্রতিটি core এটি থেকে **একই দূরত্বে** থাকে: **uniform** memory access (UMA)।"
+                }
+              ]
+            }
+          ],
+          "why": "একটি memory, একটি bus: সহজ, কিন্তু bus-ই ঠিক করে দেয় কতগুলো core যোগ করা যাবে।"
+        },
+        {
+          "type": "concept",
+          "concept": "arch",
+          "title": "UMA ডিজাইনে read অনুসরণ করুন",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Centralized shared memory (UMA)",
+              "width": 960,
+              "height": 390,
+              "nodes": [
+                {
+                  "id": "c0",
+                  "label": "Core 0",
+                  "kind": "unit",
+                  "x": 60,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k0",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 60,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "c1",
+                  "label": "Core 1",
+                  "kind": "unit",
+                  "x": 280,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k1",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 280,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "c2",
+                  "label": "Core 2",
+                  "kind": "unit",
+                  "x": 500,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k2",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 500,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "c3",
+                  "label": "Core 3",
+                  "kind": "unit",
+                  "x": 720,
+                  "y": 20,
+                  "w": 130,
+                  "h": 45
+                },
+                {
+                  "id": "k3",
+                  "label": "Private cache",
+                  "kind": "reg",
+                  "x": 720,
+                  "y": 100,
+                  "w": 130,
+                  "h": 40
+                },
+                {
+                  "id": "bus",
+                  "label": "Shared bus / interconnect",
+                  "kind": "ctrl",
+                  "x": 60,
+                  "y": 210,
+                  "w": 790,
+                  "h": 36
+                },
+                {
+                  "id": "mem",
+                  "label": "Main memory\n(একটি, shared)",
+                  "kind": "mem",
+                  "x": 270,
+                  "y": 300,
+                  "w": 170,
+                  "h": 60
+                },
+                {
+                  "id": "io",
+                  "label": "I/O",
+                  "kind": "unit",
+                  "x": 560,
+                  "y": 300,
+                  "w": 130,
+                  "h": 60
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_c0",
+                  "points": [
+                    [
+                      125,
+                      65
+                    ],
+                    [
+                      125,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k0",
+                  "points": [
+                    [
+                      125,
+                      140
+                    ],
+                    [
+                      125,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_c1",
+                  "points": [
+                    [
+                      345,
+                      65
+                    ],
+                    [
+                      345,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k1",
+                  "points": [
+                    [
+                      345,
+                      140
+                    ],
+                    [
+                      345,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_c2",
+                  "points": [
+                    [
+                      565,
+                      65
+                    ],
+                    [
+                      565,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k2",
+                  "points": [
+                    [
+                      565,
+                      140
+                    ],
+                    [
+                      565,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_c3",
+                  "points": [
+                    [
+                      785,
+                      65
+                    ],
+                    [
+                      785,
+                      100
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_k3",
+                  "points": [
+                    [
+                      785,
+                      140
+                    ],
+                    [
+                      785,
+                      210
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_mem",
+                  "points": [
+                    [
+                      355,
+                      246
+                    ],
+                    [
+                      355,
+                      300
+                    ]
+                  ],
+                  "label": "সবার জন্য একই দূরত্ব",
+                  "labelAt": [
+                    440,
+                    276
+                  ]
+                },
+                {
+                  "id": "e_io",
+                  "points": [
+                    [
+                      625,
+                      246
+                    ],
+                    [
+                      625,
+                      300
+                    ]
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "c0",
+                    "k0",
+                    "c1",
+                    "k1",
+                    "c2",
+                    "k2",
+                    "c3",
+                    "k3",
+                    "bus",
+                    "mem",
+                    "io",
+                    "e_c0",
+                    "e_k0",
+                    "e_c1",
+                    "e_k1",
+                    "e_c2",
+                    "e_k2",
+                    "e_c3",
+                    "e_k3",
+                    "e_mem",
+                    "e_io"
+                  ],
+                  "text": "সম্পূর্ণ অর্গানাইজেশন। একটি দৃশ্যকল্প বেছে নিন এবং Play বা Step চাপুন।"
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "Core 0 memory read করে",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "c0",
+                        "e_c0",
+                        "k0"
+                      ],
+                      "text": "Core 0 আগে নিজের private cache-এ খোঁজে।"
+                    },
+                    {
+                      "highlight": [
+                        "k0",
+                        "e_k0",
+                        "bus",
+                        "e_mem",
+                        "mem"
+                      ],
+                      "text": "Miss হলে অনুরোধটি shared bus দিয়ে একমাত্র main memory-তে যায়।"
+                    }
+                  ]
+                },
+                {
+                  "name": "Core 3 memory read করে",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "c3",
+                        "e_c3",
+                        "k3"
+                      ],
+                      "text": "Core 3 নিজের private cache-এ খোঁজে।"
+                    },
+                    {
+                      "highlight": [
+                        "k3",
+                        "e_k3",
+                        "bus",
+                        "e_mem",
+                        "mem"
+                      ],
+                      "text": "একই bus ও memory তাকে সেবা দেয়, core 0-র মতোই latency-তে। Core বাড়ালে bus-ই bottleneck হয়ে উঠতে পারে।"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "দুটি core-ই একই memory latency দেখে: uniform memory access।"
+        },
+        {
+          "type": "concept",
+          "concept": "arch",
+          "title": "Distributed shared memory (NUMA)",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Distributed shared memory (NUMA)",
+              "width": 960,
+              "height": 310,
+              "nodes": [
+                {
+                  "id": "c0",
+                  "label": "Core 0\n+ cache",
+                  "kind": "unit",
+                  "x": 40,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m0",
+                  "label": "Local memory 0",
+                  "kind": "mem",
+                  "x": 40,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "c1",
+                  "label": "Core 1\n+ cache",
+                  "kind": "unit",
+                  "x": 260,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m1",
+                  "label": "Local memory 1",
+                  "kind": "mem",
+                  "x": 260,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "c2",
+                  "label": "Core 2\n+ cache",
+                  "kind": "unit",
+                  "x": 480,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m2",
+                  "label": "Local memory 2",
+                  "kind": "mem",
+                  "x": 480,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "c3",
+                  "label": "Core 3\n+ cache",
+                  "kind": "unit",
+                  "x": 700,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m3",
+                  "label": "Local memory 3",
+                  "kind": "mem",
+                  "x": 700,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "net",
+                  "label": "Interconnection network",
+                  "kind": "ctrl",
+                  "x": 40,
+                  "y": 240,
+                  "w": 880,
+                  "h": 38
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_l0",
+                  "points": [
+                    [
+                      115,
+                      80
+                    ],
+                    [
+                      115,
+                      130
+                    ]
+                  ],
+                  "label": "লোকাল",
+                  "labelAt": [
+                    145,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n0",
+                  "points": [
+                    [
+                      190,
+                      55
+                    ],
+                    [
+                      225,
+                      55
+                    ],
+                    [
+                      225,
+                      240
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_l1",
+                  "points": [
+                    [
+                      335,
+                      80
+                    ],
+                    [
+                      335,
+                      130
+                    ]
+                  ],
+                  "label": "লোকাল",
+                  "labelAt": [
+                    365,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n1",
+                  "points": [
+                    [
+                      410,
+                      55
+                    ],
+                    [
+                      445,
+                      55
+                    ],
+                    [
+                      445,
+                      240
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_l2",
+                  "points": [
+                    [
+                      555,
+                      80
+                    ],
+                    [
+                      555,
+                      130
+                    ]
+                  ],
+                  "label": "লোকাল",
+                  "labelAt": [
+                    585,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n2",
+                  "points": [
+                    [
+                      630,
+                      55
+                    ],
+                    [
+                      665,
+                      55
+                    ],
+                    [
+                      665,
+                      240
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_l3",
+                  "points": [
+                    [
+                      775,
+                      80
+                    ],
+                    [
+                      775,
+                      130
+                    ]
+                  ],
+                  "label": "লোকাল",
+                  "labelAt": [
+                    805,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n3",
+                  "points": [
+                    [
+                      850,
+                      55
+                    ],
+                    [
+                      885,
+                      55
+                    ],
+                    [
+                      885,
+                      240
+                    ]
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "c0",
+                    "m0",
+                    "c1",
+                    "m1",
+                    "c2",
+                    "m2",
+                    "c3",
+                    "m3",
+                    "e_l0",
+                    "e_l1",
+                    "e_l2",
+                    "e_l3"
+                  ],
+                  "text": "প্রতিটি **node**-এ থাকে একটি core, তার cache এবং তার **নিজস্ব local memory**।"
+                },
+                {
+                  "show": [
+                    "net",
+                    "e_n0",
+                    "e_n1",
+                    "e_n2",
+                    "e_n3"
+                  ],
+                  "text": "Node গুলো একটি **network** দিয়ে যুক্ত। সব memory মিলে একটি **shared অ্যাড্রেস স্পেস** তৈরি করে।"
+                }
+              ]
+            }
+          ],
+          "why": "Memory node গুলোর মধ্যে ছড়িয়ে থাকে, তাই প্রতিটি core-এর নিজের দ্রুত local memory আছে, আর বাকিগুলোর ক্ষেত্রে ধীরগতির অ্যাক্সেস।"
+        },
+        {
+          "type": "concept",
+          "concept": "arch",
+          "title": "Local ও remote অ্যাক্সেস",
+          "blocks": [
+            {
+              "type": "diagram",
+              "title": "Distributed shared memory (NUMA)",
+              "width": 960,
+              "height": 310,
+              "nodes": [
+                {
+                  "id": "c0",
+                  "label": "Core 0\n+ cache",
+                  "kind": "unit",
+                  "x": 40,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m0",
+                  "label": "Local memory 0",
+                  "kind": "mem",
+                  "x": 40,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "c1",
+                  "label": "Core 1\n+ cache",
+                  "kind": "unit",
+                  "x": 260,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m1",
+                  "label": "Local memory 1",
+                  "kind": "mem",
+                  "x": 260,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "c2",
+                  "label": "Core 2\n+ cache",
+                  "kind": "unit",
+                  "x": 480,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m2",
+                  "label": "Local memory 2",
+                  "kind": "mem",
+                  "x": 480,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "c3",
+                  "label": "Core 3\n+ cache",
+                  "kind": "unit",
+                  "x": 700,
+                  "y": 30,
+                  "w": 150,
+                  "h": 50
+                },
+                {
+                  "id": "m3",
+                  "label": "Local memory 3",
+                  "kind": "mem",
+                  "x": 700,
+                  "y": 130,
+                  "w": 150,
+                  "h": 45
+                },
+                {
+                  "id": "net",
+                  "label": "Interconnection network",
+                  "kind": "ctrl",
+                  "x": 40,
+                  "y": 240,
+                  "w": 880,
+                  "h": 38
+                }
+              ],
+              "edges": [
+                {
+                  "id": "e_l0",
+                  "points": [
+                    [
+                      115,
+                      80
+                    ],
+                    [
+                      115,
+                      130
+                    ]
+                  ],
+                  "label": "লোকাল",
+                  "labelAt": [
+                    145,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n0",
+                  "points": [
+                    [
+                      190,
+                      55
+                    ],
+                    [
+                      225,
+                      55
+                    ],
+                    [
+                      225,
+                      240
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_l1",
+                  "points": [
+                    [
+                      335,
+                      80
+                    ],
+                    [
+                      335,
+                      130
+                    ]
+                  ],
+                  "label": "লোকাল",
+                  "labelAt": [
+                    365,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n1",
+                  "points": [
+                    [
+                      410,
+                      55
+                    ],
+                    [
+                      445,
+                      55
+                    ],
+                    [
+                      445,
+                      240
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_l2",
+                  "points": [
+                    [
+                      555,
+                      80
+                    ],
+                    [
+                      555,
+                      130
+                    ]
+                  ],
+                  "label": "লোকাল",
+                  "labelAt": [
+                    585,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n2",
+                  "points": [
+                    [
+                      630,
+                      55
+                    ],
+                    [
+                      665,
+                      55
+                    ],
+                    [
+                      665,
+                      240
+                    ]
+                  ]
+                },
+                {
+                  "id": "e_l3",
+                  "points": [
+                    [
+                      775,
+                      80
+                    ],
+                    [
+                      775,
+                      130
+                    ]
+                  ],
+                  "label": "লোকাল",
+                  "labelAt": [
+                    805,
+                    110
+                  ]
+                },
+                {
+                  "id": "e_n3",
+                  "points": [
+                    [
+                      850,
+                      55
+                    ],
+                    [
+                      885,
+                      55
+                    ],
+                    [
+                      885,
+                      240
+                    ]
+                  ]
+                }
+              ],
+              "labels": [],
+              "steps": [
+                {
+                  "show": [
+                    "c0",
+                    "m0",
+                    "c1",
+                    "m1",
+                    "c2",
+                    "m2",
+                    "c3",
+                    "m3",
+                    "net",
+                    "e_l0",
+                    "e_n0",
+                    "e_l1",
+                    "e_n1",
+                    "e_l2",
+                    "e_n2",
+                    "e_l3",
+                    "e_n3"
+                  ],
+                  "text": "সম্পূর্ণ অর্গানাইজেশন। একটি দৃশ্যকল্প বেছে নিন এবং Play বা Step চাপুন।"
+                }
+              ],
+              "scenarios": [
+                {
+                  "name": "Core 0 নিজের local memory read করে",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "c0",
+                        "e_l0",
+                        "m0"
+                      ],
+                      "text": "ডেটা core 0-র নিজের memory-তেই আছে: একটি **দ্রুত local অ্যাক্সেস**।"
+                    }
+                  ]
+                },
+                {
+                  "name": "Core 0 core 3-এর memory read করে",
+                  "steps": [
+                    {
+                      "highlight": [
+                        "c0",
+                        "e_n0",
+                        "net"
+                      ],
+                      "text": "ডেটা node 3-এর memory-তে আছে: অনুরোধটি node 0 ছেড়ে network পার হয়।"
+                    },
+                    {
+                      "highlight": [
+                        "net",
+                        "e_n3",
+                        "c3",
+                        "e_l3",
+                        "m3"
+                      ],
+                      "text": "Node 3 ডেটা ফেরত পাঠায়। একটি **remote অ্যাক্সেস** অনেক বেশি সময় নেয়: **non-uniform** memory access (NUMA)।"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "why": "Remote অ্যাক্সেস network পার হয় এবং বেশি সময় নেয়: non-uniform memory access।"
+        },
+        {
+          "type": "concept",
+          "concept": "arch",
+          "title": "দুটির তুলনা",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "",
+                "Centralized (UMA)",
+                "Distributed (NUMA)"
+              ],
+              "rows": [
+                [
+                  "Memory",
+                  "একটি shared memory",
+                  "Node গুলোর মধ্যে ছড়ানো memory"
+                ],
+                [
+                  "অ্যাক্সেস টাইম",
+                  "প্রতিটি core-এর জন্য একই",
+                  "Local দ্রুত, remote ধীর"
+                ],
+                [
+                  "স্কেলেবিলিটি",
+                  "Bus ও memory দ্বারা সীমিত (কয়েকটি থেকে কয়েক ডজন core)",
+                  "আরও অনেক বেশি core পর্যন্ত স্কেল করে"
+                ],
+                [
+                  "প্রোগ্রামিং",
+                  "সহজ",
+                  "সফটওয়্যারকে ডেটা সেই thread-এর কাছে রাখতে হবে যেগুলো তা ব্যবহার করে"
+                ],
+                [
+                  "সাধারণত",
+                  "ল্যাপটপ, ছোট সার্ভার",
+                  "বড় সার্ভার ও multi-socket মেশিন"
+                ]
+              ]
+            }
+          ],
+          "why": "UMA সহজ কিন্তু স্কেল করে না; NUMA স্কেল করে কিন্তু memory-র দূরত্ব সফটওয়্যারের সামনে প্রকাশ করে দেয়।",
+          "real": "Dual-socket সার্ভার হলো NUMA মেশিন: প্রতিটি CPU socket-এর নিজস্ব DRAM আছে।",
+          "mistake": {
+            "wrong": "NUMA মানে memory shared নয়।",
+            "right": "এটিও একটি অ্যাড্রেস স্পেস; শুধু অ্যাক্সেস টাইম আলাদা।"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "arch",
+          "question": "UMA-র পূর্ণরূপ কী এবং এর অর্থ কী?",
+          "options": [
+            "Uniform memory access: প্রতিটি core memory-তে একই latency দেখে",
+            "Unified memory architecture: কোনো cache নেই",
+            "Universal memory addressing: 64-bit অ্যাড্রেস",
+            "Unordered memory access: load-এর ক্রম বদলে যেতে পারে"
+          ],
+          "answer": 0,
+          "why": "UMA-তে সব core একই খরচে একমাত্র memory-তে পৌঁছায়।",
+          "feedback": [
+            "",
+            "UMA সিস্টেমেও cache আছে।",
+            "অ্যাড্রেসের প্রস্থের সঙ্গে এর সম্পর্ক নেই।",
+            "ক্রম বদল একটি আলাদা বিষয়।"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "coh",
+      "label": "Cache coherence",
+      "minutes": 11,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "coh",
+          "title": "Coherence সমস্যা",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "প্রতিটি core-এর একটি **private cache** আছে, যাতে memory-র কপি থাকে",
+                "Core 0 নিজের cache-এ x বদলায়; core 1-এর কাছে তখনো **পুরোনো** x",
+                "Core 1 একটি **stale** মান পড়ে: cache গুলো **incoherent**",
+                "একটি coherent সিস্টেমে প্রতিটি read **সর্বশেষ write**-এর মান ফেরত দেয়"
+              ]
+            }
+          ],
+          "why": "Coherence ছাড়া shared memory একই ভেরিয়েবলের জন্য ভিন্ন core-কে ভিন্ন উত্তর দিত।",
+          "real": "Coherence পুরোপুরি হার্ডওয়্যার বজায় রাখে, প্রোগ্রামার তা দেখতেও পান না।",
+          "explainAgain": {
+            "beginner": "দুজন মানুষ একই বাজারের তালিকা নিজের নিজের ফোনে রাখে; একজন দুধ যোগ করল আর অন্যজন তা কখনো দেখল না, ফলে দুজনেই দুধ কিনে আনল।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "coh",
+          "title": "MSI প্রোটোকল (সরলীকৃত)",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "State (অবস্থা)",
+                "অর্থ"
+              ],
+              "rows": [
+                [
+                  "M (modified)",
+                  "এটিই একমাত্র কপি এবং এটি বদলানো হয়েছে; memory stale"
+                ],
+                [
+                  "S (shared)",
+                  "একটি clean কপি; অন্য cache-এও এটি থাকতে পারে"
+                ],
+                [
+                  "I (invalid)",
+                  "এই cache-এ কোনো বৈধ কপি নেই"
+                ]
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "একটি **write** অন্য সব কপি invalidate করে (অন্যরা I-তে যায়)",
+                "একটি **read miss** মানটি আনে; অন্য কোনো cache সেটি M-এ ধরে রাখলে ওই cache আগে সেটি write back করে",
+                "Cache গুলো একে অপরের অনুরোধ দেখতে bus **snoop** করে"
+              ]
+            }
+          ],
+          "why": "এই তিনটি state এবং \"write অন্য কপিগুলো invalidate করে\" নিয়মটিই সব cache-কে coherent রাখতে যথেষ্ট।",
+          "real": "বাস্তব প্রসেসর MESI বা MOESI ধরনের প্রোটোকল ব্যবহার করে; ধারণা একই।",
+          "deeper": {
+            "text": "বড় (NUMA) মেশিনে snooping-এর জায়গায় directory-based প্রোটোকল ব্যবহার হয়।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "coh",
+          "title": "নিজে করে দেখুন: coherence সহ ও ছাড়া",
+          "blocks": [
+            {
+              "type": "coherence",
+              "title": "x ভাগ করা দুটি core",
+              "cores": 2,
+              "memory": 0,
+              "hint": "প্রথমে প্রোটোকল **OFF** করুন: core 0 ও core 1 দিয়ে x read করান, তারপর core 0 দিয়ে write করান; core 1-এ read করে stale মানটি খুঁজুন। তারপর ON করে আবার করুন।"
+            }
+          ],
+          "why": "প্রোটোকল OFF থাকলে core 1 তার পুরোনো x-ই পড়তে থাকে। MSI ON থাকলে core 0-র write core 1-এর কপি invalidate করে এবং পরের read নতুন মান পায়।"
+        },
+        {
+          "type": "concept",
+          "concept": "coh",
+          "title": "একটি ট্রেস",
+          "blocks": [
+            {
+              "type": "table",
+              "head": [
+                "#",
+                "অপারেশন",
+                "Core 0",
+                "Core 1",
+                "Memory x"
+              ],
+              "rows": [
+                [
+                  "1",
+                  "Core 0 x read করে",
+                  "S: 0",
+                  "I",
+                  "0"
+                ],
+                [
+                  "2",
+                  "Core 1 x read করে",
+                  "S: 0",
+                  "S: 0",
+                  "0"
+                ],
+                [
+                  "3",
+                  "Core 0 x = 1 write করে",
+                  "M: 1",
+                  "I",
+                  "0 (পুরোনো)"
+                ],
+                [
+                  "4",
+                  "Core 1 x read করে",
+                  "S: 1",
+                  "S: 1",
+                  "1 (write back হয়েছে)"
+                ],
+                [
+                  "5",
+                  "Core 1 x = 2 write করে",
+                  "I",
+                  "M: 2",
+                  "1 (পুরোনো)"
+                ],
+                [
+                  "6",
+                  "Core 0 x read করে",
+                  "S: 2",
+                  "S: 2",
+                  "2 (write back হয়েছে)"
+                ]
+              ]
+            }
+          ],
+          "why": "প্রতিটি write অন্য কপি invalidate করে, আর write-এর পরের প্রতিটি read মালিকের কাছ থেকে সর্বশেষ মান পায়।",
+          "real": "Shared line-এ write-কে বলে upgrade; Modified line read করলে write-back বাধ্যতামূলক হয়ে যায়।"
+        },
+        {
+          "type": "predict",
+          "concept": "coh",
+          "skill": "Apply",
+          "question": "দুটি core-এই x state S-এ আছে। Core 0 x write করে। এরপর state গুলো কী হবে?",
+          "options": [
+            "Core 0: M; core 1: I",
+            "Core 0: S; core 1: S",
+            "Core 0: M; core 1: S",
+            "Core 0: I; core 1: M"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "Write core 1-এর কপি invalidate করে: **core 0 = M, core 1 = I**। Core 0-র block write back না হওয়া পর্যন্ত memory এখন stale।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "Core 1-এর পরের read core 0 থেকে নতুন মান আনবে।"
+        },
+        {
+          "type": "find",
+          "concept": "coh",
+          "skill": "Analyze",
+          "title": "ভুলটি খুঁজুন",
+          "prompt": "Coherence নিয়ে একটি বক্তব্য ভুল। সেটিতে ক্লিক করুন।",
+          "lines": [
+            "1. একটি write অন্য cache-গুলোর কপি invalidate করে।",
+            "2. M state-এর line-ই একমাত্র বৈধ কপি, এবং memory stale।",
+            "3. প্রোগ্রামার প্রতিটি write-এ বিশেষ instruction বসিয়ে coherence বজায় রাখেন।",
+            "4. Cache গুলো অন্য core-এর অনুরোধ দেখতে bus snoop করে।"
+          ],
+          "wrong": 2,
+          "explain": "Coherence হার্ডওয়্যার সামলায়; এর জন্য প্রোগ্রামারকে কোনো instruction যোগ করতে হয় না।",
+          "fix": "হার্ডওয়্যার coherence বজায় রাখে।"
+        },
+        {
+          "type": "tps",
+          "title": "ভাবুন, জোড়ায় আলোচনা করুন, শেয়ার করুন",
+          "prompt": "একটি write অন্য core-গুলোর কপি শুধু আপডেট না করে invalidate করতে হয় কেন?",
+          "think": 20,
+          "pair": 40,
+          "answer": "Invalidate করতে bus-এ শুধু একটি ছোট বার্তা লাগে, আর তারপর একই core-এর পরবর্তী write গুলো বিনা খরচে হয় (state M, bus traffic নেই)। প্রতিটি write-এ সব কপি আপডেট করলে bus ভরে যেত। এর দাম হলো, অন্য core সেই line আবার read করলে তাকে miss সহ্য করতে হয়।"
+        }
+      ]
+    },
+    {
+      "id": "sync",
+      "label": "Synchronization",
+      "minutes": 12,
+      "steps": [
+        {
+          "type": "concept",
+          "concept": "sync",
+          "title": "Race condition",
+          "blocks": [
+            {
+              "type": "text",
+              "text": "দুটি thread প্রত্যেকে একটি shared ভেরিয়েবলে **counter = counter + 1** এক্সিকিউট করে। মেশিনের ভাষায় এটি তিনটি ধাপ: **load**, **add**, **store**।"
+            },
+            {
+              "type": "table",
+              "head": [
+                "ধাপ",
+                "Thread 0",
+                "Thread 1",
+                "counter"
+              ],
+              "rows": [
+                [
+                  "1",
+                  "load (reg = 0)",
+                  "",
+                  "0"
+                ],
+                [
+                  "2",
+                  "",
+                  "load (reg = 0)",
+                  "0"
+                ],
+                [
+                  "3",
+                  "add (reg = 1)",
+                  "",
+                  "0"
+                ],
+                [
+                  "4",
+                  "store (counter = 1)",
+                  "",
+                  "1"
+                ],
+                [
+                  "5",
+                  "",
+                  "add (reg = 1)",
+                  "1"
+                ],
+                [
+                  "6",
+                  "",
+                  "store (counter = 1)",
+                  "**1**"
+                ]
+              ]
+            }
+          ],
+          "why": "দুটি thread-ই পুরোনো মান পড়ে, তাই একটি increment হারিয়ে যায়: চূড়ান্ত মান 2 নয়, 1। ফলাফল নির্ভর করে টাইমিংয়ের ওপর: একে বলে **race condition**।",
+          "real": "Race থেকেই সবচেয়ে বিরক্তিকর বাগ আসে: এগুলো কদাচিৎ দেখা দেয়, আর debug-এর জন্য output যোগ করলেই উধাও হয়ে যায়।",
+          "mistake": {
+            "wrong": "একটি ভেরিয়েবল increment করা একটিমাত্র নিরাপদ অপারেশন।",
+            "right": "এটি একটি load, একটি add ও একটি store; এদের মাঝখানে অন্য thread চলে আসতে পারে।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "sync",
+          "title": "নিজে করে দেখুন: হারিয়ে যাওয়া আপডেট",
+          "blocks": [
+            {
+              "type": "race",
+              "title": "দুটি thread, একটি counter",
+              "locked": false,
+              "hint": "হারিয়ে যাওয়া আপডেট দেখতে **খারাপ interleaving চেষ্টা করুন** চাপুন, তারপর **Lock ব্যবহার হচ্ছে**-তে গিয়ে আবার চেষ্টা করুন। চাইলে thread গুলোকে নিজেই ধাপে ধাপে চালাতে পারেন।"
+            }
+          ],
+          "why": "খারাপ schedule-এ counter শেষ হয় 1-এ। Lock থাকলে দ্বিতীয় thread-কে অপেক্ষা করতে হয়, আর counter সবসময় 2 হয়।"
+        },
+        {
+          "type": "predict",
+          "concept": "sync",
+          "skill": "Apply",
+          "question": "দুটি thread প্রত্যেকে 0 থেকে শুরু হওয়া একটি counter-এ lock ছাড়া 1 যোগ করে। চূড়ান্ত মান কী কী হতে পারে?",
+          "options": [
+            "1 অথবা 2, টাইমিংয়ের ওপর নির্ভর করে",
+            "সবসময় 2",
+            "সবসময় 1",
+            "0"
+          ],
+          "answer": 0,
+          "reveal": [
+            {
+              "type": "text",
+              "text": "একটি thread অন্যটি শুরুর আগেই শেষ করলে ফলাফল **2**; তাদের load, add, store ধাপগুলো খারাপভাবে interleave হলে একটি আপডেট হারায় এবং ফলাফল **1**।",
+              "style": "lead",
+              "reveal": true
+            }
+          ],
+          "result": "এই অনিশ্চয়তাই race condition-এর বৈশিষ্ট্য।"
+        },
+        {
+          "type": "concept",
+          "concept": "sync",
+          "title": "Lock",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "একটি **lock** একসময়ে শুধু একটি thread-কে **critical section** (যে কোড shared ডেটা ছোঁয়) এক্সিকিউট করতে দেয়",
+                "**lock**: খালি না হওয়া পর্যন্ত অপেক্ষা করুন, তারপর নিন; **unlock**: ছেড়ে দিন",
+                "Lock থাকলে একটি thread-এর load, add ও store একটি একক ইউনিটের মতো চলে",
+                "দাম: thread গুলোকে **অপেক্ষা** করতে হয়, তাই বেশি locking parallelism নষ্ট করে (আবার Amdahl)"
+              ]
+            },
+            {
+              "type": "code",
+              "lang": "java",
+              "code": "lock(counter_lock);\ncounter = counter + 1;     // critical section\nunlock(counter_lock);"
+            }
+          ],
+          "why": "Lock কয়েকটি ধাপের একটি ক্রমকে একটি অবিভাজ্য অপারেশনের মতো দেখায়।",
+          "real": "Java-র synchronized ব্লক এবং C++ mutex হলো lock।",
+          "mistake": {
+            "wrong": "Lock প্রোগ্রামকে দ্রুততর করে।",
+            "right": "এটি প্রোগ্রামকে সঠিক করে; অপেক্ষার কারণে এতে সময় বেশি লাগে।"
+          }
+        },
+        {
+          "type": "concept",
+          "concept": "sync",
+          "title": "Atomic অপারেশন",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Race ছাড়া lock নিজে কীভাবে তৈরি হয়? একটি **atomic** হার্ডওয়্যার অপারেশন দিয়ে",
+                "**Test-and-set** (বা swap): পুরোনো মান পড়ুন এবং একটি অবিভাজ্য ধাপে 1 লিখুন; পুরোনো মান 0 হলে lock খালি ছিল এবং এখন আপনার",
+                "**Load-linked / store-conditional (ll / sc)**: ll একটি মান পড়ে; sc তখনই store করে যখন ll-এর পর আর কেউ ওই লোকেশনে write করেনি, এবং সফল হলো কি না তা জানায়",
+                "একটি atomic অপারেশনকে অন্য কোনো core মাঝপথে থামাতে পারে না"
+              ]
+            },
+            {
+              "type": "code",
+              "lang": "asm",
+              "code": "try:  ll   $t0, 0($s1)     # load-linked: read the counter\n      addi $t0, $t0, 1     # add 1\n      sc   $t0, 0($s1)     # store-conditional: $t0 = 1 if it worked, 0 if not\n      beq  $t0, $zero, try # somebody interfered: try again"
+            }
+          ],
+          "why": "Atomic instruction হলো lock, counter ও lock-free ডেটা স্ট্রাকচারের হার্ডওয়্যার ভিত্তি।",
+          "real": "MIPS ও RISC-V ll/sc ব্যবহার করে (RISC-V এদের বলে lr/sc); x86 atomic read-modify-write instruction ব্যবহার করে।",
+          "deeper": {
+            "text": "ll/sc লুপ \"load, add, store\"-কে কোনো lock ছাড়াই একটি atomic increment-এ পরিণত করে।"
+          }
+        },
+        {
+          "type": "mcq",
+          "concept": "sync",
+          "question": "ব্যর্থ store-conditional (sc)-এর অর্থ কী?",
+          "options": [
+            "ll-এর পর অন্য একটি core ওই লোকেশনে write করেছে, তাই আপডেটটি আবার চেষ্টা করতে হবে",
+            "Memory ভরে গেছে",
+            "Cache অবৈধ",
+            "প্রোগ্রাম শেষ হয়ে গেছে"
+          ],
+          "answer": 0,
+          "why": "ll-এর পর কেউ লোকেশনে write না করলেই কেবল sc সফল হয়।",
+          "feedback": [
+            "",
+            "সম্পর্কহীন।",
+            "সম্পর্কহীন।",
+            "সম্পর্কহীন।"
+          ]
+        },
+        {
+          "type": "arrange",
+          "concept": "sync",
+          "skill": "Understand",
+          "title": "মিনি চ্যালেঞ্জ",
+          "prompt": "একটি সঠিক locked increment-এর ধাপগুলো ক্রমানুসারে সাজান।",
+          "items": [
+            "Lock নিন (ধরা থাকলে অপেক্ষা করুন)",
+            "Counter একটি register-এ load করুন",
+            "1 যোগ করুন",
+            "Register-টি counter-এ store করুন",
+            "Lock ছেড়ে দিন"
+          ],
+          "why": "পুরো load-add-store থাকে acquire ও release-এর মাঝখানে।"
+        },
+        {
+          "type": "discussion",
+          "title": "আলোচনা",
+          "concept": "sync",
+          "question": "পুরো ডেটা স্ট্রাকচারে একটি lock দেওয়া ভালো, নাকি তার প্রতিটি ছোট অংশে আলাদা lock?",
+          "seconds": 60,
+          "ideas": [
+            "একটি বড় lock সহজ, কিন্তু সব thread-কে ক্রমানুসারে চালায় (স্কেলিং দুর্বল)।",
+            "অনেক ছোট lock বেশি parallelism দেয়, কিন্তু সঠিকভাবে করা কঠিন (deadlock-এর ঝুঁকি)।",
+            "সহজ counter-এর ক্ষেত্রে atomic অপারেশন lock এড়ায়।",
+            "সঠিক পছন্দ নির্ভর করে কতটা contention আছে তার ওপর।"
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "title": "চেকপয়েন্ট",
+          "questions": [
+            {
+              "q": "Race condition কী?",
+              "a": "এমন ফলাফল, যা shared ডেটা অ্যাক্সেস করা thread-গুলোর টাইমিংয়ের ওপর নির্ভর করে।",
+              "concept": "sync"
+            },
+            {
+              "q": "একটি write অন্য cache-এর কপি invalidate করে কেন?",
+              "a": "যাতে কোনো core stale মান পড়তে না পারে।",
+              "concept": "coh"
+            },
+            {
+              "q": "Lock কীভাবে তৈরি হয়?",
+              "a": "Test-and-set বা ll/sc-এর মতো একটি atomic instruction থেকে।",
+              "concept": "sync"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "label": "অনুশীলন",
+      "minutes": 6,
+      "steps": [
+        {
+          "type": "practice",
+          "level": 1,
+          "concept": "arch",
+          "question": "UMA ও NUMA-র পার্থক্য প্রতিটি এক বাক্যে বলুন।",
+          "answer": "UMA: সব core একই latency-তে একটি memory-তে পৌঁছায়। NUMA: memory ছড়ানো, তাই local অ্যাক্সেস দ্রুত আর remote অ্যাক্সেস ধীর।",
+          "solution": "পার্থক্যটা হলো, memory অ্যাক্সেস টাইম ডেটা কোথায় আছে তার ওপর নির্ভর করে কি না।",
+          "think": 30
+        },
+        {
+          "type": "practice",
+          "level": 2,
+          "concept": "why",
+          "question": "একটি প্রোগ্রাম 90% parallel। 8টি core-এ speed-up কত এবং সীমা কত?",
+          "answer": "4.71; সীমা 10।",
+          "solution": "1 ÷ (0.1 + 0.9 ÷ 8) = 4.71। সীমা = 1 ÷ 0.1 = 10।",
+          "hint": "Serial অংশ 10%।",
+          "think": 60
+        },
+        {
+          "type": "practice",
+          "level": 3,
+          "concept": "coh",
+          "question": "দুটি core-এই x state S-এ আছে (মান 0)। Core 0 1 write করে। দুটি core-এর state এবং memory-র মান বলুন; তারপর core 1 x read করে।",
+          "answer": "Write-এর পর: core 0 M(1), core 1 I, memory 0 (stale)। Read-এর পর: দুটিই S(1), memory 1।",
+          "solution": "Write core 1-কে invalidate করে; read-এ core 0 write back করতে বাধ্য হয় এবং দুটিই Shared হয়ে যায়।",
+          "hint": "একটি write অন্যদের invalidate করে।",
+          "think": 75
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "coh",
+          "question": "দুটি core-এর জন্য MSI ট্রেস করুন: (1) core 0 x read করে, (2) core 1 x read করে, (3) core 0 1 write করে, (4) core 1 x read করে, (5) core 1 2 write করে, (6) core 0 x read করে। প্রতিটির পর state ও memory-র মান বলুন।",
+          "answer": "ধাপ 1: S,I; memory 0। ধাপ 2: S,S; memory 0। ধাপ 3: M(1),I; memory 0 (পুরোনো)। ধাপ 4: S,S (1); memory 1। ধাপ 5: I,M(2); memory 1 (পুরোনো)। ধাপ 6: S,S (2); memory 2।",
+          "solution": "প্রতিটি read miss সর্বশেষ মান আনে; Shared line-এ প্রতিটি write অন্য কপি invalidate করে; Modified line read করলে তা write back হয়।",
+          "mistake": "Write-এর পর পুরোনো কপি বৈধ রেখে দেওয়া।",
+          "title": "পরীক্ষার অনুশীলন: ট্রেস",
+          "think": 120,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "sync",
+          "question": "দুটি thread প্রত্যেকে 0 থেকে শুরু হওয়া একটি counter-এ load, add, store এক্সিকিউট করে। Thread 0 load করে, thread 1 load করে, thread 0 add ও store করে, thread 1 add ও store করে। চূড়ান্ত counter কত এবং কেন? Lock এটি কীভাবে ঠিক করে?",
+          "answer": "চূড়ান্ত counter = 1 (একটি হারিয়ে যাওয়া আপডেট)। Lock থাকলে প্রথম thread store করে lock ছাড়ার আগে দ্বিতীয় thread load করতে পারে না, তাই ফলাফল সবসময় 2।",
+          "solution": "দুটি thread-ই 0 load করেছিল, তাই দুটিই 1 store করেছে। Lock load-add-store-কে একটি critical section বানায়, যা একসময়ে একটি thread চালায়।",
+          "mistake": "প্রতিটি thread 1 যোগ করে বলে ফলাফল 2 বলা।",
+          "title": "পরীক্ষার অনুশীলন: race",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "why",
+          "question": "একটি প্রোগ্রাম 95% parallel। 16টি core-এ, 100টি core-এ speed-up এবং সীমা বের করুন।",
+          "answer": "9.14; 16.81; 20.",
+          "solution": "1 ÷ (0.05 + 0.95 ÷ 16) = 9.14; 1 ÷ (0.05 + 0.95 ÷ 100) = 16.81; সীমা 1 ÷ 0.05 = 20।",
+          "mistake": "Speed-up core সংখ্যার সমান ধরে নেওয়া।",
+          "title": "পরীক্ষার অনুশীলন: Amdahl",
+          "think": 90,
+          "exam": true
+        },
+        {
+          "type": "practice",
+          "level": 4,
+          "concept": "arch",
+          "question": "বড় multiprocessor একটি centralized memory-র বদলে distributed shared memory (NUMA) ব্যবহার করে কেন, ব্যাখ্যা করুন।",
+          "answer": "একটি memory ও একটি bus থাকলে প্রতিটি core একই ব্যান্ডউইডথের জন্য প্রতিযোগিতা করে, তাই core বাড়ালে bus-ই bottleneck হয়ে দাঁড়ায়। Memory node গুলোর মধ্যে ভাগ করে দিলে প্রতিটি core নিজের দ্রুত local memory পায় এবং traffic ছড়িয়ে পড়ে, ফলে মেশিন অনেক বেশি core পর্যন্ত স্কেল করে; বিনিময়ে remote অ্যাক্সেস ধীর হয় এবং ডেটা সেই thread-এর কাছে রাখতে হয় যেগুলো তা ব্যবহার করে।",
+          "solution": "ভালো উত্তরে ব্যান্ডউইডথ, স্কেলেবিলিটি এবং local/remote পার্থক্যের কথা থাকে।",
+          "mistake": "NUMA memory shared নয়, এমন বলা।",
+          "title": "পরীক্ষার অনুশীলন: ধারণাগত",
+          "think": 90,
+          "exam": true
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "label": "পুনরালোচনা",
+      "minutes": 4,
+      "steps": [
+        {
+          "type": "conceptmap",
+          "title": "সবকিছু কীভাবে যুক্ত",
+          "root": "Multiprocessor",
+          "branches": [
+            {
+              "label": "কেন multicore",
+              "example": "পাওয়ার ওয়াল, Amdahl",
+              "section": "why"
+            },
+            {
+              "label": "আর্কিটেকচার",
+              "example": "UMA ও NUMA",
+              "section": "arch"
+            },
+            {
+              "label": "Coherence",
+              "example": "MSI",
+              "section": "coh"
+            },
+            {
+              "label": "Synchronization",
+              "example": "race, lock ও atomic",
+              "section": "sync"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "যা মনে রাখবেন",
+          "remember": [
+            "ক্লক স্পিড ও ILP আটকে গেল, তাই প্রসেসরে core বাড়ল; সুবিধা পেতে প্রোগ্রামকে parallel হতে হবে।",
+            "Amdahl's Law: speed-up = 1 ÷ ((1 − p) + p ÷ n); serial অংশই সীমা ঠিক করে।",
+            "UMA: একটি memory, সমান latency; NUMA: প্রতি node-এ local memory, local দ্রুত আর remote ধীর।",
+            "Cache coherence: একটি write অন্য কপি invalidate করে; MSI = Modified, Shared, Invalid।",
+            "Race condition হলো thread-এর টাইমিংয়ের ওপর নির্ভরশীল ফলাফল; lock একটি critical section-কে atomic করে।",
+            "Atomic instruction (test-and-set, ll/sc) হলো lock-এর হার্ডওয়্যার ভিত্তি।"
+          ]
+        },
+        {
+          "type": "review",
+          "title": "সাধারণ ভুল",
+          "mistakes": [
+            {
+              "wrong": "বেশি core মানে সবসময় সমানুপাতিক বেশি গতি।",
+              "right": "Serial অংশ ও synchronization লাভকে সীমিত করে।"
+            },
+            {
+              "wrong": "প্রোগ্রামারকে cache coherent রাখতে হয়।",
+              "right": "হার্ডওয়্যার তা করে।"
+            },
+            {
+              "wrong": "x = x + 1 একটি atomic অপারেশন।",
+              "right": "এটি load, add ও store; অন্য thread মাঝখানে interleave করতে পারে।"
+            },
+            {
+              "wrong": "NUMA memory shared নয়।",
+              "right": "এটি non-uniform অ্যাক্সেস টাইমসহ একটি অ্যাড্রেস স্পেস।"
+            }
+          ]
+        },
+        {
+          "type": "review",
+          "title": "এক মিনিটের সারসংক্ষেপ",
+          "summary": "ক্লক স্পিড ও ILP স্কেল করা বন্ধ করে দেওয়ায় multicore প্রসেসর এসেছে। Shared-memory মেশিন হয় centralized (UMA) অথবা distributed (NUMA)। Private cache-এর জন্য MSI-এর মতো একটি coherence protocol লাগে, যেখানে write অন্য কপি invalidate করে। Thread ডেটা ভাগ করলে race condition আপডেট হারায়; lock এবং test-and-set ও ll/sc-এর মতো atomic instruction critical section-কে রক্ষা করে, আর Amdahl's Law speed-up-কে সীমিত করে।"
+        }
+      ]
+    },
+    {
+      "id": "quiz",
+      "label": "কুইজ",
+      "minutes": 8,
+      "steps": [
+        {
+          "type": "quiz",
+          "title": "চূড়ান্ত কুইজ",
+          "questions": [
+            {
+              "level": "easy",
+              "concept": "why",
+              "question": "প্রসেসর কেন একাধিক core-এর দিকে গেল?",
+              "options": [
+                "পাওয়ার সীমার কারণে ক্লক স্পিড ও ILP স্কেল করা বন্ধ করে দিল",
+                "Core cache-এর চেয়ে সস্তা",
+                "প্রোগ্রাম সহজ হয়ে গেল",
+                "Memory ধীর হয়ে গেল"
+              ],
+              "answer": 0,
+              "why": "পাওয়ার ওয়াল ও সীমিত ILP ডিজাইনারদের বেশি core-এর দিকে ঠেলে দিল।",
+              "misconception": "Multicore বেশি ক্লক ছাড়াই peak পারফরম্যান্স বাড়ায়।"
+            },
+            {
+              "level": "easy",
+              "type": "tf",
+              "concept": "coh",
+              "statement": "MSI-তে একটি write অন্য cache-গুলোর কপি invalidate করে।",
+              "answer": true,
+              "why": "এভাবেই stale read ঠেকানো হয়।",
+              "misconception": "অন্যগুলো state I-তে যায়।"
+            },
+            {
+              "level": "easy",
+              "concept": "sync",
+              "question": "কোনটি একটি critical section রক্ষা করতে পারে?",
+              "options": [
+                "একটি lock",
+                "বড় cache",
+                "দ্রুততর ক্লক",
+                "লম্বা pipeline"
+              ],
+              "answer": 0,
+              "why": "Lock একসময়ে একটি thread-কে অনুমতি দেয়।",
+              "misconception": "বাকিগুলো mutual exclusion দেয় না।"
+            },
+            {
+              "level": "medium",
+              "concept": "why",
+              "question": "8টি core-এ 90% parallel: speed-up কত?",
+              "options": [
+                "4.71",
+                "8",
+                "7.2",
+                "9"
+              ],
+              "answer": 0,
+              "why": "1 ÷ (0.1 + 0.9 ÷ 8) = 4.71.",
+              "misconception": "Serial 10%-ই ফলাফলে প্রভাব ফেলে।"
+            },
+            {
+              "level": "medium",
+              "concept": "arch",
+              "question": "NUMA-তে অন্য node-এর memory অ্যাক্সেস করা:",
+              "options": [
+                "Local memory-র চেয়ে ধীর",
+                "অসম্ভব",
+                "Local memory-র চেয়ে দ্রুত",
+                "একই গতির"
+              ],
+              "answer": 0,
+              "why": "এটি interconnection network পার হয়।",
+              "misconception": "এ কারণেই অ্যাক্সেস টাইম non-uniform।"
+            },
+            {
+              "level": "medium",
+              "concept": "coh",
+              "question": "দুটি core-এই x S-এ আছে। Core 0 write করে। State গুলো কী?",
+              "options": [
+                "Core 0: M, core 1: I",
+                "দুটিই S",
+                "Core 0: S, core 1: M",
+                "দুটিই M"
+              ],
+              "answer": 0,
+              "why": "Write অন্য কপি invalidate করে।",
+              "misconception": "Write-back না হওয়া পর্যন্ত memory stale।"
+            },
+            {
+              "level": "hard",
+              "concept": "sync",
+              "question": "দুটি unsynchronized thread প্রত্যেকে 0 থেকে শুরু হওয়া একটি counter-এ 1 যোগ করে। একটি সম্ভাব্য চূড়ান্ত মান:",
+              "options": [
+                "1",
+                "3",
+                "0",
+                "4"
+              ],
+              "answer": 0,
+              "why": "হারিয়ে যাওয়া আপডেটে 1 হয় (খারাপ interleaving না হলে 2)।",
+              "misconception": "0, 3 বা 4 কোনোটিই হতে পারে না।"
+            },
+            {
+              "level": "hard",
+              "concept": "why",
+              "question": "16টি core-এ 95% parallel: speed-up কত?",
+              "options": [
+                "9.14",
+                "16",
+                "15.2",
+                "8"
+              ],
+              "answer": 0,
+              "why": "1 ÷ (0.05 + 0.95 ÷ 16) = 9.14.",
+              "misconception": "সীমা 20।"
+            },
+            {
+              "level": "challenge",
+              "concept": "sync",
+              "question": "ll/sc জোড়াটি কী করে?",
+              "options": [
+                "একটি atomic আপডেট করে: ll-এর পর অন্য core লোকেশনে write করলে sc ব্যর্থ হয়",
+                "একসঙ্গে দুটি word load করে",
+                "Cache flush করে",
+                "পুরো memory lock করে"
+              ],
+              "answer": 0,
+              "why": "Load-linked-এর পর লোকেশন অপরিবর্তিত থাকলেই store-conditional সফল হয়।",
+              "misconception": "ব্যর্থ হলে লুপ আবার চেষ্টা করে।"
+            }
+          ]
+        },
+        {
+          "type": "recall",
+          "title": "মনে আছে কি?",
+          "items": [
+            {
+              "q": "Amdahl's Law বলুন।",
+              "a": "Speed-up = 1 ÷ ((1 − p) + p ÷ n)।",
+              "concept": "why"
+            },
+            {
+              "q": "UMA কী?",
+              "a": "Uniform memory access: একটি memory, প্রতিটি core-এর জন্য সমান latency।",
+              "concept": "arch"
+            },
+            {
+              "q": "MSI-এর state গুলো কী কী?",
+              "a": "Modified, Shared ও Invalid।",
+              "concept": "coh"
+            },
+            {
+              "q": "Race condition কী?",
+              "a": "Thread-এর টাইমিংয়ের ওপর নির্ভরশীল ফলাফল।",
+              "concept": "sync"
+            },
+            {
+              "q": "হার্ডওয়্যারে lock কী বাস্তবায়ন করে?",
+              "a": "Test-and-set বা ll/sc-এর মতো একটি atomic instruction।",
+              "concept": "sync"
+            }
+          ]
+        },
+        {
+          "type": "report",
+          "title": "আপনার শেখার রিপোর্ট"
+        }
+      ]
+    }
+  ]
+}

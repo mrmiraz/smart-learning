@@ -6,8 +6,9 @@
   "scripts": {
     "start": "python3 -m http.server 8080 -d dist",
     "build": "node --env-file=.env build.js",
-    "check": "node lesson-validate.js",
+    "check": "node lesson-validate.js && node scripts/i18n-check.js",
     "smoke": "node scripts/smoke.js",
+    "audit:mobile": "node --env-file=.env scripts/responsive-audit.js",
     "test": "node --test"
   },
   "dependencies": {
